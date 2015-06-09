@@ -2,6 +2,9 @@ subroutine backup_hydro(filename)
   use amr_commons
   use hydro_commons
   implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'  
+#endif
   character(LEN=80)::filename
 
   integer::i,ivar,ncache,ind,ilevel,igrid,iskip,ilun,istart,ibound,irad
@@ -10,6 +13,8 @@ subroutine backup_hydro(filename)
   real(dp),allocatable,dimension(:)::xdp
   character(LEN=5)::nchar
   character(LEN=80)::fileloc
+  integer,parameter::tag=1121
+  integer::dummy_io,info2
 
   if(verbose)write(*,*)'Entering backup_hydro'
 
@@ -17,6 +22,16 @@ subroutine backup_hydro(filename)
      
   call title(myid,nchar)
   fileloc=TRIM(filename)//TRIM(nchar)
+ 
+  ! Wait for the token
+#ifndef WITHOUTMPI
+  if(IOGROUPSIZE>0) then
+     if (mod(myid-1,IOGROUPSIZE)/=0) then
+        call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
+             & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+     end if
+  endif
+#endif
   open(unit=ilun,file=fileloc,form='unformatted')
   write(ilun)ncpu
   write(ilun)nvar+3
@@ -53,7 +68,7 @@ subroutine backup_hydro(filename)
                     end do
                  else ! Write velocity field
                     do i=1,ncache
-                       xdp(i)=uold(ind_grid(i)+iskip,ivar)/uold(ind_grid(i)+iskip,1)
+                       xdp(i)=uold(ind_grid(i)+iskip,ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
                     end do
                  endif
                  write(ilun)xdp
@@ -80,7 +95,7 @@ subroutine backup_hydro(filename)
               end do
 #endif
               do i=1,ncache ! Write thermal pressure
-                 d=uold(ind_grid(i)+iskip,1)
+                 d=max(uold(ind_grid(i)+iskip,1),smallr)
                  u=uold(ind_grid(i)+iskip,2)/d
                  v=uold(ind_grid(i)+iskip,3)/d
                  w=uold(ind_grid(i)+iskip,4)/d
@@ -99,7 +114,7 @@ subroutine backup_hydro(filename)
 #if NVAR > 8+NENER
               do ivar=9+nener,nvar ! Write passive scalars if any
                  do i=1,ncache
-                    xdp(i)=uold(ind_grid(i)+iskip,ivar)/uold(ind_grid(i)+iskip,1)
+                    xdp(i)=uold(ind_grid(i)+iskip,ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
                  end do
                  write(ilun)xdp
               end do
@@ -110,7 +125,17 @@ subroutine backup_hydro(filename)
      end do
   end do
   close(ilun)
-     
+  ! Send the token
+#ifndef WITHOUTMPI
+  if(IOGROUPSIZE>0) then
+     if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
+        dummy_io=1
+        call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
+             & MPI_COMM_WORLD,info2)
+     end if
+  endif
+#endif
+    
 end subroutine backup_hydro
 
 

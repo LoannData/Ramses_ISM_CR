@@ -153,7 +153,6 @@ module amr_parameters
   logical ::delayed_cooling=.false.
   logical ::smbh=.false.
   logical ::agn=.false.
-  logical ::sink_drag=.true.  ! Gas dragging sink
   logical ::use_proper_time=.false.
   logical ::ir_feedback=.false. ! Activate ir feedback from accreting sinks
 
@@ -180,9 +179,9 @@ module amr_parameters
   real(kind=8),dimension(1:10)::deltaz_frame=0d0
   character(LEN=5)::proj_axis='z' ! x->x, y->y, projection along z
 #ifdef SOLVERmhd
-  integer,dimension(0:NVAR+4)::movie_vars=0
+  integer,dimension(0:NVAR+6)::movie_vars=0
 #else
-  integer,dimension(0:NVAR)::movie_vars=0
+  integer,dimension(0:NVAR+2)::movie_vars=0
 #endif
 
   ! Refinement parameters for each level
@@ -233,5 +232,16 @@ module amr_parameters
   integer ,dimension(1:MAXBOUND)    ::jbound_max=0
   integer ,dimension(1:MAXBOUND)    ::kbound_min=0
   integer ,dimension(1:MAXBOUND)    ::kbound_max=0
+
+  !Number of processes sharing one token
+  !Only one process can write at a time in an I/O group
+  integer::IOGROUPSIZE=0           ! Main snapshot
+  integer::IOGROUPSIZECONE=0       ! Lightcone
+  integer::IOGROUPSIZEREP=0        ! Subfolder size
+  logical::withoutmkdir=.false.    !If true mkdir should be done before the run
+  logical::print_when_io=.false.   !If true print when IO
+  logical::synchro_when_io=.false. !If true synchronize when IO
+
+
 
 end module amr_parameters

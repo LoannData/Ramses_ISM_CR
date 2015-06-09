@@ -151,9 +151,6 @@ subroutine init_file
   use hydro_commons
   use pm_commons
   implicit none
-#ifndef WITHOUTMPI
-  include 'mpif.h'  
-#endif
   !------------------------------------------------------
   ! Read geometrical parameters in the initial condition files.
   ! Initial conditions are supposed to be made by 
@@ -163,28 +160,14 @@ subroutine init_file
   real(sp)::dxini0,xoff10,xoff20,xoff30,astart0,omega_m0,omega_l0,h00
   character(LEN=80)::filename
   logical::ok
-  integer,parameter::tag=1116
-  integer::dummy_io,info2
-  
+
   if(verbose)write(*,*)'Entering init_file'
 
   ! Reading initial conditions parameters only
-
-
   nlevelmax_part=levelmin-1
   do ilevel=levelmin,nlevelmax
      if(initfile(ilevel).ne.' ')then
         filename=TRIM(initfile(ilevel))//'/ic_d'
-
-        ! Wait for the token
-#ifndef WITHOUTMPI
-        if(IOGROUPSIZE>0) then
-           if (mod(myid-1,IOGROUPSIZE)/=0) then
-              call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                   & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
-           end if
-        endif
-#endif
         INQUIRE(file=filename,exist=ok)
         if(.not.ok)then
            if(myid==1)then
@@ -199,20 +182,6 @@ subroutine init_file
              & ,xoff10,xoff20,xoff30 &
              & ,astart0,omega_m0,omega_l0,h00
         close(10)
-
-        ! Send the token
-#ifndef WITHOUTMPI
-        if(IOGROUPSIZE>0) then
-           if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
-              dummy_io=1
-              call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
-                   & MPI_COMM_WORLD,info2)
-           end if
-        endif
-#endif
-        
-
-
         dxini(ilevel)=dxini0
         xoff1(ilevel)=xoff10
         xoff2(ilevel)=xoff20
@@ -220,7 +189,6 @@ subroutine init_file
         nlevelmax_part=nlevelmax_part+1
      endif
   end do
-
 
   ! Check compatibility with run parameters
   nx_loc=icoarse_max-icoarse_min+1
@@ -264,11 +232,9 @@ subroutine init_cosmo
   use hydro_commons
   use pm_commons
   use gadgetreadfilemod
+  use dice_commons
 
   implicit none
-#ifndef WITHOUTMPI
-  include 'mpif.h'  
-#endif
   !------------------------------------------------------
   ! Read cosmological and geometrical parameters
   ! in the initial condition files.
@@ -282,8 +248,6 @@ subroutine init_cosmo
   logical::ok
   TYPE(gadgetheadertype) :: gadgetheader 
   integer::i
-  integer,parameter::tag=1117
-  integer::dummy_io,info2
 
   if(verbose)write(*,*)'Entering init_cosmo'
 
@@ -305,18 +269,6 @@ subroutine init_cosmo
            else
               filename=TRIM(initfile(ilevel))//'/ic_deltab'
            endif
- 
-           ! Wait for the token          
-#ifndef WITHOUTMPI
-           if(IOGROUPSIZE>0) then
-              if (mod(myid-1,IOGROUPSIZE)/=0) then
-                 call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                      & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
-              end if
-           endif
-#endif
-           
-
            INQUIRE(file=filename,exist=ok)
            if(.not.ok)then
               if(myid==1)then
@@ -331,19 +283,6 @@ subroutine init_cosmo
                 & ,xoff10,xoff20,xoff30 &
                 & ,astart0,omega_m0,omega_l0,h00
            close(10)
-
-           ! Send the token
-#ifndef WITHOUTMPI
-           if(IOGROUPSIZE>0) then
-              if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
-                 dummy_io=1
-                 call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
-                      & MPI_COMM_WORLD,info2)
-              end if
-           endif
-#endif
-
-
            dxini(ilevel)=dxini0
            xoff1(ilevel)=xoff10
            xoff2(ilevel)=xoff20
@@ -418,6 +357,39 @@ subroutine init_cosmo
      xoff2(levelmin)=0
      xoff3(levelmin)=0
      dxini(levelmin) = boxlen_ini/(nx*2**levelmin*(h0/100.0))
+
+  CASE ('dice')
+     if (verbose) write(*,*)'Reading in gadget format from'//TRIM(initfile(levelmin))//'/'//TRIM(ic_file)
+     call gadgetreadheader(TRIM(initfile(levelmin))//'/'//TRIM(ic_file), 0,gadgetheader, ok)
+     if(.not.ok) call clean_stop
+     !do i=1,6
+     !   if (i .ne. 2) then
+     !      if (gadgetheader%nparttotal(i) .ne. 0) then
+     !         write(*,*) 'Non DM particles present in bin ', i
+     !         call clean_stop
+     !      endif
+     !   endif
+     !enddo
+     if (gadgetheader%mass(2) == 0) then
+        write(*,*) 'Particles have different masses, not supported'
+        call clean_stop
+     endif
+     omega_m = gadgetheader%omega0
+     omega_l = gadgetheader%omegalambda
+     if(hydro)omega_b=0.0469388
+     h0 = gadgetheader%hubbleparam * 100.d0
+     boxlen_ini = gadgetheader%boxsize/1e3
+     aexp = gadgetheader%time
+     aexp_ini = aexp
+     ! Compute SPH equivalent mass (initial gas mass resolution)
+     mass_sph=omega_b/omega_m*0.5d0**(ndim*levelmin)
+     nlevelmax_part = levelmin
+     astart(levelmin) = aexp
+     xoff1(levelmin)=0
+     xoff2(levelmin)=0
+     xoff3(levelmin)=0
+     dxini(levelmin) = boxlen_ini/(nx*2**levelmin*(h0/100.0))
+
 
   CASE DEFAULT
      write(*,*) 'Unsupported input format '//filetype

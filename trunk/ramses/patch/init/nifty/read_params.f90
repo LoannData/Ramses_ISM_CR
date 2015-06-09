@@ -1,8 +1,48 @@
+module dice_commons
+   use amr_commons
+   use hydro_commons
+ 
+   ! particle data
+   character(len=512)::ic_file, ic_format
+   ! misc  
+   real(dp)::IG_rho         = 1.0D-5
+   real(dp)::IG_T2          = 1.0D7
+   real(dp)::IG_metal       = 0.01
+   real(dp)::ic_scale_pos   = 1.0
+   real(dp)::ic_scale_vel   = 1.0
+   real(dp)::ic_scale_mass  = 1.0
+   real(dp)::ic_scale_u     = 1.0
+   real(dp)::ic_scale_age   = 1.0
+   real(dp)::ic_scale_metal = 1.0
+   integer::ic_ifout        = 1
+   integer::ic_nfile        = 1
+   real(dp),dimension(1:3)::ic_center = (/ 0.0, 0.0, 0.0 /)
+   character(len=4)::ic_head_name  = 'HEAD'
+   character(len=4)::ic_pos_name   = 'POS '
+   character(len=4)::ic_vel_name   = 'VEL '
+   character(len=4)::ic_id_name    = 'ID  '
+   character(len=4)::ic_mass_name  = 'MASS'
+   character(len=4)::ic_u_name     = 'U   '
+   character(len=4)::ic_metal_name = 'Z   '
+   character(len=4)::ic_age_name   = 'AGE '
+   ! Gadget units in cgs
+   real(dp)::gadget_scale_l = 3.085677581282D21
+   real(dp)::gadget_scale_v = 1.0D5
+   real(dp)::gadget_scale_m = 1.9891D43
+   real(dp)::gadget_scale_t = 1.0D6*365*24*3600
+   real(dp),allocatable,dimension(:)::up
+   logical::dice_init       = .false.
+   logical::amr_struct      = .false.
+ 
+end module dice_commons
+
+
 subroutine read_params
   use amr_commons
   use pm_parameters
   use poisson_parameters
   use hydro_parameters
+  use dice_commons
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -18,8 +58,7 @@ subroutine read_params
   real(kind=8)::delta_tout=0,tend=0
   real(kind=8)::delta_aout=0,aend=0
   logical::nml_ok
-  integer,parameter::tag=1134
-  integer::dummy_io,info2
+
   !--------------------------------------------------
   ! Namelist definitions
   !--------------------------------------------------
@@ -37,6 +76,12 @@ subroutine read_params
        & ,xcentre_frame,ycentre_frame,zcentre_frame &
        & ,deltax_frame,deltay_frame,deltaz_frame,movie &
        & ,imovout,imov,tendmov,aendmov,proj_axis,movie_vars
+  namelist/dice_params/ ic_file,ic_nfile,ic_format,IG_rho,IG_T2,IG_metal &
+       & ,ic_head_name,ic_pos_name,ic_vel_name,ic_id_name,ic_mass_name &
+       & ,ic_u_name,ic_metal_name,ic_age_name &
+       & ,ic_scale_pos,ic_scale_vel,ic_scale_mass,ic_scale_u,ic_scale_age &
+       & ,ic_scale_metal,ic_center,ic_ifout,amr_struct
+
 
   ! MPI initialization
 #ifndef WITHOUTMPI
@@ -82,13 +127,6 @@ subroutine read_params
      call clean_stop
   endif
 #endif
-  
-  !Write I/O group size information
-  if(IOGROUPSIZE>0.or.IOGROUPSIZECONE>0.or.IOGROUPSIZEREP>0)write(*,*)' '
-  if(IOGROUPSIZE>0) write(*,*)'IOGROUPSIZE=',IOGROUPSIZE
-  if(IOGROUPSIZECONE>0) write(*,*)'IOGROUPSIZECONE=',IOGROUPSIZECONE
-  if(IOGROUPSIZEREP>0) write(*,*)'IOGROUPSIZEREP=',IOGROUPSIZEREP
-  if(IOGROUPSIZE>0.or.IOGROUPSIZECONE>0.or.IOGROUPSIZEREP>0)write(*,*)' '
 
   ! Write information about git version
   call write_gitinfo
@@ -108,33 +146,8 @@ subroutine read_params
 #endif
 
   !-------------------------------------------------
-  ! Read optional nrestart command-line argument
-  !-------------------------------------------------
-  if (myid==1 .and. narg == 2) then
-     CALL getarg(2,cmdarg)
-     read(cmdarg,*) nrestart
-  endif
-
-#ifndef WITHOUTMPI
-  call MPI_BCAST(nrestart,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-#endif
-
-
-  !-------------------------------------------------
   ! Read the namelist
   !-------------------------------------------------
-
-  ! Wait for the token                                                                                                                                                                                
-#ifndef WITHOUTMPI
-     if(IOGROUPSIZE>0) then
-        if (mod(myid-1,IOGROUPSIZE)/=0) then
-           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
-        end if
-     endif
-#endif
-
-
   namelist_file=TRIM(infile)
   INQUIRE(file=infile,exist=nml_ok)
   if(.not. nml_ok)then
@@ -160,7 +173,22 @@ subroutine read_params
   rewind(1)
   read(1,NML=poisson_params,END=81)
 81 continue
+  rewind(1)
+  read(1,NML=dice_params,END=106)
+106 continue
 
+
+  !-------------------------------------------------
+  ! Read optional nrestart command-line argument
+  !-------------------------------------------------
+  if (myid==1 .and. narg == 2) then
+    CALL getarg(2,cmdarg)
+    read(cmdarg,*) nrestart
+  endif
+
+#ifndef WITHOUTMPI
+  call MPI_BCAST(nrestart,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+#endif
 
   !-------------------------------------------------
   ! Compute time step for outputs
@@ -244,19 +272,6 @@ subroutine read_params
 
 
   close(1)
-
-  ! Send the token
-#ifndef WITHOUTMPI
-  if(IOGROUPSIZE>0) then
-     if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
-        dummy_io=1
-        call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
-             & MPI_COMM_WORLD,info2)
-     end if
-  endif
-#endif
-  
-
 
   !-----------------
   ! Max size checks
