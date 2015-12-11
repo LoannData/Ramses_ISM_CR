@@ -173,7 +173,7 @@ subroutine compute_clump_properties(xx)
   ! Scatter results to all MPI domains
   call boundary_peak_dp(max_dens)
   do i=1,ndim
-     call boundary_peak_dp(peak_pos(1,i),'sum')
+     call boundary_peak_dp(peak_pos(1,i))
      call boundary_peak_dp(center_of_mass(1,i))
      call boundary_peak_dp(clump_velocity(1,i))
   end do  
@@ -820,6 +820,7 @@ subroutine allocate_peak_patch_arrays
   allocate(MagPsurf(npeaks_max))
   allocate(MagTsurf(npeaks_max))
   allocate(grav_term(npeaks_max))
+  allocate(rad_term(npeaks_max))
   allocate(contracting(npeaks_max))
   allocate(Icl(npeaks_max))
   allocate(Icl_d(npeaks_max))
@@ -891,7 +892,7 @@ subroutine deallocate_all
 
   deallocate(clump_mass4)
   deallocate(clump_velocity)
-  deallocate(grav_term)
+  deallocate(grav_term,rad_term)
   deallocate(thermal_support,kinetic_support,magnetic_support)
   deallocate(Psurf,MagPsurf,MagTsurf)
   deallocate(contracting)

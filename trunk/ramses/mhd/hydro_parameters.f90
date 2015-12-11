@@ -88,6 +88,7 @@ module hydro_parameters
   integer ::niter_riemann=10
   integer ::slope_type=1
   integer ::slope_mag_type=-1
+  real(dp)::slope_theta=1.5d0
   real(dp)::gamma=1.4d0
   real(dp),dimension(1:512)::gamma_rad=1.33333333334d0
   real(dp)::courant_factor=0.5d0
@@ -98,6 +99,9 @@ module hydro_parameters
   character(LEN=10)::scheme='muscl'
   character(LEN=10)::riemann='llf'
   character(LEN=10)::riemann2d='llf'
+  integer ::ischeme=0
+  integer ::iriemann=0
+  integer ::iriemann2d=0
 
   ! Interpolation parameters
   integer ::interpol_var=0

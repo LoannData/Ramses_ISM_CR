@@ -94,6 +94,7 @@ module amr_parameters
   integer::foutput=1000000    ! Frequency of outputs
   integer::output_mode=0      ! Output mode (for hires runs)
   logical::gadget_output=.false. ! Output in gadget format
+  logical::output_now=.false. ! write output next step
 
   ! Lightcone parameters
   real(dp)::thetay_cone=12.5
@@ -134,6 +135,7 @@ module amr_parameters
   real(dp)::T2_start          ! Starting gas temperature
   real(dp)::t_delay=1.0D1     ! Feedback time delay in Myr
   real(dp)::t_diss =20.0D0    ! Dissipation timescale for feedback
+  real(dp)::t_sne =10.0D0     ! Supernova blast time
   real(dp)::J21    =0.0D0     ! UV flux at threshold in 10^21 units
   real(dp)::a_spec =1.0D0     ! Slope of the UV spectrum
   real(dp)::beta_fix=0.0D0    ! Pressure fix parameter
@@ -180,8 +182,10 @@ module amr_parameters
   character(LEN=5)::proj_axis='z' ! x->x, y->y, projection along z
 #ifdef SOLVERmhd
   integer,dimension(0:NVAR+6)::movie_vars=0
+  character(len=5),dimension(0:NVAR+6)::movie_vars_txt=''
 #else
   integer,dimension(0:NVAR+2)::movie_vars=0
+  character(len=5),dimension(0:NVAR+2)::movie_vars_txt=''
 #endif
 
   ! Refinement parameters for each level
@@ -232,6 +236,7 @@ module amr_parameters
   integer ,dimension(1:MAXBOUND)    ::jbound_max=0
   integer ,dimension(1:MAXBOUND)    ::kbound_min=0
   integer ,dimension(1:MAXBOUND)    ::kbound_max=0
+  logical                           ::no_inflow=.false.
 
   !Number of processes sharing one token
   !Only one process can write at a time in an I/O group

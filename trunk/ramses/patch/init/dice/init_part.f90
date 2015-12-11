@@ -60,14 +60,16 @@ subroutine init_part
   character(LEN=80)::filename,filename_x
   character(LEN=80)::fileloc
   character(LEN=20)::filetype_loc
-  character(LEN=5)::nchar
+  character(LEN=5)::nchar,ncharcpu
+  integer,parameter::tagg=1109,tagg2=1110,tagg3=1111
+  integer::dummy_io,info2
 
-  ! DICE patch
+! DICE patch
   integer::j,type_index
   integer::dummy_int,blck_size,jump_blck,blck_cnt,stat,ifile
   integer::head_blck,pos_blck,vel_blck,id_blck,mass_blck,u_blck,metal_blck,age_blck
   integer::head_size,pos_size,vel_size,id_size,mass_size,u_size,metal_size,age_size
-  integer::kpart,lpart,mpart,opart
+  integer::kpart,lpart,mpart,opart,gpart,ngas,nhalo
   integer, dimension(nvector)::ids
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_m
   real(dp),dimension(1:nvector)::tt,zz,uu
@@ -99,8 +101,10 @@ subroutine init_part
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   allocate(ptcl_phi(npartmax))
 #endif
+  ! patch DICE
   allocate(up    (npartmax))
-  xp=0.0; vp=0.0; mp=0.0; levelp=0; idp=0; up=0.
+  ! patch DICE
+  xp=0.0; vp=0.0; mp=0.0; levelp=0; idp=0
   if(star.or.sink)then
      allocate(tp(npartmax))
      tp=0.0
@@ -118,9 +122,26 @@ subroutine init_part
 
      ilun=2*ncpu+myid+10
      call title(nrestart,nchar)
-     fileloc='output_'//TRIM(nchar)//'/part_'//TRIM(nchar)//'.out'
+
+     if(IOGROUPSIZEREP>0)then
+        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+        fileloc='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/part_'//TRIM(nchar)//'.out'
+     else
+        fileloc='output_'//TRIM(nchar)//'/part_'//TRIM(nchar)//'.out'
+     endif
+
      call title(myid,nchar)
      fileloc=TRIM(fileloc)//TRIM(nchar)
+     ! Wait for the token                                                                                                                                                                    
+#ifndef WITHOUTMPI
+     if(IOGROUPSIZE>0) then
+        if (mod(myid-1,IOGROUPSIZE)/=0) then
+           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tagg,&
+                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+        end if
+     endif
+#endif
+
 
      open(unit=ilun,file=fileloc,form='unformatted')
      rewind(ilun)
@@ -183,6 +204,19 @@ subroutine init_part
         deallocate(xdp)
      end if
      close(ilun)
+
+     ! Send the token      
+#ifndef WITHOUTMPI
+     if(IOGROUPSIZE>0) then
+        if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
+           dummy_io=1
+           call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tagg, &
+                & MPI_COMM_WORLD,info2)
+        end if
+     endif
+#endif
+
+
      if(debug)write(*,*)'part.tmp read for processor ',myid
      npart=npart2     
 
@@ -336,6 +370,15 @@ subroutine init_part
                                
               if(multiple)then
                  ilun=myid+10
+                 ! Wait for the token                                                                                                                                                        
+#ifndef WITHOUTMPI
+                 if(IOGROUPSIZE>0) then
+                    if (mod(myid-1,IOGROUPSIZE)/=0) then
+                       call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tagg2,&
+                            & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+                    end if
+                 endif
+#endif
                  open(ilun,file=filename,form='unformatted')
                  rewind ilun
                  read(ilun) ! skip first line
@@ -349,6 +392,17 @@ subroutine init_part
                     endif
                  end do
                  close(ilun)
+                 ! Send the token                                                                                                                                                            
+#ifndef WITHOUTMPI
+                 if(IOGROUPSIZE>0) then
+                    if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
+                       dummy_io=1
+                       call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tagg2, &
+                            & MPI_COMM_WORLD,info2)
+                    end if
+                 endif
+#endif
+
               else
                  if(myid==1)then
                     open(10,file=filename,form='unformatted')
@@ -802,7 +856,7 @@ subroutine init_part
                 ! Init block counter
                 jump_blck = 1
                 blck_cnt = 1
-                do while(1)
+                do while(.true.)
                   ! Reading data block header
                   read(1,POS=jump_blck,iostat=stat) blck_size
                   if(stat /= 0) exit
@@ -847,7 +901,7 @@ subroutine init_part
                 ! Init block counter
                 jump_blck = 1
                 write(*,'(A50)')"__________________________________________________"
-                do while(1)
+                do while(.true.)
                   ! Reading data block header
                   read(1,POS=jump_blck,iostat=stat) dummy_int
                   if(stat /= 0) exit
@@ -922,6 +976,8 @@ subroutine init_part
  
               nstar_tot = sum(header%npart(3:5))
               npart     = sum(header%npart)
+              ngas      = header%npart(1)
+              nhalo     = header%npart(2)
 
               write(*,'(A50)')"__________________________________________________"
               write(*,*)"Found ",npart," particles"
@@ -933,6 +989,7 @@ subroutine init_part
               write(*,'(A50)')"__________________________________________________"
               if((pos_size.ne.npart).or.(vel_size.ne.npart)) then
                 write(*,*) 'POS =',pos_size
+                write(*,*) 'Z   =',metal_size
                 write(*,*) 'VEL =',vel_size
                 write(*,*) 'Number of particles does not correspond to block sizes'
                 error=.true.
@@ -948,6 +1005,7 @@ subroutine init_part
             kpart    = 0
             lpart    = 0
             mpart    = 0
+            gpart    = 0
             opart    = 0
             mgas_tot = 0.
             do while(.not.eob)
@@ -969,6 +1027,7 @@ subroutine init_part
                      if(kpart.gt.sum(header%npart(1:j)).and.kpart.le.sum(header%npart(1:j+1))) type_index = j+1
                   enddo
                   if((sum(header%npart(3:5)).gt.0).and.(kpart.gt.(header%npart(1)+header%npart(2)))) mpart=mpart+1
+                  if(type_index.ne.2) gpart=gpart+1
                   ! Reading Gadget2 file line-by-line
                   ! Mandatory data
                   read(1,POS=pos_blck+3*sizeof(dummy_real)*(kpart-1)) xx_sp(i,1:3)
@@ -993,6 +1052,9 @@ subroutine init_part
                   if(metal) then
                     if((metal_blck.ne.-1).and.(metal_size.eq.npart)) then
                       read(1,POS=metal_blck+sizeof(dummy_real)*(kpart-1)) zz_sp(i)
+                    endif
+                    if((metal_blck.ne.-1).and.(metal_size.eq.ngas+nstar_tot)) then
+                      read(1,POS=metal_blck+sizeof(dummy_real)*(gpart-1)) zz_sp(i)
                     endif
                   endif
                   if(star) then

@@ -6,6 +6,10 @@ subroutine output_frame()
   use amr_commons
   use pm_commons
   use hydro_commons
+#ifdef RT
+  use rt_parameters
+  use rt_hydro_commons
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include "mpif.h"
@@ -21,7 +25,6 @@ subroutine output_frame()
 #else
   character(len=100),dimension(0:NVAR+2) :: moviefiles
 #endif
-  
   integer::icell,ncache,iskip,ngrid,nlevelmax_frame
   integer::ilun,nx_loc,ipout,npout,npart_out,ind,ix,iy,iz
   integer::imin,imax,jmin,jmax,ii,jj,kk,ll
@@ -56,19 +59,20 @@ subroutine output_frame()
   logical::opened
 
   character(len=1)::temp_string
-   
+
+#ifdef RT
+  character(len=100),dimension(1:NGROUPS) :: rt_moviefiles
+  real(kind=8),dimension(:,:,:),allocatable::rt_data_frame,rt_data_frame_all
+#endif  
+
+  
   nh_temp = nh_frame
   nw_temp = nw_frame
 
   
-!  proj_axis=trim(proj_axis)
-
  do proj_ind=1,LEN(trim(proj_axis)) 
   opened=.false.
 
-  !inh_temp = nh_frame
-  !nw_temp = nw_frame
-    
 #if NDIM > 1
   if(imov<1)imov=1
   if(imov>imovout)return
@@ -106,22 +110,34 @@ subroutine output_frame()
   moviefiles(5) = trim(moviedir)//'pres_'//trim(istep_str)//'.map'
 #endif
 #if NVAR>5
-#ifdef SOLVERmhd
-  do ll=6,NVAR+3
-#else
   do ll=6,NVAR
-#endif
     write(dummy,'(I3.1)') ll
     moviefiles(ll) = trim(moviedir)//'var'//trim(adjustl(dummy))//'_'//trim(istep_str)//'.map'
  end do
 #endif
 #ifdef SOLVERmhd
+  moviefiles(6) = trim(moviedir)//'bxl_'//trim(istep_str)//'.map'
+  moviefiles(7) = trim(moviedir)//'byl_'//trim(istep_str)//'.map'
+  moviefiles(8) = trim(moviedir)//'bzl_'//trim(istep_str)//'.map'
+  moviefiles(NVAR+1) = trim(moviedir)//'bxr_'//trim(istep_str)//'.map'
+  moviefiles(NVAR+2) = trim(moviedir)//'byr_'//trim(istep_str)//'.map'
+  moviefiles(NVAR+3) = trim(moviedir)//'bzr_'//trim(istep_str)//'.map'
   moviefiles(NVAR+4) = trim(moviedir)//'pmag_'//trim(istep_str)//'.map'
   moviefiles(NVAR+5) = trim(moviedir)//'dm_'//trim(istep_str)//'.map'
   moviefiles(NVAR+6) = trim(moviedir)//'stars_'//trim(istep_str)//'.map'
 #else
   moviefiles(NVAR+1) = trim(moviedir)//'dm_'//trim(istep_str)//'.map'
   moviefiles(NVAR+2) = trim(moviedir)//'stars_'//trim(istep_str)//'.map'
+#endif
+
+#ifdef RT
+  ! Can generate mass weighted averages of cN_i for each group i
+  if(rt) then
+     do ll=1,NGROUPS
+        write(dummy,'(I3.1)') ll
+        rt_moviefiles(ll) = trim(moviedir)//'Fp'//trim(adjustl(dummy))//'_'//trim(istep_str)//'.map'
+     end do
+  endif
 #endif
 
   ! sink filename
@@ -149,27 +165,28 @@ subroutine output_frame()
   if(ndim>2)skip_loc(3)=dble(kcoarse_min)
   scale=boxlen/dble(nx_loc)
 
+  ! Compute frame boundaries
   if(proj_axis(proj_ind:proj_ind).eq.'x')then
     xcen=ycentre_frame(proj_ind*4-3)+ycentre_frame(proj_ind*4-2)*aexp+ycentre_frame(proj_ind*4-1)*aexp**2+ycentre_frame(proj_ind*4)*aexp**3
     ycen=zcentre_frame(proj_ind*4-3)+zcentre_frame(proj_ind*4-2)*aexp+zcentre_frame(proj_ind*4-1)*aexp**2+zcentre_frame(proj_ind*4)*aexp**3
     zcen=xcentre_frame(proj_ind*4-3)+xcentre_frame(proj_ind*4-2)*aexp+xcentre_frame(proj_ind*4-1)*aexp**2+xcentre_frame(proj_ind*4)*aexp**3
-    delx=deltay_frame(proj_ind*2-1)+deltay_frame(proj_ind*2)/aexp !+deltax_frame(3)*aexp**2+deltax_frame(4)*aexp**3  !Essentially comoving or physical
-    dely=deltaz_frame(proj_ind*2-1)+deltaz_frame(proj_ind*2)/aexp !+deltay_frame(3)*aexp**2+deltay_frame(4)*aexp**3
-    delz=deltax_frame(proj_ind*2-1)+deltax_frame(proj_ind*2)/aexp !+deltaz_frame(3)*aexp**2+deltaz_frame(4)*aexp**3
+    delx=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltay_frame(proj_ind*2-1)+deltay_frame(proj_ind*2)/aexp) !+deltax_frame(3)*aexp**2+deltax_frame(4)*aexp**3  !Essentially comoving or physical
+    dely=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltaz_frame(proj_ind*2-1)+deltaz_frame(proj_ind*2)/aexp) !+deltay_frame(3)*aexp**2+deltay_frame(4)*aexp**3
+    delz=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltax_frame(proj_ind*2-1)+deltax_frame(proj_ind*2)/aexp) !+deltaz_frame(3)*aexp**2+deltaz_frame(4)*aexp**3
   elseif(proj_axis(proj_ind:proj_ind).eq.'y')then
     xcen=xcentre_frame(proj_ind*4-3)+xcentre_frame(proj_ind*4-2)*aexp+xcentre_frame(proj_ind*4-1)*aexp**2+xcentre_frame(proj_ind*4)*aexp**3
     ycen=zcentre_frame(proj_ind*4-3)+zcentre_frame(proj_ind*4-2)*aexp+zcentre_frame(proj_ind*4-1)*aexp**2+zcentre_frame(proj_ind*4)*aexp**3
     zcen=ycentre_frame(proj_ind*4-3)+ycentre_frame(proj_ind*4-2)*aexp+ycentre_frame(proj_ind*4-1)*aexp**2+ycentre_frame(proj_ind*4)*aexp**3
-    delx=deltax_frame(proj_ind*2-1)+deltax_frame(proj_ind*2)/aexp !+deltax_frame(3)*aexp**2+deltax_frame(4)*aexp**3  !Essentially comoving or physical
-    dely=deltaz_frame(proj_ind*2-1)+deltaz_frame(proj_ind*2)/aexp !+deltay_frame(3)*aexp**2+deltay_frame(4)*aexp**3
-    delz=deltay_frame(proj_ind*2-1)+deltay_frame(proj_ind*2)/aexp !+deltaz_frame(3)*aexp**2+deltaz_frame(4)*aexp**3
+    delx=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltax_frame(proj_ind*2-1)+deltax_frame(proj_ind*2)/aexp) !+deltax_frame(3)*aexp**2+deltax_frame(4)*aexp**3  !Essentially comoving or physical
+    dely=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltaz_frame(proj_ind*2-1)+deltaz_frame(proj_ind*2)/aexp) !+deltay_frame(3)*aexp**2+deltay_frame(4)*aexp**3
+    delz=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltay_frame(proj_ind*2-1)+deltay_frame(proj_ind*2)/aexp) !+deltaz_frame(3)*aexp**2+deltaz_frame(4)*aexp**3
   else
     xcen=xcentre_frame(proj_ind*4-3)+xcentre_frame(proj_ind*4-2)*aexp+xcentre_frame(proj_ind*4-1)*aexp**2+xcentre_frame(proj_ind*4)*aexp**3
     ycen=ycentre_frame(proj_ind*4-3)+ycentre_frame(proj_ind*4-2)*aexp+ycentre_frame(proj_ind*4-1)*aexp**2+ycentre_frame(proj_ind*4)*aexp**3
     zcen=zcentre_frame(proj_ind*4-3)+zcentre_frame(proj_ind*4-2)*aexp+zcentre_frame(proj_ind*4-1)*aexp**2+zcentre_frame(proj_ind*4)*aexp**3
-    delx=deltax_frame(proj_ind*2-1)+deltax_frame(proj_ind*2)/aexp !+deltax_frame(3)*aexp**2+deltax_frame(4)*aexp**3  !Essentially comoving or physical
-    dely=deltay_frame(proj_ind*2-1)+deltay_frame(proj_ind*2)/aexp !+deltay_frame(3)*aexp**2+deltay_frame(4)*aexp**3
-    delz=deltaz_frame(proj_ind*2-1)+deltaz_frame(proj_ind*2)/aexp !+deltaz_frame(3)*aexp**2+deltaz_frame(4)*aexp**3
+    delx=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltax_frame(proj_ind*2-1)+deltax_frame(proj_ind*2)/aexp) !+deltax_frame(3)*aexp**2+deltax_frame(4)*aexp**3  !Essentially comoving or physical
+    dely=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltay_frame(proj_ind*2-1)+deltay_frame(proj_ind*2)/aexp) !+deltay_frame(3)*aexp**2+deltay_frame(4)*aexp**3
+    delz=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltaz_frame(proj_ind*2-1)+deltaz_frame(proj_ind*2)/aexp) !+deltaz_frame(3)*aexp**2+deltaz_frame(4)*aexp**3
   endif
 
   ratio = delx/dely
@@ -179,13 +196,6 @@ subroutine output_frame()
     nh_frame=nw_temp/ratio
   endif
 
-  ! Compute frame boundaries
-!   xcen=xcentre_frame(1)+xcentre_frame(2)*aexp+xcentre_frame(3)*aexp**2+xcentre_frame(4)*aexp**3
-!   ycen=ycentre_frame(1)+ycentre_frame(2)*aexp+ycentre_frame(3)*aexp**2+ycentre_frame(4)*aexp**3
-!   zcen=zcentre_frame(1)+zcentre_frame(2)*aexp+zcentre_frame(3)*aexp**2+zcentre_frame(4)*aexp**3
-!   delx=deltax_frame(1)+deltax_frame(2)/aexp !+deltax_frame(3)*aexp**2+deltax_frame(4)*aexp**3  !Essentially comoving or physical
-!   dely=deltay_frame(1)+deltay_frame(2)/aexp !+deltay_frame(3)*aexp**2+deltay_frame(4)*aexp**3
-!   delz=deltaz_frame(1)+deltaz_frame(2)/aexp !+deltaz_frame(3)*aexp**2+deltaz_frame(4)*aexp**3
   xleft_frame=xcen-delx/2.
   xright_frame=xcen+delx/2.
   yleft_frame=ycen-dely/2.
@@ -198,6 +208,12 @@ subroutine output_frame()
   allocate(data_frame(1:nw_frame,1:nh_frame,0:NVAR+6))
 #else
   allocate(data_frame(1:nw_frame,1:nh_frame,0:NVAR+2))
+#endif
+#ifdef RT
+  if(rt) then
+     allocate(rt_data_frame(1:nw_frame,1:nh_frame,1:NGROUPS))
+     rt_data_frame(:,:,:) = 0d0
+  endif
 #endif
   allocate(dens(1:nw_frame,1:nh_frame))
   allocate(vol(1:nw_frame,1:nh_frame))
@@ -344,6 +360,19 @@ subroutine output_frame()
                          if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)+dvol*uold(ind_cell(i),kk)
                        end do
 
+#ifdef RT
+                       if(rt) then
+                          do kk=1,NGROUPS
+                             if(rt_movie_vars(kk).eq.1) then
+                                rt_data_frame(ii,jj,kk) = rt_data_frame(ii,jj,kk) &
+                                     + dvol * rtuold(ind_cell(i), 1+(kk-1)*(ndim+1)) * rt_c_cgs &
+                                            * max(uold(ind_cell(i),1),smallr) ! mass-weighted
+                             endif
+                          end do
+                       endif
+#endif
+
+                       
                        if (movie_vars(0).eq.1)then
                          !Get temperature
                          ekk=0.0d0
@@ -429,16 +458,6 @@ subroutine output_frame()
   end do
   ! End loop over particles
 
-  ! Convert into mass weighted
-!  do ii=1,nw_frame
-!     do jj=1,nh_frame
-!        data_frame(ii,jj,2)=data_frame(ii,jj,2)/data_frame(ii,jj,1)
-!        data_frame(ii,jj,3)=data_frame(ii,jj,3)/data_frame(ii,jj,1)
-!        if(metal)then
-!        data_frame(ii,jj,4)=data_frame(ii,jj,4)/data_frame(ii,jj,1)
-!        endif
-!     end do
-!  end do
 #ifndef WITHOUTMPI
 #ifdef SOLVERmhd
   allocate(data_frame_all(1:nw_frame,1:nh_frame,0:NVAR+6))
@@ -457,19 +476,48 @@ subroutine output_frame()
   deallocate(data_frame_all)
   deallocate(dens_all)
   deallocate(vol_all)
+#ifdef RT
+  if(rt) then
+     allocate(rt_data_frame_all(1:nw_frame,1:nh_frame,1:NGROUPS))
+     rt_data_frame_all(:,:,:)=0d0
+     call MPI_ALLREDUCE(rt_data_frame,rt_data_frame_all        &
+          ,nw_frame*nh_frame*NGROUPS,MPI_DOUBLE_PRECISION      &
+          ,MPI_SUM,MPI_COMM_WORLD,info)
+     rt_data_frame=rt_data_frame_all
+     deallocate(rt_data_frame_all)
+  endif
+#endif
 #endif
   ! Convert into mass weighted                                                                                                         
   do ii=1,nw_frame
     do jj=1,nh_frame
-      do kk=0,NVAR
 #ifdef SOLVERmhd
-        if(kk==6.or.kk==7.or.kk==8) cycle
-#endif
+      do kk=0,5
         if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)/dens(ii,jj)
       end do
-#ifdef SOLVERmhd
-      if(movie_vars(NVAR+4).eq.1) data_frame(ii,jj,NVAR+4)=data_frame(ii,jj,NVAR+4)/vol(ii,jj)
+      do kk=6,8
+        if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)/vol(ii,jj)
+      end do
+      do kk=9,NVAR
+        if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)/dens(ii,jj)
+      end do
+      do kk=NVAR+1,NVAR+4
+        if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)/vol(ii,jj)
+      end do
+#else
+      do kk=0,NVAR
+        if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)/dens(ii,jj)
+      end do
 #endif
+#ifdef RT
+      if(rt) then
+         do kk=1,NGROUPS
+            if(rt_movie_vars(kk).eq.1) &
+                 rt_data_frame(ii,jj,kk)=rt_data_frame(ii,jj,kk)/dens(ii,jj)
+         end do
+      endif
+#endif
+
     end do
   end do
   deallocate(dens)
@@ -498,37 +546,35 @@ subroutine output_frame()
          close(ilun)
        end if
      end do
-!     ! Output mass weighted temperature
-!     open(ilun,file=TRIM(moviefiles(0)),form='unformatted')
-!     data_single=data_frame(:,:,0)
-!!     write(*,*) 'testing', data_single(100,100)
-!     rewind(ilun)  
-!     if(tendmov>0)then
-!        write(ilun)t,delx,dely,delz
-!     else
-!        write(ilun)aexp,delx,dely,delz
-!     endif
-!     write(ilun)nw_frame,nh_frame
-!     write(ilun)data_single
-!     close(ilun)
-!     ! Output mass weighted metal fraction
-!     if(metal)then
-!        open(ilun,file=TRIM(moviefiles(6)),form='unformatted')
-!        data_single=data_frame(:,:,6)
-!        rewind(ilun)  
-!        if(tendmov>0)then
-!           write(ilun)t,delx,dely,delz
-!        else
-!           write(ilun)aexp,delx,dely,delz
-!        endif
-!        write(ilun)nw_frame,nh_frame
-!        write(ilun)data_single
-!        close(ilun)
-!     endif
+
+#ifdef RT
+      if(rt) then
+         do kk=1, NGROUPS
+            if (rt_movie_vars(kk).eq.1) then
+               open(ilun,file=TRIM(rt_moviefiles(kk)),form='unformatted')
+               data_single(:,:)=0.
+               data_single=rt_data_frame(:,:,kk)
+               rewind(ilun)  
+               if(tendmov>0)then
+                  write(ilun)t,delx,dely,delz
+               else
+                  write(ilun)aexp,delx,dely,delz
+               endif
+               write(ilun)nw_frame,nh_frame
+               write(ilun)data_single
+               close(ilun)
+            end if
+         end do
+      endif
+#endif
+     
      deallocate(data_single)
   endif
 
   deallocate(data_frame)
+#ifdef RT
+  if(rt) deallocate(rt_data_frame)
+#endif
 #endif
   ! Update counter
   if(proj_ind.eq.len(trim(proj_axis)))imov=imov+1
@@ -538,3 +584,43 @@ subroutine output_frame()
  enddo
 end subroutine output_frame
 
+subroutine set_movie_vars()
+  use amr_commons
+  ! This routine sets the movie vars from textual form
+  integer::ll
+  character(LEN=5)::dummy
+
+  if(ANY(movie_vars_txt=='temp ')) movie_vars(0)=1
+  if(ANY(movie_vars_txt=='dens ')) movie_vars(1)=1
+  if(ANY(movie_vars_txt=='vx   ')) movie_vars(2)=1
+  if(ANY(movie_vars_txt=='vy   ')) movie_vars(3)=1
+#if NDIM>2
+  if(ANY(movie_vars_txt=='vz   ')) movie_vars(4)=1
+#endif
+#if NDIM==2
+  if(ANY(movie_vars_txt=='pres ')) movie_vars(4)=1
+#endif
+#if NDIM>2
+  if(ANY(movie_vars_txt=='pres ')) movie_vars(5)=1
+#endif
+#if NVAR>5
+  do ll=6,NVAR
+    write(dummy,'(I3.1)') ll
+    if(ANY(movie_vars_txt=='var'//trim(adjustl(dummy))//' ')) movie_vars(ll)=1
+ end do
+#endif
+#ifdef SOLVERmhd
+  if(ANY(movie_vars_txt=='bxl  ')) movie_vars(6)=1
+  if(ANY(movie_vars_txt=='byl  ')) movie_vars(7)=1
+  if(ANY(movie_vars_txt=='bzl  ')) movie_vars(8)=1
+  if(ANY(movie_vars_txt=='bxr  ')) movie_vars(NVAR+1)=1
+  if(ANY(movie_vars_txt=='byr  ')) movie_vars(NVAR+2)=1
+  if(ANY(movie_vars_txt=='bzr  ')) movie_vars(NVAR+3)=1
+  if(ANY(movie_vars_txt=='pmag ')) movie_vars(NVAR+4)=1
+  if(ANY(movie_vars_txt=='dm   ')) movie_vars(NVAR+5)=1
+  if(ANY(movie_vars_txt=='stars')) movie_vars(NVAR+6)=1
+#else
+  if(ANY(movie_vars_txt=='dm   ')) movie_vars(NVAR+1)=1
+  if(ANY(movie_vars_txt=='stars')) movie_vars(NVAR+2)=1
+#endif
+end subroutine set_movie_vars

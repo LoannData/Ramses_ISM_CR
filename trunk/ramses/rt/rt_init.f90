@@ -7,7 +7,7 @@ SUBROUTINE rt_init
   use hydro_commons
   use rt_hydro_commons
   use rt_flux_module
-  use rt_cooling_module, only: update_UVrates
+  use rt_cooling_module,only:rt_isIRtrap,iIRtrapVar
   use rt_parameters
   use SED_module
   use UV_module
@@ -17,12 +17,15 @@ SUBROUTINE rt_init
   if(verbose)write(*,*)'Entering init_rt'
   ! Count the number of variables and check if ok:
   nvar_count = ichem-1     ! # of non-rt vars: rho u v w p (z) (delay) (x)
-  iIons=ichem              !         Starting index of xhii, xheii, xheiii
-  nvar_count = iIons+2     !                                  # hydro vars
-  if(nvar_count .ne. nvar) then 
+  if(rt_isIRtrap) &
+     iIRtrapVar = ndim+3  ! Trapped rad. stored in nonthermal pressure var
+  iIons=nvar_count+1         !      Starting index of ionisation fractions
+  nvar_count = nvar_count+3  !                                # hydro vars
+
+  if(nvar_count .gt. nvar) then 
      if(myid==1) then 
         write(*,*) 'rt_init(): Something wrong with NVAR.'
-        write(*,*) 'Should have NVAR=2+ndim+1*metal+1*dcool+1*aton+nIons'
+        write(*,*) 'Should have NVAR=2+ndim+1*metal+1*dcool+1*aton+IRtrap+nIons'
         write(*,*) 'Have NVAR=',nvar
         write(*,*) 'Should have NVAR=',nvar_count
         write(*,*) 'STOPPING!'
@@ -64,7 +67,7 @@ SUBROUTINE rt_init
 
   tot_cool_loopcnt=0 ; max_cool_loopcnt=0 ; n_cool_cells=0
   loopCodes=0
-  tot_nPhot=0.d0 ;  step_nPhot=0.d0; step_nStar=0.d0
+  tot_nPhot=0.d0 ;  step_nPhot=0.d0; step_nStar=0.d0; step_mStar=0.d0
 END SUBROUTINE rt_init
 
 !*************************************************************************
@@ -133,13 +136,15 @@ SUBROUTINE read_rt_params(nml_ok)
 !-------------------------------------------------------------------------
   namelist/rt_params/rt_star, rt_esc_frac, rt_flux_scheme, rt_smooth     &
        & ,rt_is_outflow_bound, rt_TConst, rt_courant_factor              &
-       & ,rt_c_fraction, rt_otsa, sedprops_update, hll_evals_file        &
+       & ,rt_c_fraction, rt_nsubcycle, rt_otsa, sedprops_update          &
        & ,sed_dir, uv_file, rt_UVsrc_nHmax, nUVgroups, nSEDgroups        &
-       & ,SED_isEgy, rt_output_coolstats                                 &
+       & ,SED_isEgy, rt_output_coolstats, hll_evals_file                 &
        & ,upload_equilibrium_x, X, Y, rt_is_init_xion                    &
        & ,rt_err_grad_n, rt_floor_n, rt_err_grad_xHII, rt_floor_xHII     &
        & ,rt_err_grad_xHI, rt_floor_xHI, rt_refine_aexp                  &
-       & ,convert_birth_times                                            &
+       & ,convert_birth_times, is_mu_H2                                  &
+       & ,rt_isIR, is_kIR_T, rt_T_rad, rt_vc, rt_pressBoost              &
+       & ,rt_isoPress, rt_isIRtrap                                       &
        ! RT regions (for initialization)                                 &
        & ,rt_nregion, rt_region_type                                     &
        & ,rt_reg_x_center, rt_reg_y_center, rt_reg_z_center              &
@@ -154,7 +159,10 @@ SUBROUTINE read_rt_params(nml_ok)
        & ,rt_exp_source, rt_src_group                                    &
        & ,rt_n_source, rt_u_source, rt_v_source, rt_w_source             &
        ! RT boundary (for boundary conditions)                           &
-       & ,rt_n_bound,rt_u_bound,rt_v_bound,rt_w_bound
+       & ,rt_n_bound,rt_u_bound,rt_v_bound,rt_w_bound                    &
+       & ,rt_movie_vars
+
+
   ! Read namelist file
   rewind(1)
   read(1,NML=rt_params,END=101)
@@ -168,7 +176,6 @@ SUBROUTINE read_rt_params(nml_ok)
 
   rt_c_cgs = c_cgs * rt_c_fraction
   !call update_rt_c
-  if(haardt_madau) rt_UV_hom=.true.                     ! UV in every cell
   if(rt_Tconst .ge. 0.d0) rt_isTconst=.true. 
   call read_rt_groups(nml_ok)
 END SUBROUTINE read_rt_params
@@ -180,16 +187,17 @@ SUBROUTINE read_rt_groups(nml_ok)
 !-------------------------------------------------------------------------
   use amr_commons
   use rt_parameters
+  use rt_cooling_module
   use SED_module
   implicit none
   logical::nml_ok
   integer::i
-!------------------------------------------------------------------------
+!-------------------------------------------------------------------------
   namelist/rt_groups/group_csn, group_cse, group_egy, spec2group         &
-       & , groupL0, groupL1
+       & , groupL0, groupL1, kappaAbs, kappaSc
   if(myid==1) then
-     write(*,'(" Working with ",I2," photon groups and  " &
-          ,I2, " ion species")')nGroups,nIons
+     write(*,'(" Working with ",I2," photon groups and  "                &
+          ,I2, " ion species")') nGroups, nIons
      write(*,*) ''
   endif
    
@@ -197,6 +205,7 @@ SUBROUTINE read_rt_groups(nml_ok)
      rt = .false.
      return
   endif
+#if NGROUPS>0
   !   Use ionization energies for HI, HeI, HeII as default group intervals
   groupL0(1:min(nGroups,3))=ionEvs(1:min(nGroups,3))!Lower interval bounds
   groupL1(1:min(nGroups,2))=ionEvs(2:min(nGroups+1,3)) !      Upper bounds
@@ -206,6 +215,7 @@ SUBROUTINE read_rt_groups(nml_ok)
   group_csn(1,:)=(/3.007d-18, 0d0, 0d0/)   ! Avg photoion. c-section (cm2)
   group_cse(1,:)=(/2.781d-18, 0d0, 0d0/)   !     Weighted  c-section (cm2)
   group_egy(1)  =18.85                     !        Avg photon Energy (eV)
+#endif
 #if NGROUPS>1
   if(nGroups .ge. 2) group_csn(2,:)=(/5.687d-19, 4.478d-18, 0d0/)
   if(nGroups .ge. 2) group_cse(2,:)=(/5.042d-19, 4.130d-18, 0d0/)
@@ -422,7 +432,8 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
   real(dp),dimension(1:nvector,1:ndim)::x
   integer::i,k,group_ind
   real(dp)::vol,r,xn,yn,zn,en
-  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_np,scale_fp
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+  real(dp)::scale_np,scale_fp
 !------------------------------------------------------------------------
   ! Initialize everything to zero
   !  uu=0.0d0
@@ -460,20 +471,20 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
            if(r<1.0)then
               uu(i,group_ind) = rt_n_source(k)/rt_c_cgs/scale_Np
               ! The input flux is the fraction Fp/(c*Np) (Max 1 magnitude)
-              uu(i,group_ind+1) =                       &
-                       + rt_u_source(k) * rt_c * rt_n_source(k) / scale_Np
+              uu(i,group_ind+1) =                                       &
+                        rt_u_source(k) * rt_c * rt_n_source(k) / scale_Np
 #if NDIM>1 
-              uu(i,group_ind+2) =                       &
-                       + rt_v_source(k) * rt_c * rt_n_source(k) / scale_Np
+              uu(i,group_ind+2) =                                       &
+                        rt_v_source(k) * rt_c * rt_n_source(k) / scale_Np
 #endif
 #if NDIM>2
-              uu(i,group_ind+3) =                       &
-                       + rt_w_source(k) * rt_c * rt_n_source(k) / scale_Np
+              uu(i,group_ind+3) =                                       &
+                        rt_w_source(k) * rt_c * rt_n_source(k) / scale_Np
 #endif
            end if
         end do
      end if
-     
+
      ! For "point" regions only:
      if(rt_source_type(k) .eq. 'point')then
         ! Volume elements
@@ -481,7 +492,6 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
         ! Compute CIC weights relative to region center
         do i=1,nn
            xn=1.0; yn=1.0; zn=1.0
-           ! Buffer injection:
            xn=max(1.0-abs(x(i,1)-rt_src_x_center(k))/dx, 0.0_dp)
 #if NDIM>1
            yn=max(1.0-abs(x(i,2)-rt_src_y_center(k))/dx, 0.0_dp)
