@@ -3,74 +3,117 @@
 #############################################################################
 # Compilation time parameters
 NVECTOR = 32
-NDIM = 1
+QUADHILBERT = 16
 NPRE = 8
-NVAR = 5
-NENER = 0
-SOLVER = hydro
-PATCH = 
+
+NDIM = 1
+SOLVER = mhd
+NIMHD=0
+
+NENT = 0
+
+USE_FLD=0
+USE_M_1=0
+NGRP = 0
+
+NEXTINCT = 0
+NPSCAL = 0
+
+NENER = $(NENT)+$(NGRP)
+
+PATCH = ../patch/rhd
 EXEC = ramses
+
+MPI = 1
+COMP = "INTEL"
+
+NPSCAL := $(NPSCAL)+1 # for internal energy
+ifeq ($(NIMHD),1)
+   NCURRENT=3
+else
+   NCURRENT=0
+endif
+ifeq ($(USE_FLD),1)
+   NVAR=8+$(NCURRENT)+$(NENER)+$(NEXTINCT)+$(NPSCAL)
+else
+   NVAR=8+$(NCURRENT)+$(NENER)+$(NDIM)*$(NGRP)+$(NEXTINCT)+$(NPSCAL)
+endif
+
 #############################################################################
 GITBRANCH = $(shell git rev-parse --abbrev-ref HEAD)
 GITHASH = $(shell git log --pretty=format:'%H' -n 1)
 GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
-DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNENER=$(NENER) -DNVAR=$(NVAR) \
-          -DSOLVER$(SOLVER)
+DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR=$(NVAR) -DNENER=$(NENER) \
+          -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL) -DNIMHD=$(NIMHD) \
+	  -DNEXTINCT=$(NEXTINCT) #-DQUADHILBERT=$(QUADHILBERT)
+ifneq (,$(filter 1,$(USE_FLD) $(USE_M_1)))
+DEFINES += -DUSE_FLD=$(USE_FLD) -DUSE_M_1=$(USE_M_1)
+endif
 #############################################################################
 # Fortran compiler options and directives
 
-# --- No MPI, gfortran -------------------------------
-F90 = gfortran -O3 -frecord-marker=4 -fbacktrace -ffree-line-length-none -g
-FFLAGS = -x f95-cpp-input $(DEFINES) -DWITHOUTMPI
+# GFORTRAN
+ifeq ($(COMP),"GNU")
+   ifeq ($(MPI),1)
+      F90 = mpif90
+   else
+      F90 = gfortran
+      FFLAGS = -DWITHOUTMPI
+   endif
+   FFLAGS += -x f95-cpp-input -O3 -frecord-marker=4 -ffree-line-length-none $(DEFINES) #-freal-4-real-8 
+#   FFLAGS += -fbounds-check -fbacktrace -Wuninitialized -Wall
+#   FFLAGS += -ffpe-trap=invalid,zero,overflow,underflow -finit-real=nan
+#   FFLAGS += -finit-real=nan
+endif
 
-# --- No MPI, tau ----------------------------------
-#F90 = tau_f90.sh -optKeepFiles -optPreProcess -optCPPOpts=$(DEFINES) -DWITHOUTMPI
+# INTEL
+ifeq ($(COMP),"INTEL")
+   ifeq ($(MPI),1)
+      F90 = mpif90
+      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
+   else
+      F90 = ifort
+      FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
+   endif
+   FFLAGS += -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds
+endif
 
-# --- No MPI, pgf90 ----------------------------------
-#F90 = pgf90
-#FFLAGS = -Mpreprocess $(DEFINES) -DWITHOUTMPI
+# INTEL
+ifeq ($(COMP),"FTN")
+   F90 = ftn
+   FFLAGS = -xAVX -g -traceback -fpp -fast $(DEFINES) -DNOSYSTEM #-DRT
+#   FFLAGS = -O3 -g -traceback -fpe0 -ftrapuv -cpp $(DEFINES) -DNOSYSTEM #-DRT
+endif
 
-# --- No MPI, xlf ------------------------------------
-#F90 = xlf
-#FFLAGS = -WF,-DNDIM=$(NDIM),-DNPRE=$(NPRE),-DNVAR=$(NVAR),-DSOLVER$(SOLVER),-DWITHOUTMPI -qfree=f90 -qsuffix=f=f90 -qsuffix=cpp=f90
+# PGF90
+ifeq ($(COMP),"PGF90")
+   ifeq ($(MPI),1)
+      F90 = mpif90
+      FFLAGS = -O3 -Mpreprocess $(DEFINES)
+   else
+      F90 = pgf90
+      FFLAGS = -Mpreprocess $(DEFINES) -DWITHOUTMPI
+   endif
+endif
 
-# --- No MPI, f90 ------------------------------------
-#F90 = f90
-#FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
+# TAU
+ifeq ($(COMP),"TAU")
+   F90 = tau_f90.sh
+   FFLAGS = -optKeepFiles -optPreProcess -optCPPOpts=$(DEFINES) -DWITHOUTMPI
+endif
 
-# --- No MPI, ifort ----------------------------------
-#F90 = ifort
-#FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
+# XLF
+ifeq ($(COMP),"XLF")
+   F90 = xlf
+   FFLAGS = -WF,-DNDIM=$(NDIM),-DNPRE=$(NPRE),-DNVAR=$(NVAR),-DSOLVER$(SOLVER),-DWITHOUTMPI -qfree=f90 -qsuffix=f=f90 -qsuffix=cpp=f90
+endif
 
-# --- MPI, gfortran syntax ------------------------------
-#F90 = mpif90 -frecord-marker=4 -O3 -ffree-line-length-none -g -fbacktrace 
-#FFLAGS = -x f95-cpp-input $(DEFINES)
-
-# --- MPI, gfortran DEBUG syntax ------------------------------ 
-#F90 = mpif90 -frecord-marker=4 -ffree-line-length-none -fbacktrace -g -O -fbounds-check -Wuninitialized -Wall
-#FFLAGS = -x f95-cpp-input -ffpe-trap=zero,underflow,overflow,invalid -finit-real=nan  $(DEFINES)    
-
-# --- MPI, pgf90 syntax ------------------------------
-#F90 = mpif90 -O3
-#FFLAGS = -Mpreprocess $(DEFINES)
-
-# --- MPI, ifort syntax ------------------------------
-#F90 = mpif90
-#FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
-
-# --- MPI, ifort syntax, additional checks -----------
-#F90 = mpif90
-#FFLAGS = -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds -cpp $(DEFINES) -DNOSYSTEM
-
-
-# --- MPI, ifort syntax ------------------------------
-#F90 = ftn
-#FFLAGS = -xAVX -g -traceback -fpp -fast $(DEFINES) -DNOSYSTEM #-DRT 
-
-# --- MPI, ifort syntax, additional checks -----------
-#F90 = ftn
-#FFLAGS = -O3 -g -traceback -fpe0 -ftrapuv -cpp $(DEFINES) -DNOSYSTEM #-DRT
+# F90
+ifeq ($(COMP),"F90")
+   F90 = f90
+   FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
+endif
 
 #############################################################################
 MOD = mod
@@ -83,14 +126,28 @@ LIBMPI =
 LIBCUDA = -L/opt/cuda/lib  -lm -lcuda -lcudart
 
 LIBS = $(LIBMPI)
+
+# Lapack
+ifeq ($(USE_M_1),1)
+LIBS += -llapack
+else
+ifneq ($(NGRP),$(filter $(NGRP),0 1))
+LIBS += -llapack
+endif
+endif
+
 #############################################################################
 # Sources directories are searched in this exact order
-VPATH = $(PATCH):../$(SOLVER):../aton:../hydro:../pm:../poisson:../amr
+VPATH = $(PATCH):../$(SOLVER):../fld/:../nimhd:../aton:../hydro:../pm:../poisson:../amr
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o \
          poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
-         clfind_commons.o gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o
+         clfind_commons.o gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o \
+         radiation_parameters.o
+ifeq ($(NIMHD),1)
+MODOBJ +=  variables_X.o
+endif
 
 AMROBJ = read_params.o init_amr.o init_time.o init_refine.o adaptive_loop.o amr_step.o update_time.o \
          output_amr.o flag_utils.o physical_boundaries.o virtual_boundaries.o refine_utils.o nbors_utils.o \
@@ -105,13 +162,26 @@ POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o multigrid_
 # Hydro objects
 HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_fine.o godunov_fine.o \
            uplmde.o umuscl.o interpol_hydro.o godunov_utils.o condinit.o hydro_flag.o hydro_boundary.o \
-           boundana.o read_hydro_params.o synchro_hydro_fine.o
+           boundana.o read_hydro_params.o synchro_hydro_fine.o \
+           multigroup.o m1_utils.o \
+           radiative_transfer_bicg.o radiation_boundary.o
+ifeq ($(NIMHD),1)
+HYDROOBJ += uplmde_sts_ohm.o uplmde_sts_ohm_dtu.o
+endif
+# Turbulence objects
+#MODOBJ += turb_parameters.o turb_commons.o
+#TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
+#          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
+#          add_turb_forcing.o write_pymses.o libfftw3.a
 # All objects
-AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ)
+AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) # $(TURBOBJ) 
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
 ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o ../aton/atonlib/libaton.a
 #############################################################################
+all:
+	for file in $(MODOBJ); do unset MAKELEVEL ; $(MAKE) $$file; done
+	$(MAKE) ramses
 ramses:	$(MODOBJ) $(AMRLIB) ramses.o
 	$(F90) $(MODOBJ) $(AMRLIB) ramses.o -o $(EXEC)$(NDIM)d $(LIBS)
 	rm write_makefile.f90
@@ -135,5 +205,5 @@ write_patch.o: FORCE
 FORCE:
 #############################################################################
 clean :
-	rm *.o *.$(MOD)
+	rm *.o *.$(MOD) *__genmod.f90
 #############################################################################

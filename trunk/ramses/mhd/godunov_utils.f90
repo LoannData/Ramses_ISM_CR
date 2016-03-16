@@ -2,18 +2,33 @@
 !###########################################################
 !###########################################################
 !###########################################################
+#if NIMHD==1
+! modif nimhd
+subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
+! fin modif nimhd
+#else
 subroutine cmpdt(uu,gg,dx,dt,ncell)
+#endif
   use amr_parameters
   use hydro_parameters
   use const
   implicit none
-  integer::ncell
+  integer::ncell,ht
   real(dp)::dx,dt
+  ! modif nimhd
+  real(dp)::dtambdiff,dtohmdiss,dthallbis    ! temps de diffusion ambipolaire, ohmique et de l'effet Hall
+  real(dp)::dtambdiffb,dtohmdissb,dthallb
+  real(dp),dimension(1:nvector),save::bsqrt  ! correspond en fait a sqrt(B*B)
+  real(dp)::xx,betaadbricolo,betaad
+  real(dp),dimension(1:nvector),save::rhoad,xpress
+  real(dp)::etaohmdiss,reshall,barotrop1D
+  integer :: ntest
+  ! fin modif nimhd
   real(dp),dimension(1:nvector,1:nvar+3)::uu
   real(dp),dimension(1:nvector,1:ndim)::gg
-  real(dp),dimension(1:nvector),save::a2,B2,rho,ctot
+  real(dp),dimension(1:nvector),save::a2,B2,rho,ctot,tcell
   
-  real(dp)::dtcell,smallp,cf,cc,bc,bn
+  real(dp)::dtcell,smallp,cf,cc,bc,bn,crad
   integer::k,idim, irad
   
   smallp = smallr*smallc**2/gamma
@@ -22,6 +37,12 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   do k = 1,ncell
      uu(k,1)=max(uu(k,1),smallr)
      rho(k)=uu(k,1)
+#if NIMHD==1
+     ! modif nimhd
+     rhoad(k)=rho(k)
+     call temperature_eos(rho(k),uu(k,nvar),tcell(k),ht)
+     ! fin modif nimhd
+#endif
   end do
   do idim = 1,3
      do k = 1, ncell
@@ -102,6 +123,61 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      dt = min(dt,dtcell)
   end do
 
+#if NIMHD==1
+  ! modif nimhd : time step for non-ideal mhd
+
+  ! Hall effect
+  if(nhall.eq.0) then
+     dthallbis=1.d34
+  else
+     dthallbis=1.d34
+     do k = 1,ncell
+        xx=reshall(rhoad(k))*bsqrt(k)
+        if(xx.gt.0.d0) then
+           dthallb=coefhall*dx*dx/xx
+        else
+           dthallb=1.d34
+        endif
+        dthallbis=min(dthallbis,dthallb)      
+     end do
+  endif
+
+  ! Ohmic dissipation
+  if (nmagdiffu.eq.0 .and. nmagdiffu2.eq.0) then
+     dtohmdiss=1.d35
+  else
+     dtohmdiss=1.d35
+     do k = 1,ncell
+        xx=etaohmdiss(rhoad(k),B2(k),tcell(k))
+        if(xx.gt.0.d0) then
+           dtohmdissb=coefohm*dx*dx/xx
+        else
+           dtohmdissb=1.d35
+        endif
+        dtohmdiss=min(dtohmdissb,dtohmdiss)
+     end do
+  endif
+  
+  ! ambipolar diffusion
+  if (nambipolar.eq.0 .and. nambipolar2.eq.0) then
+     dtambdiff=1.d36
+  else
+     dtambdiff=1.d36
+     do k = 1,ncell
+        xx=B2(k)*betaad(rhoad(k),B2(k),tcell(k)) 
+        if (xx.gt.0.d0) then
+           !! WARNING RHOAD mandatory because rho(k) is not density cf lines above
+           dtambdiffb=coefad*dx*dx/xx
+        else
+           dtambdiffb=1.d36
+        endif
+        dtambdiff=min(dtambdiffb,dtambdiff)
+     end do
+  endif
+
+  ! fin modif nimhd
+#endif
+
 end subroutine cmpdt
 !###########################################################
 !###########################################################
@@ -111,6 +187,7 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   use amr_parameters
   use hydro_parameters
   use amr_commons, ONLY: emag_tot
+  use cooling_module,only: clight
   use const
   implicit none
   ! dummy arguments
@@ -120,10 +197,10 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   real(dp)::ud(1:nvector,1:nvar+3)
   logical ::ok(1:nvector)
   
-  integer::k,idim
+  integer::j,k,idim
   real(dp),dimension(1:nvector),save::eking,ekinm,ekind
   real(dp),dimension(1:nvector),save::emagg,emagm,emagd
-  real(dp)::dg,dm,dd,pg,pm,pd,vg,vm,vd,cg,cm,cd,error,emag_loc,ethres
+  real(dp)::dg,dm,dd,pg,pm,pd,vg,vm,vd,cg,cm,cd,error,emag_loc,ethres,Eg,Em,Ed,Fg,Fm,Fd
   
   ! Convert to primitive variables
   do k = 1,nn
@@ -179,12 +256,12 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
      ud(k,5) = (gamma-one)*(ud(k,5)-ekind(k)-emagd(k))
   end do  
   ! Passive scalars
-#if NVAR>8+NENER
-  do idim = 9+nener,nvar
+#if NPSCAL>0
+  do idim = 1,npscal
      do k = 1,nn
-        ug(k,idim) = ug(k,idim)/ug(k,1)
-        um(k,idim) = um(k,idim)/um(k,1)
-        ud(k,idim) = ud(k,idim)/ud(k,1)
+        ug(k,firstindex_pscal+idim) = ug(k,firstindex_pscal+idim)/ug(k,1)
+        um(k,firstindex_pscal+idim) = um(k,firstindex_pscal+idim)/um(k,1)
+        ud(k,firstindex_pscal+idim) = ud(k,firstindex_pscal+idim)/ud(k,1)
      end do
   end do
 #endif
@@ -284,6 +361,37 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
         end do
      end do
   end if
+
+  if(err_grad_E >= 0.)then
+     do k=1,nn
+        Eg=0.0D0 ; Em=0.0D0 ; Ed=0.0D0 ; 
+        do j=1,ngrp
+           Eg=Eg+ug(k,firstindex_er+j); Em=Em+um(k,firstindex_er+j); Ed=Ed+ud(k,firstindex_er+j)
+        end do
+        error=2.0d0*MAX( &
+             & ABS((Ed-Em)/(Ed+Em+floor_E)), &
+             & ABS((Em-Eg)/(Em+Eg+floor_E)) )
+        ok(k) = ok(k) .or. error > err_grad_E
+     end do
+  end if
+
+#if USE_M_1==1
+  if(err_grad_F >= 0.)then
+     do idim=1,ndim
+        do k=1,nn
+           Fg=0.0D0 ; Fm=0.0D0 ; Fd=0.0D0 ; 
+           do j=1,ngrp
+              !warning normalization: F in rho*u^3 and E in rho*u^2
+              Fg=Fg+ug(k,firstindex_er+idim*ngrp+j)*ug(k,idim+1)/(clight*ug(k,firstindex_er+j)); Fm=Fm+um(k,firstindex_er+idim*ngrp+j)*um(k,idim+1)/(clight*um(k,firstindex_er+j)); Fd=Fd+ud(k,firstindex_er+idim*ngrp+j)*ud(k,idim+1)/(clight*ud(k,firstindex_er+j))
+           end do
+           error=2.0d0*MAX( &
+                & ABS((Fd-Fm)/(Fd+Fm+floor_F)), &
+                & ABS((Fm-Fg)/(Fm+Fg+floor_F)) )
+           ok(k) = ok(k) .or. error > err_grad_F
+        end do
+     enddo
+  end if
+#endif
 
   if(ischeme.eq.1)then
      if(m_refine(ilevel) >= 0.)then
@@ -460,10 +568,15 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   Ptotl = Pl + emagl
   vdotBl= ul*A+vl*Bl+wl*cl
 #if NENER>0
-  do irad = 1,nener
+  do irad = 1,nent
      eradl(irad) = qleft(8+irad)/(gamma_rad(irad)-1.0d0)
      etotl = etotl + eradl(irad)
      Ptotl = Ptotl + qleft(8+irad)
+  end do
+  do irad = 1,ngrp
+     eradl(irad) = qleft(firstindex_er+irad)
+     etotl = etotl + eradl(irad)
+     Ptotl = Ptotl + qleft(firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
   end do
 #endif
   eintl=Pl*entho
@@ -477,10 +590,15 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   Ptotr = Pr + emagr
   vdotBr= ur*A+vr*Br+wr*Cr
 #if NENER>0
-  do irad = 1,nener
+  do irad = 1,nent
      eradr(irad) = qright(8+irad)/(gamma_rad(irad)-1.0d0)
      etotr = etotr + eradr(irad)
      Ptotr = Ptotr + qright(8+irad)
+  end do
+  do irad = 1,ngrp
+     eradr(irad) = qright(firstindex_er+irad)
+     etotr = etotr + eradr(irad)
+     Ptotr = Ptotr + qright(firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
   end do
 #endif
   eintr=Pr*entho
@@ -666,6 +784,7 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   end if
 
   ! Compute the Godunov flux
+  fgdnv    = zero
   fgdnv(1) = ro*uo
   fgdnv(2) = (etoto+Ptoto)*uo-A*vdotBo
   fgdnv(3) = ro*uo*uo+Ptoto-A*A
@@ -674,22 +793,38 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   fgdnv(6) = Bo*uo-A*vo
   fgdnv(7) = ro*uo*wo-A*Co
   fgdnv(8) = Co*uo-A*wo
+  fgdnv(nvar) = einto*uo 
 #if NENER>0
   do irad = 1,nener
      fgdnv(8+irad) = uo*erado(irad)
   end do
 #endif
-#if NVAR>8+NENER
-  do ivar = 9+nener,nvar
+
+!!! TO BE CHANGED : should be with frado(irad) for the fluxes
+#if USE_M_1==1
+  do j=1,nrad
      if(fgdnv(1)>0)then
-        fgdnv(ivar) = fgdnv(1)*qleft (ivar)
+        fgdnv(8+j) = uo*qleft (8+j)
      else
-        fgdnv(ivar) = fgdnv(1)*qright(ivar)
+        fgdnv(8+j) = uo*qright(8+j)
+     endif
+  end do
+#endif
+
+!!! No flux for NEXTINCT
+
+#if NPSCAL>0
+  do ivar = 1,npscal
+     if(fgdnv(1)>0)then
+        fgdnv(firstindex_pscal+ivar) = fgdnv(1)*qleft (firstindex_pscal+ivar)
+     else
+        fgdnv(firstindex_pscal+ivar) = fgdnv(1)*qright(firstindex_pscal+ivar)
      endif
   end do
 #endif
   !Thermal energy
   fgdnv(nvar+1) = uo*einto
+  
 END SUBROUTINE hlld
 !###########################################################
 !###########################################################
@@ -718,9 +853,13 @@ SUBROUTINE find_mhd_flux(qvar,cvar,ff)
   etot = P*entho+ecin+emag
   Ptot = P + emag
 #if NENER>0
-  do irad = 1,nener
+  do irad = 1,nent
      etot    = etot + qvar(8+irad)/(gamma_rad(irad)-one)
      Ptot    = Ptot + qvar(8+irad)
+  end do
+  do irad = 1,ngrp
+     etot    = etot + qvar(firstindex_er+irad)
+     Ptot    = Ptot + qvar(firstindex_er+irad)*(gamma_rad(nent+irad)-one)
   end do
 #endif
   
@@ -734,19 +873,23 @@ SUBROUTINE find_mhd_flux(qvar,cvar,ff)
   cvar(7) = d*w
   cvar(8) = C
 #if NENER>0
-  do irad = 1,nener
+  do irad = 1,nent
      cvar(8+irad) = qvar(8+irad)/(gamma_rad(irad)-one)
   end do
+  do irad = 1,ngrp
+     cvar(firstindex_er+irad) = qvar(firstindex_er+irad)
+  end do
 #endif
-#if NVAR>8+NENER
-  do ivar = 9+nener,nvar
-     cvar(ivar) = d*qvar(ivar)
+#if NPSCAL>0
+  do ivar = 1,npscal
+     cvar(firstindex_pscal+ivar) = d*qvar(firstindex_pscal+ivar)
   end do
 #endif
   !Thermal energy
   cvar(nvar+1)=P*entho
 
   ! Compute fluxes
+  ff    = zero
   ff(1) = d*u
   ff(2) = (etot+Ptot)*u-A*(A*u+B*v+C*w)
   ff(3) = d*u*u+Ptot-A*A
@@ -760,9 +903,14 @@ SUBROUTINE find_mhd_flux(qvar,cvar,ff)
      ff(8+irad) = u*cvar(8+irad)
   end do
 #endif
-#if NVAR>8+NENER
-  do ivar = 9+nener,nvar
-     ff(ivar) = d*u*qvar(ivar)
+
+!!! SHOULD BE CHANGED : compute for M1
+#if USE_M_1==1
+#endif
+
+#if NPSCAL>0
+  do ivar = 1,npscal
+     ff(firstindex_pscal+ivar) = d*u*qvar(firstindex_pscal+ivar)
   end do
 #endif
   ! Thermal energy
@@ -793,8 +941,11 @@ SUBROUTINE find_speed_info(qvar,vel_info)
   B2 = A*A+B*B+C*C
   c2 = gamma*P/d
 #if NENER>0
-  do irad = 1,nener
+  do irad = 1,nent
      c2 = c2 + gamma_rad(irad)*qvar(8+irad)/d
+  end do
+  do irad = 1,ngrp
+     c2 = c2 + gamma_rad(nent+irad)*(gamma_rad(nent+irad)-1.0d0)*qvar(firstindex_er+irad)/d
   end do
 #endif
   
@@ -826,8 +977,11 @@ SUBROUTINE find_speed_fast(qvar,vel_info)
   B2 = A*A+B*B+C*C
   c2 = gamma*P/d
 #if NENER>0
-  do irad = 1,nener
+  do irad = 1,nent
      c2 = c2 + gamma_rad(irad)*qvar(8+irad)/d
+  end do
+  do irad = 1,ngrp
+     c2 = c2 + gamma_rad(nent+irad)*(gamma_rad(nent+irad)-1.0d0)*qvar(firstindex_er+irad)/d
   end do
 #endif
   d2 = half*(B2/d+c2)

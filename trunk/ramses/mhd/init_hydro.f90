@@ -1,6 +1,7 @@
 subroutine init_hydro
   use amr_commons
   use hydro_commons
+  use radiation_parameters
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -26,12 +27,44 @@ subroutine init_hydro
   allocate(uold(1:ncell,1:nvar+3))
   allocate(unew(1:ncell,1:nvar+3))
   uold=0.0d0; unew=0.0d0
-  if(pressure_fix)then
+  if(fld)then
+     allocate(rad_flux(1:ncell,1:nvar_bicg))
+     allocate(urad(1:ncell,1:nvar_bicg))
+     allocate(frad(1:ncell,1:ndim))
+     rad_flux=0.0d0; urad=0.0d0; frad=0.0d0
+  endif
+  if(pressure_fix .or. nambipolar2.eq.1 .or.nmagdiffu2.eq.1)then
      allocate(divu(1:ncell))
      allocate(enew(1:ncell))
      divu=0.0d0; enew=0.0d0
   end if
 
+  ! Variables for BICG scheme
+  ! 1 : r
+  ! 2 : p
+  ! 3 : r*
+  ! 4 : M-1
+  ! 5 : 
+  ! 6 : z and Ap
+  ! 7 : p*
+  ! 8 : p*A
+  ! 9 : z*
+  allocate(kappaR_bicg(1:ncell,1:ngrp))
+  ! if FLD: matrix of size ngrpxngrp (because matrix only on Eg)
+  ! if  M1: matrix of size (1+nrad)x(1+nrad) (on T,Eg,Fg)
+  allocate(var_bicg(1:ncell,1:nvar_bicg,1:10+2*ndim))
+  allocate(precond_bicg(1:ncell,1:nvar_bicg,1:nvar_bicg))
+  if(store_matrix) then
+     allocate(mat_residual_glob(1:ncell,1:nvar_bicg,1:nvar_bicg),residual_glob(1:ncell,1:nvar_bicg))
+     allocate(coeff_glob_left(1:ncell,1:nvar_bicg,1:nvar_bicg,1:ndim),coeff_glob_right(1:ncell,1:nvar_bicg,1:nvar_bicg,1:ndim))
+  else
+     allocate(mat_residual_glob(1,1:nvar_bicg,1:nvar_bicg),residual_glob(1,1:nvar_bicg))
+     allocate(coeff_glob_left(1,1:nvar_bicg,1:nvar_bicg,1:ndim),coeff_glob_right(1,1:nvar_bicg,1:nvar_bicg,1:ndim))
+  endif
+  kappar_bicg=0.0d0;var_bicg=0.0d0;precond_bicg=0.0d0
+  mat_residual_glob=0.0d0;residual_glob=0.0d0
+  coeff_glob_left=0.0d0;coeff_glob_right=0.0d0
+  
   !--------------------------------
   ! For a restart, read hydro file
   !--------------------------------
@@ -62,7 +95,7 @@ subroutine init_hydro
      read(ilun)nlevelmax2
      read(ilun)nboundary2
      read(ilun)gamma2
-     if(nvar2.ne.(nvar+3))then
+     if( (eos .and. nvar2.ne.nvar+3+1) .or. (.not.eos .and. nvar2.ne.nvar+3) )then
         write(*,*)'File hydro.tmp is not compatible'
         write(*,*)'Found   =',nvar2
         write(*,*)'Expected=',nvar+3
@@ -121,42 +154,92 @@ subroutine init_hydro
                        uold(ind_grid(i)+iskip,ivar)=xx(i)
                     end do
                  end do
-#if NENER>0
+#if NENER>NGRP
                  ! Read non-thermal pressures --> non-thermal energies
-                 do ivar=9,8+nener
+                 do ivar=9,8+nent
                     read(ilun)xx
                     do i=1,ncache
-                       uold(ind_grid(i)+iskip,ivar)=xx(i)/(gamma_rad(ivar-8)-1d0)
+                       uold(ind_grid(i)+iskip,ivar)=xx(i)/(gamma_rad(ivar-8)-1.0d0)
                     end do
                  end do
 #endif
 
                  read(ilun)xx ! Read pressure
-                 do i=1,ncache
-                    e=xx(i)/(gamma-1d0)
-                    d=max(uold(ind_grid(i)+iskip,1),smallr)
-                    u=uold(ind_grid(i)+iskip,2)/d
-                    v=uold(ind_grid(i)+iskip,3)/d
-                    w=uold(ind_grid(i)+iskip,4)/d
-                    A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
-                    B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
-                    C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
-#if NENER>0
-                    do irad=1,nener
-                       e=e+uold(ind_grid(i)+iskip,8+irad)
+                 if(.not.eos) then
+                    do i=1,ncache
+                       e=xx(i)/(gamma-1d0)
+                       d=max(uold(ind_grid(i)+iskip,1),smallr)
+                       u=uold(ind_grid(i)+iskip,2)/d
+                       v=uold(ind_grid(i)+iskip,3)/d
+                       w=uold(ind_grid(i)+iskip,4)/d
+                       A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
+                       B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
+                       C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
+                       uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
                     end do
+                 endif
+
+#if USE_FLD==1
+                 do ivar=1,ngrp
+                    read(ilun)xx ! Read radiative energy if any
+                    do i=1,ncache
+                       uold(ind_grid(i)+iskip,firstindex_er+ivar) = xx(i)
+                    end do
+                 end do
+#endif
+#if USE_M_1==1
+                 do ivar=1,nfr
+                    read(ilun)xx ! Read radiative flux if any
+                    do i=1,ncache
+                       uold(ind_grid(i)+iskip,firstindex_fr+ivar) = xx(i)
+                    end do
+                 end do
 #endif
 
-                    uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
-                 end do
-#if NVAR > 8+NENER
-                 do ivar=9+nener,nvar ! Read passive scalars if any
-                    read(ilun)xx
+#if NEXTINCT>0
+                 !Read extinction parameter
+                 do ivar=1,nextinct
+                    read(ilun)xx ! Read extinction if activated
                     do i=1,ncache
-                       uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                       uold(ind_grid(i)+iskip,firstindex_nextinct+ivar) = xx(i)
                     end do
                  end do
 #endif
+
+#if NPSCAL>0
+                 do ivar=1,npscal ! Read passive scalars if any
+                    read(ilun)xx
+                    do i=1,ncache
+                       uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                    end do
+                 end do
+#endif
+
+                 !if eos, temperature also dumped
+                 if(eos) then
+                    read(ilun)xx
+
+                    do i=1,ncache
+                       d=max(uold(ind_grid(i)+iskip,1),smallr)
+                       call enerint_eos(d,xx(i),e)
+                       u=uold(ind_grid(i)+iskip,2)/d
+                       v=uold(ind_grid(i)+iskip,3)/d
+                       w=uold(ind_grid(i)+iskip,4)/d
+                       A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
+                       B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
+                       C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
+                       uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
+                    end do
+                 endif
+
+#if NENER>0
+                 do i=1,ncache
+                    do irad=1,nener
+                       uold(ind_grid(i)+iskip,5)=uold(ind_grid(i)+iskip,5)+uold(ind_grid(i)+iskip,8+irad)
+                    end do
+                 end do
+#endif
+
               end do
               deallocate(ind_grid,xx)
            end if

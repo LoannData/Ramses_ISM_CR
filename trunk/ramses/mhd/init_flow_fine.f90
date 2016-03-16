@@ -8,6 +8,9 @@ subroutine init_flow
   implicit none
 
   integer::ilevel,ivar
+
+  !calculate the value of boxlen
+  call calc_boxlen
   
   if(verbose)write(*,*)'Entering init_flow'
   do ilevel=nlevelmax,1,-1
@@ -29,6 +32,8 @@ subroutine init_flow_fine(ilevel)
   use amr_commons
   use hydro_commons
   use cooling_module
+  use radiation_parameters,only:eray_min,small_er
+  use units_commons
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -41,7 +46,6 @@ subroutine init_flow_fine(ilevel)
   integer::buf_count,info,nvar_in
   integer ,dimension(1:nvector),save::ind_grid,ind_cell
 
-  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::dx,rr,vx,vy,vz,bx,by,bz,ek,ei,em,pp,xx1,xx2,xx3,dx_loc,scale
   real(dp),dimension(1:3)::skip_loc
   real(dp),dimension(1:twotondim,1:3)::xc
@@ -57,13 +61,13 @@ subroutine init_flow_fine(ilevel)
   character(LEN=5)::nchar,ncharvar
 
   integer,parameter::tag=1107
-   integer::dummy_io,info2
+  integer::dummy_io,info2
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
   ! Conversion factor from user units to cgs units
-  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  small_er=eray_min/(scale_d*Scale_v**2)
 
   ! Mesh size at level ilevel in coarse cell units
   dx=0.5D0**ilevel
@@ -385,7 +389,8 @@ subroutine init_flow_fine(ilevel)
               end do
            end do
            ! Compute passive variable density
-#if NVAR > 8
+#if NVAR>8
+           ! WARNING : will not work with NENER, FLD, M1...
            do ivar=9,nvar
               do i=1,ngrid
                  rr=uold(ind_cell(i),1)
@@ -453,15 +458,23 @@ end subroutine init_flow_fine
 !################################################################
 subroutine region_condinit(x,q,dx,nn)
   use amr_parameters
-  use hydro_parameters
+  use hydro_commons
+#if NPSCAL>0
+  use hydro_parameters,only:var_region
+#endif
+  use radiation_parameters,only:mu_gas
+  use cooling_module,only:mH,kb,clight
+  use units_commons
+  use const
   implicit none
   integer ::nn
   real(dp)::dx
   real(dp),dimension(1:nvector,1:nvar+3)::q
   real(dp),dimension(1:nvector,1:ndim)::x
 
-  integer::i,ivar,k
+  integer::i,j,ivar,k
   real(dp)::vol,r,xn,yn,zn,en
+  real(dp)::radiation_source
 
   ! Set some (tiny) default values in case n_region=0
   q(1:nn,1)=smallr
@@ -475,11 +488,9 @@ subroutine region_condinit(x,q,dx,nn)
   q(1:nn,nvar+1)=0.0d0
   q(1:nn,nvar+2)=0.0d0
   q(1:nn,nvar+3)=0.0d0
-#if NVAR > 8
   do ivar=9,nvar
      q(1:nn,ivar)=0.0d0
   end do
-#endif
 
   ! Loop over initial conditions regions
   do k=1,nregion
@@ -518,17 +529,35 @@ subroutine region_condinit(x,q,dx,nn)
               q(i,nvar+1)=A_region(k)
               q(i,nvar+2)=B_region(k)
               q(i,nvar+3)=C_region(k)
+
 #if NENER>0
-              do ivar=1,nener
+              do ivar=1,nent
                  q(i,8+ivar)=prad_region(k,ivar)
               enddo
-#endif
-#if NVAR>8+NENER
-              do ivar=9+nener,nvar
-                 q(i,ivar)=var_region(k,ivar-8-nener)
+#if USE_FLD==1
+              T_region(k)=P_region(k)*mu_gas*mH/kb/d_region(k) *scale_v**2
+              do j=1,ngrp
+                 q(i,firstindex_er+j)=radiation_source(T_region(k),j)/(scale_d*scale_v**2)
               end do
 #endif
- 
+#if USE_M_1==1
+              !Radiative fluxes
+              do j=1,ngrp
+                            q(i,firstindex_er+  ngrp+j)=q(i,firstindex_er+j)*clight/scale_v*fx_region(k,j)
+                 if(ndim>1) q(i,firstindex_er+2*ngrp+j)=q(i,firstindex_er+j)*clight/scale_v*fy_region(k,j)
+                 if(ndim>2) q(i,firstindex_er+3*ngrp+j)=q(i,firstindex_er+j)*clight/scale_v*fz_region(k,j)
+              end do
+#endif
+#endif
+#if NEXTINCT>0
+              q(i,firstindex_nextinct+1)=zero
+#endif
+#if NPSCAL>0
+              do ivar=1,npscal
+                 q(i,firstindex_pscal+ivar)=var_region(k,ivar)
+              end do
+#endif
+
            end if
         end do
      end if
@@ -556,13 +585,22 @@ subroutine region_condinit(x,q,dx,nn)
            q(i,4)=q(i,4)+w_region(k)*r
            q(i,5)=q(i,5)+p_region(k)*r/vol
 #if NENER>0
-           do ivar=1,nener
+           do ivar=1,nent
               q(i,8+ivar)=q(i,8+ivar)+prad_region(k,ivar)*r/vol
            enddo
+#if USE_FLD==1
+           T_region(k)=P_region(k)*mu_gas*mH/kb/d_region(k) *scale_v**2
+           do j=1,ngrp
+              q(i,firstindex_er+j)=q(i,firstindex_er+j)+radiation_source(T_region(k),j)*r/vol/(scale_d*scale_v**2)
+           end do
 #endif
-#if NVAR>8+NENER
-           do ivar=9+nener,nvar
-              q(i,ivar)=var_region(k,ivar-8-nener)
+#endif
+#if NEXTINCT>0
+           q(i,firstindex_nextinct+1)=zero
+#endif
+#if NPSCAL>0
+           do ivar=1,npscal
+              q(i,firstindex_pscal+ivar)=var_region(k,ivar)
            end do
 #endif
         end do

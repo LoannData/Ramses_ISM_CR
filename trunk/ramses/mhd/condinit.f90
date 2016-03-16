@@ -6,10 +6,10 @@ subroutine condinit(x,u,dx,nn)
   use amr_parameters
   use hydro_parameters
   implicit none
-  integer ::nn                            ! Number of cells
-  real(dp)::dx                            ! Cell size
+  integer ::nn                              ! Number of cells
+  real(dp)::dx                              ! Cell size
   real(dp),dimension(1:nvector,1:nvar+3)::u ! Conservative variables
-  real(dp),dimension(1:nvector,1:ndim)::x ! Cell center position.
+  real(dp),dimension(1:nvector,1:ndim)::x   ! Cell center position.
   !================================================================
   ! This routine generates initial conditions for RAMSES.
   ! Positions are in user units:
@@ -54,18 +54,41 @@ subroutine condinit(x,u,dx,nn)
   u(1:nn,6:8)=q(1:nn,6:8)
   u(1:nn,nvar+1:nvar+3)=q(1:nn,nvar+1:nvar+3)
 #if NENER>0
-  ! radiative pressure -> radiative energy
-  ! radiative energy -> total fluid energy
-  do ivar=1,nener
+  ! non-thermal pressure -> non-thermal energy
+  ! non-thermal energy   -> total fluid energy
+  do ivar=1,nener-ngrp
      u(1:nn,8+ivar)=q(1:nn,8+ivar)/(gamma_rad(ivar)-1.0d0)
      u(1:nn,5)=u(1:nn,5)+u(1:nn,8+ivar)
   enddo
-#endif
-#if NVAR>8+NENER
-  ! passive scalars
-  do ivar=9+nener,nvar
-     u(1:nn,ivar)=q(1:nn,1)*q(1:nn,ivar)
+ ! Radiative transfer
+#if NGRP>0
+  ! radiative energy   -> total fluid energy
+  do ivar=1,ngrp
+     u(1:nn,firstindex_er+ivar)= q(1:nn,firstindex_er+ivar)
+     u(1:nn,5)=u(1:nn,5)+ u(1:nn,firstindex_er+ivar)
+  enddo
+#if USE_M_1==1
+  ! radiative flux
+  do ivar=1,ndim*ngrp
+     do i=1,ncache
+        u(1:nn,fisrtindex_fr+ivar)=q(1:nn,firstindex+ivar)
+     end do
+     write(ilun)xdp
   end do
+#endif
+#endif
+#endif
+#if NEXTINCT>0
+  ! Extinction
+  if(extinction)u(1:nn,firstindex_extinct+nextinct)=1.0D0
+#endif
+#if NPSCAL>0
+  ! passive scalars
+  do ivar=1,npscal
+     u(1:nn,firstindex_pscal+ivar)=q(1:nn,1)*q(1:nn,firstindex_pscal+ivar)
+  end do
+  ! Internal energy
+  u(1:nn,nvar)=q(1:nn,5)/(gamma-1.0d0)
 #endif
 
 end subroutine condinit
@@ -142,3 +165,15 @@ subroutine velana(x,v,dx,t,ncell)
 
 
 end subroutine velana
+!========================================================================================
+!========================================================================================
+!========================================================================================
+!========================================================================================
+subroutine calc_boxlen
+
+  implicit none
+
+  return
+
+end subroutine calc_boxlen
+

@@ -114,8 +114,8 @@ testname[${itest}]="sod-tube";
 testpatch[${itest}]="";
 testlist[${itest}]="sod-tube.nml";
 ndim[${itest}]=1;
-nvar[${itest}]=5;
-solver[${itest}]="hydro";
+#nvar[${itest}]=8;
+solver[${itest}]="mhd";
 flags[${itest}]="";
 make_clean[${itest}]=true;
 del_files[${itest}]="";
@@ -123,10 +123,10 @@ del_files[${itest}]="";
 itest=$((itest + 1)); # Test 2
 testdir[${itest}]="imhd-tube";
 testname[${itest}]="imhd-tube";
-testpatch[${itest}]="../mhd";
+testpatch[${itest}]="";
 testlist[${itest}]="imhd-tube.nml";
 ndim[${itest}]=1;
-nvar[${itest}]=8;
+#nvar[${itest}]=8;
 solver[${itest}]="mhd";
 flags[${itest}]="";
 make_clean[${itest}]=true;
@@ -138,17 +138,128 @@ testname[${itest}]="orszag-tang";
 testpatch[${itest}]="../patch/test_suite/orszag-tang";
 testlist[${itest}]="orszag-tang.nml";
 ndim[${itest}]=2;
-nvar[${itest}]=8;
+#nvar[${itest}]=8;
 solver[${itest}]="mhd";
 flags[${itest}]="";
 make_clean[${itest}]=true;
 del_files[${itest}]="output_*";
+
+itest=$((itest + 1)); # Test 4
+testdir[${itest}]="nimhd-diffusion";
+testname[${itest}]="nimhd-diffusion-ad";
+testpatch[${itest}]="../patch/test_suite/nimhd-diffusion";
+testlist[${itest}]="nimhd-diffusion-ad.nml";
+ndim[${itest}]=3;
+solver[${itest}]="mhd";
+flags[${itest}]="NIMHD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="output_*";
+
+itest=$((itest + 1)); # Test 5
+testdir[${itest}]="nimhd-diffusion";
+testname[${itest}]="nimhd-diffusion-ohm";
+testpatch[${itest}]="../patch/test_suite/nimhd-diffusion";
+testlist[${itest}]="nimhd-diffusion-ohm.nml";
+ndim[${itest}]=3;
+solver[${itest}]="mhd";
+flags[${itest}]="NIMHD=1";
+make_clean[${itest}]=false;
+del_files[${itest}]="output_*";
+
+itest=$((itest + 1)); # Test 6
+testdir[${itest}]="dirac";
+testname[${itest}]="dirac";
+testpatch[${itest}]="../patch/test_suite/dirac";
+testlist[${itest}]="dirac.nml";
+ndim[${itest}]=1;
+solver[${itest}]="mhd";
+flags[${itest}]="NGRP=1 USE_FLD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="";
+
+itest=$((itest + 1)); # Test 7
+testdir[${itest}]="rshock_lowrie_edwards";
+testname[${itest}]="rshock-Mach2";
+testpatch[${itest}]="";
+testlist[${itest}]="Mach2.nml";
+ndim[${itest}]=1;
+solver[${itest}]="mhd";
+flags[${itest}]="NGRP=1 USE_FLD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="";
+
+itest=$((itest + 1)); # Test 8
+testdir[${itest}]="rshock_lowrie_edwards";
+testname[${itest}]="rshock-Mach5";
+testpatch[${itest}]="";
+testlist[${itest}]="Mach5.nml";
+ndim[${itest}]=1;
+solver[${itest}]="mhd";
+flags[${itest}]="NGRP=1 USE_FLD=1";
+make_clean[${itest}]=false;
+del_files[${itest}]="";
+
+itest=$((itest + 1)); # Test 9
+testdir[${itest}]="radiative-shock";
+testname[${itest}]="radiative-shock";
+testpatch[${itest}]="";
+testlist[${itest}]="tube1d.nml";
+ndim[${itest}]=1;
+solver[${itest}]="mhd";
+flags[${itest}]="NGRP=4 USE_FLD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="";
+
 
 # Store number of standard tests
 ntestsstandard=${#testname[@]};
 
 # Additional tests: include your own tests here ==============
 # ============================================================
+
+itest=$((itest + 1)); # Test 10
+testdir[${itest}]="dirac";
+testname[${itest}]="dirac3d";
+testpatch[${itest}]="../patch/test_suite/dirac";
+testlist[${itest}]="dirac3d.nml";
+ndim[${itest}]=3;
+solver[${itest}]="mhd";
+flags[${itest}]="NGRP=1 USE_FLD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="output_*";
+
+itest=$((itest + 1)); # Test 11
+testdir[${itest}]="nimhd-cshock";
+testname[${itest}]="nimhd-cshock-ad";
+testpatch[${itest}]="";
+testlist[${itest}]="nimhd-cshock-ad.nml";
+ndim[${itest}]=3;
+solver[${itest}]="mhd";
+flags[${itest}]="NIMHD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="output_*";
+
+itest=$((itest + 1)); # Test 12
+testdir[${itest}]="nimhd-cshock";
+testname[${itest}]="nimhd-cshock-ohm";
+testpatch[${itest}]="";
+testlist[${itest}]="nimhd-cshock-ohm.nml";
+ndim[${itest}]=3;
+solver[${itest}]="mhd";
+flags[${itest}]="NIMHD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="output_*";
+
+itest=$((itest + 1)); # Test 13
+testdir[${itest}]="collapse";
+testname[${itest}]="collapse-rhd";
+testpatch[${itest}]="../patch/collapse";
+testlist[${itest}]="collapse-rhd.nml";
+ndim[${itest}]=3;
+solver[${itest}]="mhd";
+flags[${itest}]="NGRP=1 USE_FLD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="output_*";
 
 # Store total number of tests
 ntestsfull=${#testname[@]};
@@ -279,14 +390,19 @@ for ((i=0;i<$ntests;i++)); do
    echo "Compiling source";
    echo "Compiling source" >> $LOGFILE;
    if $VERBOSE ; then
-      make EXEC=${EXECNAME} PATCH=${testpatch[n]} SOLVER=${solver[n]} MPI=${MPI} NDIM=${ndim[n]} NVAR=${nvar[n]} ${flags[n]};
+      make EXEC=${EXECNAME} PATCH=${testpatch[n]} SOLVER=${solver[n]} MPI=${MPI} NDIM=${ndim[n]} ${flags[n]}; #NVAR=${nvar[n]} 
    else
-      { make EXEC=${EXECNAME} PATCH=${testpatch[n]} SOLVER=${solver[n]} MPI=${MPI} NDIM=${ndim[n]} NVAR=${nvar[n]} ${flags[n]} >> $LOGFILE; } 2>> $LOGFILE;
+      { make EXEC=${EXECNAME} PATCH=${testpatch[n]} SOLVER=${solver[n]} MPI=${MPI} NDIM=${ndim[n]} ${flags[n]} >> $LOGFILE; } 2>> $LOGFILE; #NVAR=${nvar[n]} 
    fi
    
    # Run tests
    cd ${TEST_DIRECTORY}/${testdir[n]};
    $DELETE_RESULTS;
+   if $VERBOSE ; then
+      ./prepare-${testname[n]}.sh;
+   else
+      { ./prepare-${testname[n]}.sh >> $LOGFILE; } 2>> $LOGFILE;
+   fi
    RUN_TEST="${RUN_TEST_BASE}${ndim[n]}d ${testlist[n]}";
    echo "Running test";
    echo "Running test" >> $LOGFILE;

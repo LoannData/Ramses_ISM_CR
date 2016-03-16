@@ -61,6 +61,9 @@ module amr_parameters
   logical::lightcone=.false.  ! Enable lightcone generation
   logical::clumpfind=.false.  ! Enable clump finder
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
+  logical::FLD     =.false.   ! FLD module activated
+  logical::DTU     =.false.   ! Unique time-step activated for niMHD diffusion routin
+  logical :: radiative_nimhdheating=.false. ! Enable niMHD heating as a source term in radiative transfer
 
   ! Mesh parameters
   integer::geom=1             ! 1: cartesian, 2: cylindrical, 3: spherical
@@ -95,6 +98,12 @@ module amr_parameters
   integer::output_mode=0      ! Output mode (for hires runs)
   logical::gadget_output=.false. ! Output in gadget format
   logical::output_now=.false. ! write output next step
+  logical::writing=.false.    ! Write column density and save files
+
+  ! Column density module (Valdivia & Hennebelle 2014)
+  integer::NdirExt_m=10       ! Theta directions for screening
+  integer::NdirExt_n=10       ! Phi directions for screening
+
 
   ! Lightcone parameters
   real(dp)::thetay_cone=12.5
@@ -118,7 +127,7 @@ module amr_parameters
   real(dp)::n_star =0.1D0     ! Star formation density threshold in H/cc
   real(dp)::t_star =0.0D0     ! Star formation time scale in Gyr
   real(dp)::eps_star=0.0D0    ! Star formation efficiency (0.02 at n_star=0.1 gives t_star=8 Gyr)
-  real(dp)::T2_star=0.0D0     ! Typical ISM polytropic temperature
+  real(dp)::T2_star=10.0D0    ! Typical ISM polytropic temperature
   real(dp)::g_star =1.6D0     ! Typical ISM polytropic index
   real(dp)::jeans_ncells=-1   ! Jeans polytropic EOS
   real(dp)::del_star=2.D2     ! Minimum overdensity to define ISM
@@ -142,7 +151,9 @@ module amr_parameters
   real(dp)::kappa_IR=0d0      ! IR dust opacity
   real(dp)::ind_rsink=4.0d0   ! Number of cells defining the radius of the sphere where AGN feedback is active
   real(dp)::ir_eff=0.75       ! efficiency of the IR feedback (only when ir_feedback=.true.)
-
+  real(dp)::larson_lifetime=5000! lifetime of first larson core in years
+  logical ::iso_jeans=.false. ! activate isothermal sound speed Jeans length refinement criterion
+  real(dp)::Tp_jeans = 10.0d0 ! Default temperature to activate iso_jeans
 
   logical ::self_shielding=.false.
   logical ::pressure_fix=.false.
@@ -157,6 +168,16 @@ module amr_parameters
   logical ::agn=.false.
   logical ::use_proper_time=.false.
   logical ::ir_feedback=.false. ! Activate ir feedback from accreting sinks
+  logical ::eos =.false.        ! non ideal gas EOS module activated
+  logical ::barotrop=.false.    ! barotropic EOS for SF calculations
+  logical ::racc_refine=.true.  ! Refine the grid around sink to the maximum level of refinement      
+  logical ::clump_jeans=.false. ! Clump finder on cells violating Jeans criterion only
+  logical ::dt_control=.false.  ! Impose a time step using dtdiff_params
+  logical ::energy_fix=.false.  ! Use internal energy instead of total energy
+  logical ::radiative=.true.    ! Radiative transfer
+  logical ::extinction=.false.
+  logical ::simplechem=.false.  ! H2 formation only
+  real(dp)::p_UV   =1.0D0       ! Parameter of variation of G0 (UV) 
 
 
   ! Output times
@@ -247,6 +268,7 @@ module amr_parameters
   logical::print_when_io=.false.   !If true print when IO
   logical::synchro_when_io=.false. !If true synchronize when IO
 
-
+  ! Index for new SUM operator for MPI run
+  integer::MPI_SUMDD
 
 end module amr_parameters

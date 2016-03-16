@@ -140,6 +140,57 @@ subroutine backup_part(filename)
      end if
      deallocate(xdp)
   end if
+
+  ! Write tracer properties
+  if(tracer)then
+     allocate(xdp(1:npart))
+     ! Write density
+     ipart=0
+     do i=1,npartmax
+        if(levelp(i)>0)then
+           ipart=ipart+1
+           xdp(ipart)=rhop(i)
+        end if
+     end do
+     write(ilun)xdp
+     ipart=0
+     do i=1,npartmax
+        if(levelp(i)>0)then
+           ipart=ipart+1
+           xdp(ipart)=tpgp(i)
+        end if
+     end do
+     write(ilun)xdp
+     ipart=0
+     do i=1,npartmax
+        if(levelp(i)>0)then
+           ipart=ipart+1
+           xdp(ipart)=tprp(i)
+        end if
+     end do
+     write(ilun)xdp
+     ! Write extinction
+     ipart=0
+     do i=1,npartmax
+        if(levelp(i)>0)then
+           ipart=ipart+1
+           xdp(ipart)=extp(i)
+        end if
+     end do
+     write(ilun)xdp
+     ! Write Bfield
+     do idim=1,3
+        ipart=0
+        do i=1,npartmax
+           if(levelp(i)>0)then
+              ipart=ipart+1
+              xdp(ipart)=bfieldp(i,idim)
+           end if
+        end do
+        write(ilun)xdp
+     end do
+     deallocate(xdp)
+  end if
   close(ilun)
 
   ! Send the token

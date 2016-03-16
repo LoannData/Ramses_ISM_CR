@@ -268,7 +268,7 @@ subroutine backup_amr(filename)
   write(ilun)dtold(1:nlevelmax)
   write(ilun)dtnew(1:nlevelmax)
   write(ilun)nstep,nstep_coarse
-  write(ilun)const,mass_tot_0,rho_tot
+  write(ilun)conse,mass_tot_0,rho_tot
   write(ilun)omega_m,omega_l,omega_k,omega_b,h0,aexp_ini,boxlen_ini
   write(ilun)aexp,hexp,aexp_old,epot_tot_int,epot_tot_old
   write(ilun)mass_sph
@@ -399,12 +399,14 @@ subroutine output_info(filename)
   use amr_commons
   use hydro_commons
   use pm_commons
+  use radiation_parameters,only: mu_gas
+  use units_commons
   implicit none
   character(LEN=80)::filename
 
   integer::nx_loc,ny_loc,nz_loc,ilun,icpu,idom
   real(dp)::scale
-  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+!  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   character(LEN=80)::fileloc
   character(LEN=5)::nchar
 
@@ -413,7 +415,7 @@ subroutine output_info(filename)
   ilun=11
 
   ! Conversion factor from user units to cgs units
-  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  !call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   ! Local constants
   nx_loc=nx; ny_loc=ny; nz_loc=nz
@@ -447,6 +449,11 @@ subroutine output_info(filename)
   write(ilun,'("unit_l      =",E23.15)')scale_l
   write(ilun,'("unit_d      =",E23.15)')scale_d
   write(ilun,'("unit_t      =",E23.15)')scale_t
+  write(ilun,'("mu_gas      =",E23.15)')mu_gas  
+  write(ilun,'("ngrp        =",I11)')ngrp
+  write(ilun,'("nent        =",I11)')nent
+  write(ilun,'("npscal      =",I11)')npscal
+  write(ilun,'("nextinct    =",I11)')nextinct
   write(ilun,*)
   
   ! Write ordering information
@@ -463,6 +470,14 @@ subroutine output_info(filename)
      do idom=1,ndomain
         write(ilun,'(I8,1X,E23.15,1X,E23.15)')idom,bound_key(idom-1),bound_key(idom)
      end do
+  endif
+
+  write(ilun,*)
+  write(ilun,'("ir_cloud    =",I11)')ir_cloud
+  if(eos) then
+     write(ilun,'("eos         =",I11)')1
+  else
+     write(ilun,'("eos         =",I11)')0
   endif
 
   close(ilun)

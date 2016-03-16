@@ -77,6 +77,14 @@ subroutine backup_sink(filename)
         xdp(i)=acc_rate(i)
      end do
      write(ilun)xdp ! Write sink accretion rate
+     do i=1,nsink
+        xdp(i)=Teff_sink(i)
+     end do
+     write(ilun)xdp ! Write sink stellar effective temperature
+     do i=1,nsink
+        xdp(i)=rsink_star(i)
+     end do
+     write(ilun)xdp ! Write sink stellar radius
      deallocate(xdp)
      allocate(ii(1:nsink))
      do i=1,nsink
@@ -116,23 +124,28 @@ end subroutine backup_sink
 
 subroutine output_sink(filename)
   use amr_commons
+  use hydro_commons
   use pm_commons
+  use units_commons
   implicit none
   character(LEN=80)::filename
 
   integer::i,idim,ipart,isink
   integer::nx_loc,ny_loc,nz_loc,ilun,icpu,idom
   real(dp)::scale,l_abs,rot_period,dx_min
-  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_m
+!  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_m
+  real(dp)::star_mass,pi
   character(LEN=80)::fileloc
   character(LEN=5)::nchar
+  
+  pi=acos(-1.0d0)
 
   if(verbose)write(*,*)'Entering output_sink'
 
   ilun=myid+10
 
   ! Conversion factor from user units to cgs units                                                                   
-  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+!  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   scale_m=scale_d*scale_l**3d0
   nx_loc=(icoarse_max-icoarse_min+1)
   scale=boxlen/dble(nx_loc)
@@ -149,16 +162,23 @@ subroutine output_sink(filename)
   !======================
   write(ilun,*)'Number of sink = ',nsink
 
-  write(ilun,'(" ================================================================================================================================== ")')
-  write(ilun,'("        Id       Mass(Msol)             x                y                z               vx               vy               vz      ")')
-  write(ilun,'(" ================================================================================================================================== ")')
+  write(*,'(" ======================================================================================================================================================================================= ")')
+  write(*,'("  Id     M[Msol]    x           y           z           vx       vy       vz     rot_period[y] lx/|l|  ly/|l|  lz/|l| acc_rate[Msol/y] acc_lum[Lsol]  age[y]  int_lum[Lsol]     Teff [K] ")')
+  write(*,'(" ======================================================================================================================================================================================= ")')  
   
   do isink=1,nsink
+     star_mass=facc_star*msink(isink)
      l_abs=max((lsink(isink,1)**2+lsink(isink,2)**2+lsink(isink,3)**2)**0.5,1.d-50)
-     rot_period=32*3.1415*msink(isink)*(dx_min)**2/(5*l_abs+tiny(0.d0))
-     write(ilun,'(I10,7(2X,E15.7))')idsink(isink),msink(isink)*scale_m/2d33,xsink(isink,1:ndim),vsink(isink,1:ndim)
+     rot_period=32*pi*star_mass*(dx_min)**2/(5*l_abs+tiny(0.d0))
+     write(ilun,'(I5,2X,F9.5,3(2X,F10.7),3(2X,F7.4),2X,E13.3,3(2X,F6.3),5(2X,E11.3))')&
+          idsink(isink),msink(isink)*scale_m/Msun, &
+          xsink(isink,1:ndim),vsink(isink,1:ndim),&
+          rot_period*scale_t/year,lsink(isink,1)/l_abs,lsink(isink,2)/l_abs,lsink(isink,3)/l_abs,&
+          acc_rate(isink)*scale_m/Msun/(scale_t)*year,acc_lum(isink)/scale_t**2*scale_l**3*scale_d*scale_l**2/scale_t/Lsun,&
+          (t-tsink(isink))*scale_t/year,&
+          int_lum(isink)*scale_d*scale_l**3*scale_v**2/scale_t/Lsun,Teff_sink(isink)
   end do
-  write(ilun,'(" ================================================================================================================================== ")')
+  write(*,'(" ====================================================================================================================================================================================== ")')
   close(ilun)
 
 end subroutine output_sink
@@ -170,14 +190,26 @@ end subroutine output_sink
 subroutine output_sink_csv(filename)
   use amr_commons
   use pm_commons
+  use hydro_commons
+  use units_commons
   implicit none
   character(LEN=80)::filename,fileloc
 
   integer::ilun,icpu,isink
+  integer::i,idim,ipart
+  integer::nx_loc,ny_loc,nz_loc
+  real(dp)::scale,l_abs,star_mass,rot_period,dx_min,pi
+  character(LEN=5)::nchar
 
   if(verbose)write(*,*)'Entering output_sink_csv'
 
+  pi=acos(-1.0d0)
+
   ilun=2*ncpu+myid+10
+
+  nx_loc=(icoarse_max-icoarse_min+1)
+  scale=boxlen/dble(nx_loc)
+  dx_min=scale*0.5D0**nlevelmax/aexp
 
   fileloc=TRIM(filename)
   open(unit=ilun,file=TRIM(fileloc),form='formatted',status='replace', recl=500)
@@ -185,11 +217,21 @@ subroutine output_sink_csv(filename)
   ! Write sink properties
   !======================
   do isink=1,nsink
-     write(ilun,'(I10,12(A1,ES20.10))')idsink(isink),',',msink(isink),&
-          ',',xsink(isink,1),',',xsink(isink,2),',',xsink(isink,3),&
-          ',',vsink(isink,1),',',vsink(isink,2),',',vsink(isink,3),&
-          ',',lsink(isink,1),',',lsink(isink,2),',',lsink(isink,3),&
-          ',',t-tsink(isink),',',dMBHoverdt(isink)
+     star_mass=facc_star*msink(isink)
+     l_abs=max((lsink(isink,1)**2+lsink(isink,2)**2+lsink(isink,3)**2)**0.5,1.d-50)
+     rot_period=32*pi*star_mass*(dx_min)**2/(5*l_abs+tiny(0.d0))
+     write(ilun,'(I10,16(A1,ES20.10))')&
+          idsink(isink),',', &
+          msink(isink)*scale_m/Msun,',',&
+          xsink(isink,1),',',xsink(isink,2),',',xsink(isink,3),',',&
+          vsink(isink,1),',',vsink(isink,2),',',vsink(isink,3),',',&
+          rot_period*scale_t/year,',',&
+          lsink(isink,1)/l_abs,',',lsink(isink,2)/l_abs,',',lsink(isink,3)/l_abs,',',&
+          acc_rate(isink)*scale_m/Msun/(scale_t)*year,',',&
+          acc_lum(isink)/scale_t**2*scale_l**3*scale_d*scale_l**2/scale_t/Lsun,',',&
+          (t-tsink(isink))*scale_t/year,',',&
+          int_lum(isink)*scale_d*scale_l**3*scale_v**2/scale_t/Lsun,',',&
+          Teff_sink(isink)
   end do
 
   close(ilun)

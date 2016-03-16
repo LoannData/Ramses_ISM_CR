@@ -18,7 +18,7 @@ module amr_commons
   real(dp)::epot_tot=0.0D0                      ! Total potential energy
   real(dp)::epot_tot_old=0.0D0                  ! Old potential energy
   real(dp)::epot_tot_int=0.0D0                  ! Time integrated potential
-  real(dp)::const=0.0D0                         ! Energy conservation
+  real(dp)::conse=0.0D0                         ! Energy conservation
   real(dp)::aexp_old=1.0D0                      ! Old expansion factor
   real(dp)::rho_tot=0.0D0                       ! Mean density in the box
   real(dp)::t=0.0D0                             ! Time variable
@@ -50,6 +50,12 @@ module amr_commons
   real(dp),dimension(1:MAXLEVEL)::rho_max     ! Maximum density at each level
   integer ,dimension(1:MAXLEVEL)::nsubcycle=2 ! Subcycling at each level
 
+  ! modif nimhd
+  integer,dimension(1:MAXLEVEL)::nsts=0
+  real(dp),dimension(1:MAXLEVEL)::dtambdiff,dtwad,dtmagdiff,dthall,dtsts
+  real(dp),dimension(1:MAXLEVEL)::dtambdiffold,dtwadold,dtmagdiffold,dthallold
+  ! fin modif nimhd
+ 
   ! Pointers for each level linked list
   integer,allocatable,dimension(:,:)::headl
   integer,allocatable,dimension(:,:)::taill
@@ -131,9 +137,9 @@ module amr_commons
 
   ! Units specified by the user in the UNITS_PARAMS namelist for non-cosmo runs.
   ! These values shouldn't be used directly. Instead call units() in amr/units.f90.
-  real(dp)::units_density=1.0  ! [g/cm^3]
-  real(dp)::units_time=1.0     ! [seconds]
-  real(dp)::units_length=1.0   ! [cm]
+  real(dp)::units_density=1.0d0  ! [g/cm^3]
+  real(dp)::units_time=1.0d0     ! [seconds]
+  real(dp)::units_length=1.0d0   ! [cm]
 
 end module amr_commons
 

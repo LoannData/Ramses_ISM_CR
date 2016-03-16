@@ -40,18 +40,49 @@ subroutine file_descriptor_hydro(filename)
   write(ilun,'("variable #",I2,": B_right_y")')ivar
   ivar=10
   write(ilun,'("variable #",I2,": B_right_z")')ivar
-#if NENER>0
+#if NENER>NGRP
   ! Non-thermal pressures
-  do ivar=11,10+nener
-     write(ilun,'("variable #",I2,": non_thermal_pressure_",I1)')ivar,ivar-10
+  do ivar=1,nent
+     write(ilun,'("variable #",I2,": non_thermal_pressure_",I1)')10+ivar,ivar
   end do
 #endif
-  ivar=11+nener
+  ivar=11+nent
   write(ilun,'("variable #",I2,": thermal_pressure")')ivar
-#if NVAR>8+NENER
+#if NGRP>0
+  ! Radiative energies
+  do ivar=12+nent,11+nener
+     write(ilun,'("variable #",I2,": radiative_energy_",I1)')ivar,ivar-11-nent
+  end do
+#endif
+#if USE_M_1==1
+  ! Radiative fluxes
+  do ivar=12+nener,11+nener+ngrp
+     write(ilun,'("variable #",I2,": radiative_flux_x",I1)')ivar,ivar-11-nener
+  end do
+  do ivar=13+nener+ngrp,12+nener+2*ngrp
+     write(ilun,'("variable #",I2,": radiative_flux_y",I1)')ivar,ivar-12-nener-ngrp
+  end do
+  do ivar=14+nener+2*ngrp,13+nener+3*ngrp
+     write(ilun,'("variable #",I2,": radiative_flux_z",I1)')ivar,ivar-13-nener-2*ngrp
+  end do
+#endif
+#if NEXTINCT>0
+  ! Extinction
+#if USE_FLD==1
+  do ivar=12+nener,11+nener+nextinct
+     write(ilun,'("variable #",I2,": extinction",I1)')ivar,ivar-11-nener
+  end do
+#endif
+#if USE_M_1==1
+  do ivar=12+nener+ndim*ngrp,11+nener+ndim*ngrp+nextinct
+     write(ilun,'("variable #",I2,": extinction",I1)')ivar,ivar-11-nener-ndim*ngrp
+  end do
+#endif
+#endif
+#if NPSCAL>0
   ! Passive scalars
-  do ivar=12+nener,nvar+3
-     write(ilun,'("variable #",I2,": passive_scalar_",I1)')ivar,ivar-11-nener
+  do ivar=1,npscal
+     write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+ivar,ivar
   end do
 #endif
 
@@ -68,9 +99,9 @@ subroutine backup_hydro(filename)
 #endif
   character(LEN=80)::filename
 
-  integer::i,ivar,ncache,ind,ilevel,igrid,iskip,ilun,istart,ibound,irad
-  real(dp)::d,u,v,w,A,B,C,e
+  integer::i,ivar,ncache,ind,ilevel,igrid,iskip,ilun,istart,ibound,irad,ht
   integer,allocatable,dimension(:)::ind_grid
+  real(dp)::d,u,v,w,A,B,C,e,cmp_temp,p
   real(dp),allocatable,dimension(:)::xdp
   character(LEN=5)::nchar
   character(LEN=80)::fileloc
@@ -95,7 +126,11 @@ subroutine backup_hydro(filename)
 #endif
   open(unit=ilun,file=fileloc,form='unformatted')
   write(ilun)ncpu
-  write(ilun)nvar+3
+  if(eos) then 
+     write(ilun)nvar+3+1
+  else
+     write(ilun)nvar+3
+  endif
   write(ilun)ndim
   write(ilun)nlevelmax
   write(ilun)nboundary
@@ -146,11 +181,11 @@ subroutine backup_hydro(filename)
                  end do
                  write(ilun)xdp
               end do
-#if NENER>0
+#if NENER>NGRP
               ! Write non-thermal pressures
-              do ivar=9,8+nener
+              do ivar=1,nent
                  do i=1,ncache
-                    xdp(i)=(gamma_rad(ivar-8)-1d0)*uold(ind_grid(i)+iskip,ivar)
+                    xdp(i)=(gamma_rad(ivar)-1d0)*uold(ind_grid(i)+iskip,8+ivar)
                  end do
                  write(ilun)xdp
               end do
@@ -169,17 +204,74 @@ subroutine backup_hydro(filename)
                     e=e-uold(ind_grid(i)+iskip,8+irad)
                  end do
 #endif
-                 xdp(i)=(gamma-1d0)*e
+                 if(.not.eos)then
+                    xdp(i)=(gamma-1d0)*e
+                 else
+                    call pressure_eos(d,e,p)
+                    xdp(i)=p
+                 endif
               end do
               write(ilun)xdp
-#if NVAR > 8+NENER
-              do ivar=9+nener,nvar ! Write passive scalars if any
+
+#if NGRP>0
+              do ivar=1,ngrp ! Write radiative energy if any
                  do i=1,ncache
-                    xdp(i)=uold(ind_grid(i)+iskip,ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
+                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_er+ivar)
+                 end do
+                 write(ilun)xdp
+              end do
+#if USE_M_1==1
+              do ivar=1,nfr ! Write radiative flux if any
+                 do i=1,ncache
+                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_fr+ivar)
                  end do
                  write(ilun)xdp
               end do
 #endif
+#endif
+#if NEXTINCT>0
+              ! Write extinction if activated
+              do i=1,ncache
+                 xdp(i)=uold(ind_grid(i)+iskip,firstindex_nextinct+1)
+              end do
+              write(ilun)xdp
+#endif
+
+#if NPSCAL>0
+              do ivar=1,npscal ! Write passive scalars if any
+                 do i=1,ncache
+                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
+                 end do
+                 write(ilun)xdp
+              end do
+#endif
+
+              if(eos) then
+                 ! Write temperature
+                 do i=1,ncache
+                    d=max(uold(ind_grid(i)+iskip,1),smallr)
+                    if(energy_fix) then
+                       e=uold(ind_grid(i)+iskip,nvar)
+                    else
+                       u=uold(ind_grid(i)+iskip,2)/d
+                       v=uold(ind_grid(i)+iskip,3)/d
+                       w=uold(ind_grid(i)+iskip,4)/d
+                       A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
+                       B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
+                       C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
+                       e=uold(ind_grid(i)+iskip,5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
+#if NENER>0
+                       do irad=1,nener
+                          e=e-uold(ind_grid(i)+iskip,8+irad)
+                       end do
+#endif
+                    endif
+                    call temperature_eos(d,e,cmp_temp,ht)
+                    xdp(i)=cmp_temp
+                 end do
+                 write(ilun)xdp
+              endif
+
            end do
            deallocate(ind_grid, xdp)
         end if

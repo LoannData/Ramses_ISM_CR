@@ -11,7 +11,7 @@ amrlev = data[:,0]
 x      = data[:,1]
 rho    = data[:,2]
 u      = data[:,3]
-p      = data[:,4]
+p      = data[:,6]
 
 # Read analytical solution
 data_ana = loadtxt('sod-tube-ana.dat')

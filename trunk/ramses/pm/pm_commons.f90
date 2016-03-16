@@ -6,6 +6,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)::msink,c2sink,oksink_new,oksink_all
   real(dp),allocatable,dimension(:)::tsink,tsink_new,tsink_all
   real(dp),allocatable,dimension(:)::msink_new,msink_all
+  real(dp),allocatable,dimension(:)::msink_star,rsink_star,sink_star_accrate,tsink_star
   real(dp),allocatable,dimension(:)::mseed,mseed_new,mseed_all
   real(dp),allocatable,dimension(:)::xmsink
   real(dp),allocatable,dimension(:)::dMsink_overdt,dMBHoverdt
@@ -20,7 +21,6 @@ module pm_commons
   real(dp),allocatable,dimension(:,:,:)::fsink_partial,sink_jump
   real(dp),allocatable,dimension(:,:)::lsink,lsink_new,lsink_all!sink angular momentum
   real(dp),allocatable,dimension(:,:)::xsink,xsink_new,xsink_all
-  real(dp),allocatable,dimension(:)::acc_rate,acc_lum !sink accretion rate and luminosity
   real(dp),allocatable,dimension(:,:)::weighted_density,weighted_volume,weighted_ethermal,weighted_divergence
   real(dp),allocatable,dimension(:,:,:)::weighted_momentum
   real(dp),allocatable,dimension(:)::dt_acc                ! maximum timestep allowed by the sink
@@ -35,6 +35,10 @@ module pm_commons
   integer::sinkint_level=0         ! maximum level currently active is where the global sink variables are updated
   real(dp)::ssoft                  ! sink softening lenght in code units
 
+  real(dp),allocatable,dimension(:)::lum_sink,lum_sink_new,lum_sink_all !sink luminosity
+  real(dp),allocatable,dimension(:)::Teff_sink !sink stellar effective temperature
+  real(dp),allocatable,dimension(:)::acc_rate,acc_lum,int_lum !sink accretion rate and luminosity
+  integer,allocatable,dimension(:)::nburst
 
   ! Particles related arrays
   real(dp),allocatable,dimension(:,:)::xp       ! Positions
@@ -59,6 +63,12 @@ module pm_commons
   ! Local and current seed for random number generator
   integer,dimension(IRandNumSize) :: localseed=-1
 
+  ! Tracer particles related arrays          
+  real(dp),allocatable,dimension(:)  ::rhop      ! Gas density 
+  real(dp),allocatable,dimension(:)  ::tprp      ! Radiative temperature  
+  real(dp),allocatable,dimension(:)  ::tpgp      ! Gas temperature    
+  real(dp),allocatable,dimension(:)  ::extp      ! Extinction
+  real(dp),allocatable,dimension(:,:)  ::bfieldp      ! Bfield
 
   contains
   function cross(a,b)

@@ -3,9 +3,11 @@ subroutine read_params
   use pm_parameters
   use poisson_parameters
   use hydro_parameters
+  use radiation_parameters
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  external DDPDD
 #endif
   !--------------------------------------------------
   ! Local variables
@@ -25,7 +27,8 @@ subroutine read_params
   !--------------------------------------------------
   namelist/run_params/clumpfind,cosmo,pic,sink,lightcone,poisson,hydro,rt,verbose,debug &
        & ,nrestart,ncontrol,nstepmax,nsubcycle,nremap,ordering &
-       & ,bisec_tol,static,geom,overload,cost_weighting,aton
+       & ,bisec_tol,static,geom,overload,cost_weighting,aton &
+       & ,FLD,tracer,extinction,DTU,radiative_nimhdheating
   namelist/output_params/noutput,foutput,fbackup,aout,tout,output_mode &
        & ,tend,delta_tout,aend,delta_aout,gadget_output
   namelist/amr_params/levelmin,levelmax,ngridmax,ngridtot &
@@ -44,6 +47,8 @@ subroutine read_params
   call MPI_COMM_RANK(MPI_COMM_WORLD,myid,ierr)
   call MPI_COMM_SIZE(MPI_COMM_WORLD,ncpu,ierr)
   myid=myid+1 ! Careful with this...
+  ! operator MPI_SUMDD is created based on an external function DDPDD.
+  call MPI_OP_CREATE (DDPDD, .TRUE., MPI_SUMDD, ierr)
 #endif
 #ifdef WITHOUTMPI
   ncpu=1

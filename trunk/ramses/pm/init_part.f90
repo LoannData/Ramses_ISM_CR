@@ -1,7 +1,9 @@
 subroutine init_part
   use amr_commons
-  use pm_commons
+  use pm_commons  
+  use hydro_parameters
   use clfind_commons
+  use units_commons
 
 #ifdef RT
   use rt_parameters,only: convert_birth_times
@@ -85,6 +87,19 @@ subroutine init_part
         allocate(zp(npartmax))
         zp=0.0
      end if
+  end if
+
+  if(tracer)then
+     allocate(rhop  (npartmax))
+     allocate(tpgp  (npartmax))
+     allocate(tprp  (npartmax))
+     allocate(extp  (npartmax))
+     allocate(bfieldp(npartmax,1:3))
+     rhop=0.0d0
+     tprp=0.0d0
+     tpgp=0.0d0
+     extp=0.0d0
+     bfieldp=0.0d0
   end if
 
   !--------------------
@@ -723,9 +738,9 @@ subroutine init_part
                  read(10,*,end=100)xx1,xx2,xx3,vv1,vv2,vv3,mm1
                  jpart=jpart+1
                  indglob=indglob+1
-                 xx(i,1)=xx1+boxlen/2.0
-                 xx(i,2)=xx2+boxlen/2.0
-                 xx(i,3)=xx3+boxlen/2.0
+                 xx(i,1)=xx1*boxlen!+boxlen/2.0
+                 xx(i,2)=xx2*boxlen!+boxlen/2.0
+                 xx(i,3)=xx3*boxlen!+boxlen/2.0
                  vv(i,1)=vv1
                  vv(i,2)=vv2
                  vv(i,3)=vv3

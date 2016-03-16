@@ -72,6 +72,15 @@ subroutine add_free(ind_part,np)
         end do
      end if
   end if
+  if(tracer)then
+     do j=1,np
+        rhop(ind_part(j))=0.0
+        tprp(ind_part(j))=0.0
+        tpgp(ind_part(j))=0.0
+        extp(ind_part(j))=0.0
+        bfieldp(ind_part(j),1:3)=0.0
+     end do
+  end if
 
   do j=1,np
      if(numbp_free>0)then
@@ -138,6 +147,18 @@ subroutine add_free_cond(ind_part,ok,np)
            endif
         end do
      end if
+  end if
+
+  if(tracer)then
+     do j=1,np
+        if(ok(j))then
+           rhop(ind_part(j))=0.0
+           tprp(ind_part(j))=0.0
+           tpgp(ind_part(j))=0.0
+           extp(ind_part(j))=0.0
+           bfieldp(ind_part(j),1:3)=0.0
+        end if
+     end do
   end if
 
   do j=1,np

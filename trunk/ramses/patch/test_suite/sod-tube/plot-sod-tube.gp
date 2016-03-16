@@ -59,7 +59,7 @@ set bmargin at screen marginy1
 set tmargin at screen (marginy1+dypanel)
 
 set ylabel 'Pressure (g/cm/s2)' offset 2.0
-plot file1 u 2:5 lc 0 lt 6, file2 u 2:5 w l lw lwidth lt 1
+plot file1 u 2:7 lc 0 lt 6, file2 u 2:5 w l lw lwidth lt 1
 
 unset multiplot
 

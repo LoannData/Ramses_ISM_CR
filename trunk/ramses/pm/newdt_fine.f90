@@ -28,6 +28,14 @@ subroutine newdt_fine(ilevel)
   real(dp)::aton_time_step,dt_aton,dt_rt
   real(dp)::dx_min,dx,scale,dt_fact,limiting_dt_fact
   logical::highest_level
+#if NIMHD==1
+  ! modif nimhd
+  real(dp)::dtwad_loc,dtwad_all
+  real(dp)::dtambdiff_loc,dtambdiff_all
+  real(dp)::dtmagdiff_loc,dtmagdiff_all
+  real(dp)::dthall_loc,dthall_all
+  ! fin modif nimhd
+#endif
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
@@ -37,8 +45,25 @@ subroutine newdt_fine(ilevel)
   ! Save old time step
   dtold(ilevel)=dtnew(ilevel)
 
+#if NIMHD==1
+  ! modif nimhd
+  dtambdiffold(ilevel)=dtambdiff(ilevel)
+  dtmagdiffold(ilevel)=dtmagdiff(ilevel)
+  dtwadold(ilevel)=dtwad(ilevel)
+  dthallold(ilevel)=dthall(ilevel)
+  ! fin modif nimhd
+#endif
+
   ! Maximum time step
   dtnew(ilevel)=boxlen/smallc
+#if NIMHD==1
+  ! modif nimhd
+  dtambdiff(ilevel)=dtnew(ilevel)
+  dtmagdiff(ilevel)=dtnew(ilevel)
+  dtwad(ilevel)=dtnew(ilevel)
+  dthall(ilevel)=dtnew(ilevel)
+  ! fin modif nimhd
+#endif
   if(poisson.and.gravity_type<=0)then
      fourpi=4.0d0*ACOS(-1.0d0)
      if(cosmo)fourpi=1.5d0*omega_m*aexp
@@ -76,6 +101,15 @@ subroutine newdt_fine(ilevel)
   if(pic) then
 
      dt_all=dtnew(ilevel); dt_loc=dt_all
+#if NIMHD==1
+     ! modif nimhd
+     dtambdiff_all=dtambdiff(ilevel); dtambdiff_loc=dtambdiff_all
+     dtmagdiff_all=dtmagdiff(ilevel); dtmagdiff_loc=dtambdiff_all
+     dtwad_all=dtwad(ilevel); dtwad_loc=dtwad_all
+     dthall_all=dthall(ilevel); dthall_loc=dthall_all
+     ! fin modif nimhd
+#endif
+
      ekin_all=0.0; ekin_loc=0.0
      
      ! Compute maximum time step on active region

@@ -195,10 +195,24 @@ subroutine update_time(ilevel)
   real(dp)::dt,econs,mcons
   real(kind=8)::ttend
   real(kind=8),save::ttstart=0
+#if NIMHD==1
+  ! modif nimhd
+  real(dp)::dtad,dtalf,dtmd,dtwithoutad,dthal,dtne
+  ! fin modif nimhd
+#endif
   integer::i,itest,info
 
   ! Local constants
   dt=dtnew(ilevel)
+#if NIMHD==1
+  ! modif nimhd
+  dtad=dtambdiff(ilevel)
+  dtwithoutad=dtwad(ilevel)
+  dtne=dtnew(ilevel)
+  dtmd=dtmagdiff(ilevel)
+  dthal=dthall(ilevel)
+  ! fin modif nimhd
+#endif
   itest=0
 
 #ifndef WITHOUTMPI
@@ -232,12 +246,12 @@ subroutine update_time(ilevel)
      end if
      epot_tot_old=epot_tot
      aexp_old=aexp
-     if(const==0.0D0)then
-        const=epot_tot+ekin_tot  ! initial total energy
+     if(conse==0.0D0)then
+        conse=epot_tot+ekin_tot  ! initial total energy
         econs=0.0D0
      else
-        econs=(ekin_tot+epot_tot-epot_tot_int-const) / &
-             &(-(epot_tot-epot_tot_int-const)+ekin_tot)
+        econs=(ekin_tot+epot_tot-epot_tot_int-conse) / &
+             &(-(epot_tot-epot_tot_int-conse)+ekin_tot)
      end if
 
      if(mod(nstep_coarse,ncontrol)==0.or.output_done)then
@@ -257,7 +271,10 @@ subroutine update_time(ilevel)
            if(cooling.or.pressure_fix)then
               write(*,778)nstep_coarse,econs,epot_tot,ekin_tot,eint_tot
            else
-              write(*,777)nstep_coarse,mcons,econs,epot_tot,ekin_tot
+              ! modif nimhd
+!               write(*,777)nstep_coarse,mcons,econs,epot_tot,ekin_tot
+              write(*,779)nstep_coarse,econs,epot_tot,ekin_tot,eint_tot,emag_tot
+              ! fin modif nimhd
            end if
 #ifdef SOLVERmhd
            write(*,'(" emag=",ES9.2)') emag_tot
@@ -270,6 +287,13 @@ subroutine update_time(ilevel)
               write(*,888)nstep,t,dt,aexp,&
                    & real(100.0D0*dble(used_mem_tot)/dble(ngridmax+1))
            endif
+#if NIMHD==1
+           ! modif nimhd
+           if((nambipolar==1) .or. (nmagdiffu==1) .or. (nhall==1))then
+              write(*,889)dtad,dtmd,dthal,dtwithoutad,dtne
+           endif
+           ! fin modif nimhd
+#endif
            itest=1
         end if
         output_done=.false.
@@ -340,6 +364,12 @@ subroutine update_time(ilevel)
 888 format(' Fine step=',i6,' t=',1pe12.5,' dt=',1pe10.3, &
          & ' a=',1pe10.3,' mem=',0pF4.1,'% ',0pF4.1,'%')
 999 format(' Level ',I2,' has ',I10,' grids (',3(I8,','),')')
+! modif nimhd
+779 format(' Main step=',i6,' econs=',1pe9.2, &
+         & ' epot=',1pe9.2,' ekin=',1pe9.2,' eint=',1pe9.2,' emag=',1pe9.2)
+889 format(' ambip diff time=',1pe10.3,' mag diff time=',1pe10.3,&
+         & ' Hall effect time=',1pe10.3,' time ideal mhd=',1pe10.3,' time new=',1pe10.3)
+! fin modif nimhd
  
 end subroutine update_time
   

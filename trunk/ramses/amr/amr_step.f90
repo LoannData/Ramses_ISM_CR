@@ -23,6 +23,10 @@ recursive subroutine amr_step(ilevel,icount)
   integer::i,idim,ivar
   logical::ok_defrag
   logical,save::first_step=.true.
+#if NIMHD==1
+  !!! sts !!!
+  real(kind=dp) :: dtminlocsts
+#endif
 
   if(numbtot(1,ilevel)==0)return
 
@@ -260,6 +264,10 @@ recursive subroutine amr_step(ilevel,icount)
   if(rt .and. rt_star) call update_star_RT_feedback(ilevel)
 #endif
 
+#if USE_FLD==1
+  ! Compute radiative acceleration
+  if(fld)call rad_force_fine(ilevel)
+#endif
   !----------------------
   ! Compute new time step
   !----------------------
@@ -267,7 +275,38 @@ recursive subroutine amr_step(ilevel,icount)
   call newdt_fine(ilevel)
   if(ilevel>levelmin)then
      dtnew(ilevel)=MIN(dtnew(ilevel-1)/real(nsubcycle(ilevel-1)),dtnew(ilevel))
+#if NIMHD==1
+     ! modif nimhd
+     if((nmagdiffu2==0.and.nmagdiffu==1).or.&
+          &(nambipolar2==0.and.nambipolar==1))then
+        dtambdiff(ilevel)=MIN(dtambdiff(ilevel-1)/real(nsubcycle(ilevel-1)),dtambdiff(ilevel))
+        dtmagdiff(ilevel)=MIN(dtmagdiff(ilevel-1)/real(nsubcycle(ilevel-1)),dtmagdiff(ilevel))
+        dtwad(ilevel)=MIN(dtwad(ilevel-1)/real(nsubcycle(ilevel-1)),dtwad(ilevel))
+        dthall(ilevel)=MIN(dthall(ilevel-1)/real(nsubcycle(ilevel-1)),dthall(ilevel))
+     end if
+     ! fin modif nimhd
+#endif
   end if
+#if NIMHD==1
+  if((nmagdiffu2==1.and.nmagdiffu==0).or.&
+       &(nambipolar2==1.and.nambipolar==0))then
+     !  dtminlocsts=min(dtambdiff(ilevel),dtmagdiff(ilevel))
+     dtminlocsts=1.0d0/dtambdiff(ilevel)+1.0d0/dtmagdiff(ilevel)
+     dtminlocsts=1.0d0/dtminlocsts
+     nsts(ilevel)=min(100,floor(sqrt(dtnew(ilevel)/dtminlocsts))+1)
+     
+     if (nsts(ilevel) > 0) then 
+!!$     dtsts(ilevel)=(dtminlocsts*nsts(ilevel)**2 * &
+!!$        & ( ((1.d0+1.d0/(2.d0*nsts(ilevel)))**(2*nsts(ilevel)) - (1.d0-1.d0/(2.d0*nsts(ilevel)))**(2*nsts(ilevel))) &
+!!$        &  / ((1.d0+1.d0/(2.d0*nsts(ilevel)))**(2*nsts(ilevel)) + (1.d0-1.d0/(2.d0*nsts(ilevel)))**(2*nsts(ilevel)))  ) )
+
+        dtsts(ilevel) = dtminlocsts*nsts(ilevel)/(2.*sqrt(nu_sts))*((1.+sqrt(nu_sts))**(2.*nsts(ilevel))-(1.-sqrt(nu_sts))**(2.*nsts(ilevel))) &         ! somme des dtsts, theorique
+             & /((1.+sqrt(nu_sts))**(2.*nsts(ilevel))+(1.-sqrt(nu_sts))**(2.*nsts(ilevel)))
+        
+        dtnew(ilevel)=min(dtnew(ilevel),dtsts(ilevel))
+     end if
+  end if
+#endif
 
   ! Set unew equal to uold
                                call timer('hydro - set unew','start')
@@ -293,7 +332,28 @@ recursive subroutine amr_step(ilevel,icount)
      else 
         ! Otherwise, update time and finer level time-step
         dtold(ilevel+1)=dtnew(ilevel)/dble(nsubcycle(ilevel))
+#if NIMHD==1
+        if((nmagdiffu2==0.and.nmagdiffu==1).or.&
+             &(nambipolar2==0.and.nambipolar==1))then
+           dtambdiffold(ilevel+1)=dtambdiff(ilevel)/dble(nsubcycle(ilevel))
+           dtmagdiffold(ilevel+1)=dtmagdiff(ilevel)/dble(nsubcycle(ilevel))
+           dtwadold(ilevel+1)=dtwad(ilevel)/dble(nsubcycle(ilevel))
+           dthallold(ilevel+1)=dthall(ilevel)/dble(nsubcycle(ilevel))
+        end if
+        ! fin modif nimhd
+#endif
         dtnew(ilevel+1)=dtnew(ilevel)/dble(nsubcycle(ilevel))
+#if NIMHD==1
+        ! modif nimhd
+        if((nmagdiffu2==0.and.nmagdiffu==1).or.&
+             &(nambipolar2==0.and.nambipolar==1))then
+           dtambdiff(ilevel+1)=dtambdiff(ilevel)/dble(nsubcycle(ilevel))
+           dtmagdiff(ilevel+1)=dtmagdiff(ilevel)/dble(nsubcycle(ilevel))
+           dtwad(ilevel+1)=dtwad(ilevel)/dble(nsubcycle(ilevel))
+           dthall(ilevel+1)=dthall(ilevel)/dble(nsubcycle(ilevel))
+        end if
+        ! fin modif nimhd
+#endif
         call update_time(ilevel)
         if(sink)call update_sink(ilevel)
      end if
@@ -380,8 +440,11 @@ recursive subroutine amr_step(ilevel,icount)
      if(ilevel==levelmin) call output_rt_stats
   endif
 #else
+  !--------------------------------
+  ! Source terms in leaf cells only
+  !--------------------------------
                                call timer('cooling','start')
-  if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
+  if((neq_chem.or.cooling .or. barotrop .or. extinction) .and. T2_star>0.0)call cooling_fine(ilevel)
 #endif
   
   !---------------
@@ -397,6 +460,13 @@ recursive subroutine amr_step(ilevel,icount)
   !----------------------------------
                                call timer('feedback','start')
   if(hydro.and.star)call star_formation(ilevel)
+
+#if USE_FLD==1
+  ! Compute radiative feedback if radiative transfer with FLD on
+  if(FLD)then
+     if(rt_feedback .and. sink .and. nsink .gt. 0)call radiative_feedback_sink(ilevel)
+  end if
+#endif
 
   !---------------------------------------
   ! Update physical and virtual boundaries
@@ -421,11 +491,74 @@ recursive subroutine amr_step(ilevel,icount)
   ! Magnetic diffusion step
  if(hydro)then
      if(eta_mag>0d0.and.ilevel==levelmin)then
-                               call timer('hydro - diffusion','start')
+                               call timer('mhd - diffusion','start')
         call diffusion
      endif
   end if
 #endif
+
+#if NIMHD==1
+#ifdef SOLVERmhd
+  ! STS for magnetic diffusion effects
+  if(((nmagdiffu2==1.and.nmagdiffu==0).or.&
+    &(nambipolar2==1.and.nambipolar==0)) .and. (.not.DTU))then
+                               call timer('nimhd - diffusion_sts','start')
+     call diffusion_sts(ilevel,icount)
+  end if
+#endif
+#endif
+
+#if USE_FLD==1  
+  ! Radiation diffusion step
+  if(FLD)then
+                               call timer('radiative transfer','start')
+     call diffusion_cg(ilevel,icount)
+  end if
+#endif
+  
+  ! Update boundaries 
+                               call timer('hydro - ghostzones','start')
+#ifdef SOLVERmhd
+  do ivar=1,nvar+3
+#else
+     do ivar=1,nvar
+#endif
+        call make_virtual_fine_dp(uold(1,ivar),ilevel)
+#ifdef SOLVERmhd
+     end do
+#else
+  end do
+#endif
+  if(simple_boundary)call make_boundary_hydro(ilevel)
+
+#if NIMHD==1
+#ifdef SOLVERmhd
+  ! Magnetic diffusion step
+ if(hydro)then
+  if(((nmagdiffu2==1.and.nmagdiffu==0).or.&
+    &(nambipolar2==1.and.nambipolar==0)) .and.&
+    &ilevel==levelmin .and. DTU)then
+                               call timer('nimhd - diffusion_sts_dtu','start')
+        call diffusion_sts_dtu
+     endif
+  end if
+#endif
+#endif
+
+  ! Update boundaries 
+                               call timer('hydro - ghostzones','start')
+#ifdef SOLVERmhd
+  do ivar=1,nvar+3
+#else
+     do ivar=1,nvar
+#endif
+        call make_virtual_fine_dp(uold(1,ivar),ilevel)
+#ifdef SOLVERmhd
+     end do
+#else
+  end do
+#endif
+  if(simple_boundary)call make_boundary_hydro(ilevel)
 
   !-----------------------
   ! Compute refinement map
@@ -473,6 +606,29 @@ recursive subroutine amr_step(ilevel,icount)
   if(ilevel>levelmin)then
      if(nsubcycle(ilevel-1)==1)dtnew(ilevel-1)=dtnew(ilevel)
      if(icount==2)dtnew(ilevel-1)=dtold(ilevel)+dtnew(ilevel)
+#if NIMHD==1
+    ! modif nimhd
+     if((nmagdiffu2==0.and.nmagdiffu==1).or.&
+          &(nambipolar2==0.and.nambipolar==1))then
+        if(nsubcycle(ilevel-1)==1)dtambdiff(ilevel-1)=dtambdiff(ilevel)
+        !if((icount==2) .and. (nambipolar2 == 0) ) dtambdiff(ilevel-1)=dtambdiffold(ilevel)+dtambdiff(ilevel)
+        !if ((icount==2) .and. (nambipolar2 == 1)) dtambdiff(ilevel-1)=dtambdiff(ilevel)
+        if (icount==2) dtambdiff(ilevel-1)=dtambdiffold(ilevel)+dtambdiff(ilevel)
+        
+        if(nsubcycle(ilevel-1)==1)dtmagdiff(ilevel-1)=dtmagdiff(ilevel)
+        !     if  ((icount==2) .and. (nmagdiffu2 == 0)) dtmagdiff(ilevel-1)=dtmagdiffold(ilevel)+dtmagdiff(ilevel)
+        !     if ((icount==2) .and. (nmagdiffu2 == 1)) dtmagdiff(ilevel-1)=dtmagdiff(ilevel)
+        if  (icount==2) dtmagdiff(ilevel-1)=dtmagdiffold(ilevel)+dtmagdiff(ilevel)
+        
+        
+        if(nsubcycle(ilevel-1)==1)dtwad(ilevel-1)=dtwad(ilevel)
+        if(icount==2)dtwad(ilevel-1)=dtwadold(ilevel)+dtwad(ilevel)
+        
+        if(nsubcycle(ilevel-1)==1)dthall(ilevel-1)=dthall(ilevel)
+        if(icount==2)dthall(ilevel-1)=dthallold(ilevel)+dthall(ilevel)
+     end if
+     ! fin modif nimhd
+#endif
   end if
 
 999 format(' Entering amr_step',i1,' for level',i2)

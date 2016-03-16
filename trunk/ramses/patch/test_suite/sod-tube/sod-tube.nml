@@ -33,6 +33,7 @@ p_region=1.0,0.1
 
 &OUTPUT_PARAMS
 noutput=1
+foutput=1
 tout=0.245
 /
 
@@ -40,7 +41,7 @@ tout=0.245
 gamma=1.4
 courant_factor=0.8
 slope_type=2
-riemann='hllc'
+riemann='hlld'
 /
 
 &REFINE_PARAMS 

@@ -1,12 +1,13 @@
 subroutine init_sink
   use amr_commons
   use pm_commons
+  use hydro_parameters
   use clfind_commons
+  use units_commons
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
 #endif
-  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   integer::idim
   integer::i,isink
   integer::ilun,nx_loc
@@ -109,8 +110,22 @@ subroutine init_sink
   allocate(ok_blast_agn(1:nsinkmax),ok_blast_agn_all(1:nsinkmax))
   allocate(direct_force_sink(1:nsinkmax))
   allocate(new_born(1:nsinkmax),new_born_all(1:nsinkmax),new_born_new(1:nsinkmax))
+  allocate(lum_sink(1:nsinkmax),lum_sink_all(1:nsinkmax))
+  allocate(rsink_star(1:nsinkmax),Teff_sink(1:nsinkmax))
+  rsink_star(1:nsinkmax) = rstar_init*Rsun/scale_l ! 2.5 Rsol
+  lum_sink_all(1:nsinkmax)=0.0d0
+  lum_sink(1:nsinkmax)=0.0d0
+  Teff_sink(1:nsinkmax)=0.0d0
+  if(rt_feedback .and. PMS_evol)then
+     allocate(nburst(1:nsinkmax))
+     allocate(tsink_star(1:nsinkmax))
+     allocate(sink_star_accrate(1:nsinkmax),msink_star(1:nsinkmax))
+     nburst(1:nsinkmax)=0     
+     tsink_star(1:nsinkmax) = 0.0
+     sink_star_accrate(1:nsinkmax) = 0.0
+     msink_star(1:nsinkmax) = mprotostar / scale_m
+  end if
 
-  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   ! Compute softening length from minimum cell spacing
   call compute_ncloud_sink  
 
@@ -166,6 +181,10 @@ subroutine init_sink
         delta_mass(1:nsink)=xdp
         read(ilun)xdp ! Read sink accretion rate
         acc_rate(1:nsink)=xdp
+        read(ilun)xdp ! Read sink stellar effective temperature
+        Teff_sink(1:nsink)=xdp
+        read(ilun)xdp ! Read sink stellar radius
+        rsink_star(1:nsink)=xdp
         deallocate(xdp)
         allocate(isp(1:nsink))
         read(ilun)isp ! Read sink index 
