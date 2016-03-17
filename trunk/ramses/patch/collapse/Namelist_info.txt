@@ -1,0 +1,170 @@
+This file is a summary of (all ?) the new variables that have been added in the RNIMHD (radiation non-ideal magneto-hydrodynamics!) version of RAMSES.
+Currently, NVAR must be 12: 8 classic RAMSES variable (d,u,v,w,P,Bx,By,Z) plus thermal energy and three variables to store the current (cell-centered).
+
+&RUN_PARAMS:
+- FLD (=.false. by default): logical to activate Flux Limited Diffusion for RHD. Note that if barotrop is set to true in the namelist PHYSICS_PARAMS block, then FLD is automatically turned off. 
+- clumpfind : logical to enable clumfinder algorithm (Bleuler $ Teyssier 2014). It can be used to create sink particles (sink should be activated in this block). It runs a clumpfinder algorithm on the fly and writes clump properties in the output directory. 
+* Note that if clumpfind is enabled, sink cannot be formed using the alafederrath mode.
+- alafederrath : logical to enable sink creation following the Federrath et al. (2010) paper. Conflicts with clumpfind
+- nsinkbody (=.false. by default): uses a direct N-body integrator for the sink-sink interaction and a direct summation for the gas-sink interaction. By default a CIC is used, where the sink mass is spread over the sink radius (poisson equation is then solved to get the global gravitational potential). The sink radius equals 4*dxmin (ir_cloud=4 im pm_parameters). Otherwise, it uses the CIC, but 'pic' has to be activated. See patch/core/nml/coeur_rhd_sink.nml for instance.
+- tracer (=.false. by default): logical to enable tracer particles. Needs an input file with tracer particle positions (see ic_part file in patch/rhd/lib). By default, density, gas temperature and radiation temperature are stored for each tracer particle (added extinction as a stored quantitiy).
+- extinction (=.false. by default): use the column density estimator of Valdivia & Hennebelle (2014). WARNING, NEXTINCT should be 1 in Makefile or in hydro_parameters.f90. Sotered in uold(8+nrad+nextinct). Note that the visual extincion is stored, not the column density. 
+- DTU (=.false. by default):Unique time-step activated for niMHD diffusion routines. It works for Ohmic diffusion only. NO SUBCYCLING!!!
+- radiative_nimhdheating (=.false. by default): add the Ohmic and ambipolar diffusion heating terms as source terms in the radiative energy equation in FLD=.true.. Toherwise, it is added 
+
+&INIT_PARAMS:
+- add a E_region to enable initial set up from the namelist for the radiative energy (valid only for grey radiative transfer...). If you want to use it, modify init_flow_fine accordingly.
+
+In the core directory, the following variables have been added:
+- mass_c (=1 by default): mass of the initial dense core in solar masses.
+- rap (=1 by default):  initial aspect ratio of the dense core.
+- cont (=1 by default): initial density contrast between the center and the border of the dense core. If cont .ne. 1, then the dense core is set up such that the density profiles show a plateau at the center and then decreases as r^-2. The contrast between the border of the core and the intercloud medium is set to 10 in condinit.f90 (cont_ic).
+- ff_sct (=1 by default): freefall time / sound crossing time
+- ff_rt (=1 by default): freefall time / rotation time
+- ff_act(=1 by default): freefall time / Alfven crossing time
+- ff_vct(=1 by default): freefall time / Vrms crossing time. Needs here a file containing the velocity perturbation (init_turb.data, in patch/rhd/core/lib). 
+- theta_mag (=0 by default): angle between magnetic field and rotation axis (in degree).
+
+- bb_test (=.false. by default): logical to activate Boss & Bodenheimer initial conditions (uniform density and temperature, solid body rotation). The next variable are used for BB test only. The ff_sct, ff_vct, ff_rt, ff_act, rap, cont variables are ineffective.
+	- alpha (=0.5 by default): initial ratio between thermal and gravitational energies
+  	- beta (=0 by default): initial ratio between rotational and gravitational energies
+  	- delta_rho (=0 by default): amplitude of the initial m=2 density perturbation
+  	- crit (=0 by default): inverse of the mu parameter for magnetic field (crit=0.5 for mu=2)
+  	- Mach (=0 by default): initial turbulent mach number. If different from 0, it needs here a file containing the velocity perturbation (init_turb.data, in patch/rhd/core/lib)
+ 	- contrast (=100 by default): initial density contrast between the dense core and the ambient medium (isolated conditions)
+
+
+&REFINE_PARAMS:
+- iso_jeans (.false. by default): activate isothermal sound speed Jeans length refinement criterion. It is activated if the gas temperature is greater than Tp_jeans. 
+- Tp_jeans (=10. by default): temperature to activate isothermal sound speed Jeans length refinement criterion. It is used up to density rho_sio=1.d-8 (by default, hard-coded in hydro_flag.f90), then it relaxes to a normal jeans criterion.
+- err_grad_E (=-1 by default): if >0, set the value of the relative radiative energy gradient for refinement. WARNING: this works well for gray RT. Needs some work for multigroup…
+- floor_E (=1.d-10 by default): Radiative energy floor value to compute err_grad_E
+
+&BOUNDARY_PARAMS:
+- E_bound (=0 by default): to set boundary conditions for the radiative energy.
+- T_bound (=0 by default): to set boundary conditions for the temperature. It is used to initialise the radiative energy (radiation_source(t_bound)).
+
+&PHYSICS_PARAMS:
+- barotrop (=.false. by default): activate the barotrop EOS. If barotrop is activated, FLD should be off and NVAR=12 (11+1 for internal energy). For the barotropic EOS, there are two options: it uses either a classic analytic law (default mode) or a fit from the Vaytet et al. (2013) 1D results.  (if analytical_barotrop=.false.)
+- analytical_barotrop (=.true. by default): enables the use of the Vaytet et al. fit. If analytical_barotrop=.false., it needs to read the file ‘barotropic_eos.dat’ (in patch/rhd/core/lib). In core/cooling_fine.f90, function barotrop1D: barotrop1D = Tr_floor * ( 1.0d0 + (rhon/n_star)**(gamma-1.0d0) 
+- n_star (=1.d-13 g/cc  by default): used by analytical_barotrop. Density at which the gas turns optically thick (typically 1e-13 g/cc in SF calculations). Note that it can conflict with the density threshold used to create star particle in larger scale calculations. The temperature is set by Tr_floor.
+- eos (=.false. by default): if .true., it uses the tabulation of the Saumon-Chabrier EOS (needed for 2nd collapse). It then need the ‘tab_eos.dat’ file (in patch/rhd/core/lib). By default, a simple perfect gas relation is used.
+- n_sink (=1d30 by default): density threshold for sink creation. Put n_sink=-1 for sink creation and sink accretion in the alafederrath mode or to accrete Jeans unstable mode in the clumpfinder mode.
+- mu_gas (=1 in thd and 2.33 in rhd/core): gas mean molecular weight.
+- clump_jeans (=.false. by default): do the clump finder only on cells that violate the Jeans length refinement criterion. It has not been tested and probably useless….
+- merge_stars (=.true. by default): enable sink merge for sink younger that the first Larson core lifetime (larson_lifetime=5000! lifetime of first larson core in years). Accretion rate is not update for the merged sink to avoid violent energy input that makes the implicit solver crash. 
+
+- ncell_rsoft (=2.51  by default): softening length (in units of the grid size) used for the gravitational acceleration estimation (sink-gas ans sink-sink interactions). It is active only if nsinkbody=.true..
+- grav_softening_type_gas (=“linear" by default): type of softening for the gas-sink gravitational acceleration. There are two options: “linear” (ax = dxr/r_soft**3) and “spline” softening (see e.g., Price & Monaghan 2007). It is active only if nsinkbody=.true..
+- grav_softening_type_sink (=“spline” by default): same as grav_softening_type_gas for the sink-sink interaction. It is active only if nsinkbody=.true..
+- sink_integrator (=“leapfrog” by default): sink move integrator scheme. “euler” of “leapfrog” can be used. It is active only if nsinkbody=.true..
+- tstep_sink_factor (=0.01 by default): timestep safety factor for sink-sink integrator (sub cycling). It is active only if nsinkbody=.true..
+
+- fcheck_vr (=0.1 by default): threshold for the radial velocity sink creation check in the alafederrath mode. It is in units of the local sound speed (v<fcheck_vr*cs).
+amr_parameters).
+- ncell_racc (=2.51 by default): accretion radius of the sink (Racc=ncell_racc*dx_min). Used only in the alafederrath mode. Otherwise, ncell_racc=ir_cloud (=4).
+
+
+&RADIATION_PARAMS:
+- energy_fix (=.false. by default): use internal energy instead of total energy.
+- grey_rad_transfer (=.true. by default): enable multigroup radiative transfer. 
+- epsilon_diff (=1d-6 by default): conjugate gradient iteration break criterion. It is used on the L2 and Linf norms. 
+- fld_limiter (=‘nolim’ by default): FLD limiter. There are three choices: ’nolim’, ‘minerbo’ and ‘levermore’.
+- freqs_in_Hz (=.true. by default): frequency units in Hz if true; if not eV
+- Tr_floor (=10 by default): background radiation field temperature. It sets the imposed boundary conditions in the core patch, the initial dense core temperature and the temperature used in the barotropic case. SHOULD IT REMAINS as it is for the BCs ? - WARNING: it affects the pressure_fix in set_uold (minimum temperature of 0.3*tTr_floor).
+- robin (=1 by default): weight of the Dirichlet and Neumann boundary condition sat the coarse-to-fine interface. robin=1 corresponds to Dirichlet, robin=0 to Neumann (BC: robin*E0 + (1-robin)*F0). Use robin=1 unless you are aware of the potential crash to can occur otherwise (negative energy).
+- min_optical_depth (=1.d-6 by default): set the minimum optical depth in the cell (it may accelerate convergence in optically thin regions).
+- numin (=1.d5 by default): frequency minimum boundary
+- numax (=1.d19 by default): frequency maximum boundary
+- rosseland_params: array of dimension 10 to set analytical Rosseland opacity (=1 by default)
+- planck_params: same as rosseland_params for the Planck opacity.
+- dtdiff_params: can be used to control the time step (if dt_control=.true.). Same structure as planck_params.
+- dt_control (=.false. by default): enable imposed timestep (dt=dtdiff_params(1)*dtdiff_params(2)**nstep_coarse in courant_fine.f90).
+
+Variable specific to SF:
+- opacity_type (='grey' by default): Vaytet et al. (2013) opacity table. It needs the file  'rhd/core/lib/vaytet_grey_opacities3D.bin'. 'multigroup' can also be used.
+
+- rt_feedback (=.false. by default): enable radiative feedback a la Krumholz associated to the sink particles. 
+- PMS_evol (=.false. by default): PMS evolution subgrid model to compute the radiative feedback. By default, it uses a simple power-law which relates the mass of the protostar, the internal luminosity and the accretion luminosity (from Cox book). Effective only 5000 years after the sink formation (approximated first Larson core lifetime, see sink_partcile.f90).
+- Hosokawa_track(=.false. by default): use Hosokawa track for massive protostars as tabulated by Rolk Kuiper. Needs Hosokawa_track.dat in rhd/core/lib.
+- facc_star (=0.5 by default): fraction of the accreted gas onto the sink particle that is transferred to the stellar mass.
+- facc_star_lum (=0.75 by default): fraction of the accretion luminsoty that is assumed to be radiated away at the stellar accretion shock.
+-stellar_photon (=.false. by default): Stellar photons are treated as a separate group (igrp=1). No emission for this group (radiation_source=0). NRAD>1 if it is used. 
+ 
+Variable specific to multigroup RT:
+- read_groups (=.false. by default): read group boundaries from file if .true.
+- split_groups_log (=.true. by default): automatic splitting of group in log if true; if not use regular splitting
+- extra_end_group (=.false. by default): the last group holds frequencies numax -> frequency_upperlimit (1d35) if true.
+
+-external_radiation_field  (=.false. by default):  Set simulation box border into a radiation bath at Tr_floor for perdiodic BC. Experimental....
+-store_matrix (=.true. by default): store matrix elements in BICGSTab. BE CAREFUL for large number of groups, it may explode the RAM...
+
+&NONIDEAL_MHD_PARAMS:
+- nambipolar (=0 by default): enable ambipolar diffusion (if =1), computed within the godunov flux. Fully explicit, it sets the timestep of all the scheme.
+- nmagdiffu (=0 by default): enable Ohmic dissipation (if =1), computed within the godunov flux. Fully explicit, it sets the timestep of all the scheme.
+- nhall (=0 by default): enable Hall diffusion (if =1), computed within the godunov flux. Fully explicit, it sets the timestep of all the scheme. Whistling waves with HLLD, BE CAREFUL if you want to use it.
+- nambipolar2 (=0 by default): enable ambipolar diffusion (if =1), computed as a source term using Super-Time-Stepping. No  restriction on the hydro timestep.
+- nmagdiffu2 (=0 by default): enable Ohmic dissipation (if =1), computed as a source term using Super-Time-Stepping. No  restriction on the hydro timestep.
+- magohm (=1 by default): disabled. Turned on if =0 to test magnetic diffusion only. It is set to 1 because the eigenvalues of the hyperbolic system remain the ones of the ideal MHD case. 
+- ntestDADM (=0 by default): enable units free diffusion coefficient (all diffusion terms). Set the coefficient gammaAD in the namelist.
+- gammaAD (=1.0d0 by default): used for analytic ambipolar diffusion coefficient (1/(gammaAD*rhoi0*rho), with rhoi0 the ionic fraction.
+- etaMD (=1.0d0 by default): used for analytic Ohmic diffusion coefficient.
+- rHall (=1.0d0 by default): used for analytic resistivity coefficient for Hall effect. 
+- coefionis (=3.d-16 by default): coefionis*sqrt(n_H)=n_i , empirical value from Shu book 2, p. 363
+- coefad (=0.1 by default): Courant-like condition for ambipolar diffusion. It affects the time-step of hydro if nambipolar=1.
+- coefohm (=0.1 by default): Courant-like condition for Ohmic diffusion. It affects the time-step of hydro if nmagdiffu=1.
+- coehall (=0.05 by default): Courant-like condition for Hall effect. It affects the time-step of hydro if nhall=1.
+- nminitimestep (=0 by default): if =1, artifical limitation (by coefalven) of the time-step in ambipolar diffusion case. Higher gamma in low rho*rhoi regions.
+- coefalven (=1.d-10 by default): if nminitimestep=1, AD_dt = coefalven*idealMHD_dt.
+
+
+&PSEUDOVISCO_PARAMS:
+Module for viscosity: Delta u * visco. WARNING: work only in barotrop. If total energy is used, then additionnal flux must be added in umuscl.f90
+- nvisco (=0 by default): enable artifical viscosity
+- visco (=1 by default): artifical viscosity coefficient (code units, BE CAREFUL).
+
+
+&CLUMPFIND_PARAMS:
+- density_threshold (=0 by default): density threshold used for the clump finder. It is given in part/cc. A few 10^10 is a typical value.
+
+OTHER PARAMETERS that CAN BE read….
+- racc_refine (=.true. by default): refine the grid around sink to the maximum level of refinement (r<ncell_racc * dxmin)
+
+&OUTPUT_PARAMS:
+-NdirExt_m,NdirExt_n (=10 by default): number of directions use to estimate the extinction (if extinction=.true.)
+
+I/ Note on the use of FLD and implicit solver
+
+There are two radiative transfer routines. The old radiative_transfer_cg works for grey FLD and without any library. The new radiative_transfer_bicg (default) works for multigroup FLD abnd requires a link to the lapack library. 
+
+WARNING: if radiative_transfer_bicg is used in the Makefile, then it requires LAPACK routines. If you wish not to use the lapapck library, replace radiative_transfer_bicg with radiative_transfer_cg in the Makefile.
+
+NRAD in the Makefile gives the number of frequency groups that composes the radiation spectrum. Use 1 group for grey.
+
+
+II/ Note on the use of sink particles
+To be written…
+
+There is the possibility of having periodic conditions for the sink-sink and sink-gas interaction in the nsinkbody mode (contact Benoit for information). 
+
+1/ Sink creation
+Modifications compared to the Bleuler et al. implementation:
+	- add a check on the jeans density, i.e. the peak density cell above the density threshold used for clump finding must be Jeans unstable (dens_jeans_tot array)
+	- modify checks of Bleuler: a sink is created on a clump if :	
+			# it is contracting fast enough in all direction (e.g. t_cont < t_larson)
+			#  Egrav + 2Eth <0 (Jeans unstable)
+			# Total energy < 0 
+
+2/ Radiative feedback
+
+
+III/ Note on the use of non-ideal MHD
+To be written…
+
+Array resistivite_chimie: table for the resistivities. Allocated in read_hydro_params.f90. Needs the file res_sig.dat (output from Jacques chemistry code, function of density + barotrop). 
+ 
+- xmion= mp*mu_ion of the most abundant ion (HCO+, mu_ion=29)
+
+
+IV/ The Test Suite
+DONE!
