@@ -1,0 +1,98 @@
+!This namelist contains various input parameters for RAMSES runs
+
+&RUN_PARAMS  
+hydro=.true.
+poisson=.true.
+nrestart=0
+ncontrol=1
+nremap=2
+nsubcycle=5*1,35*2
+fld=.true.
+/
+
+&AMR_PARAMS 
+levelmin=5
+levelmax=20
+ngridmax=700000
+npartmax=50000
+nexpand=30*4
+/
+
+&BOUNDARY_PARAMS
+nboundary = 6
+bound_type= 2, 2, 2, 2, 2, 2
+ibound_min=-1,+1,-1,-1,-1,-1
+ibound_max=-1,+1,+1,+1,+1,+1
+jbound_min= 0, 0,-1,+1,-1,-1
+jbound_max= 0, 0,-1,+1,+1,+1
+kbound_min= 0, 0, 0, 0,-1,+1
+kbound_max= 0, 0, 0, 0,-1,+1
+/
+
+&INIT_PARAMS
+bb_test=.true.
+mass_c=1. !in solar mass
+alpha=0.25
+beta=0.03d0 !4
+crit=0.2
+delta_rho=0.1d0 !1
+theta_mag=0.0 !angle between magnetic field and rotation axis
+contrast=100.d0
+Mach=3.0d0
+/
+
+&OUTPUT_PARAMS
+foutput=10
+fbackup=50
+noutput=2
+tout=0,1.
+/
+
+&POISSON_PARAMS 
+gravity_type=0
+epsilon=1d-4
+/
+
+&HYDRO_PARAMS
+gamma=1.666667
+courant_factor=0.8
+slope_type=1
+scheme='muscl'
+riemann='hlld'
+riemann2d='hlld'
+pressure_fix=.true.
+/
+
+&PHYSICS_PARAMS
+eos=.true.
+/
+
+&NONIDEALMHD_PARAMS
+nambipolar=0
+gammaAD=3.5d13
+nmagdiffu=0
+nmagdiffu2=0
+etaMD=1.d0
+nhall=0
+rHall=1.d0
+coefad=0.1d0
+nminitimestep=1   ! pour la diffusion ambipolaire seulement
+coefalfven=0.5d0
+rho_threshold=5.0d+05
+/
+
+&REFINE_PARAMS 
+jeans_refine=30*8.
+iso_jeans=.false.
+interpol_var=1
+interpol_type=1
+/
+
+&RADIATION_PARAMS
+grey_rad_transfer=.true.
+epsilon_diff=1.d-4
+fld_limiter='minerbo'
+opacity_type='dust_grains'
+Tr_floor=10.0d0
+robin=1.0
+/

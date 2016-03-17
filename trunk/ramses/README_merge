@@ -1,0 +1,102 @@
+! Test suite
+!-----------
+- verifier les tests nimhd (durent très très longtemps pour les 2 premiers, et problèmes de visu pour les 2 derniers)
+- test collapse marche pas
+!-----------
+
+adaptive_loop.f90: modif pour l'extinction
+
+add_list.f90: modify pour dumper les temperatures, champ magnétique et extinction dans les particules traceur.
+
+condinit.f90: changement pour les variables énergies radiative dans le cas FLD (pas calculer a partir de Prad)
+
+cooling_fine.f90: ajout modules de Valeska pour l'extinction et la chimie. Voir avec Valeska si il faut updater.
+
+courant_fine.f90 : modif pour prendre en compte les dt nimhd et la force radiative pour la FLD.
+
+flag_utils.f90: modif pas nécessaires, changements dans ramses_rhd dus au raffinement autour de la sink. Maintenant pris en compte dans la routine d'Andreas
+
+hydro_boundary.f90: compute correction commentee dans le patch
+
+- changer NENER>NRAD en NENER>NGRP
+- changer NVAR>8+NRAD en NPSCAL>0
+- pour l'instant q(Er)->Er alors que q(nener)->P. Changer ? umuscl (ctoprim, trace...), godunov_utils...
+
+- Actualiser le core une fois debugge...
+
+- changer umuscl pour M1 car manque termes dans sE... ?!
+- mhd/courant_fine : rajouter erad_tot, eener_tot, ekin_tot
+- mhd/write_screen : affichage avec nener, ngrp...
+
+- nettoyer tous les call units -> use units_commons
+
+- echanger pour stellar_photon
+
+IMPLICIT NONE !!!!
+rshock_lowrie -> mhd/hydro_boundary index 1 out of bounds
+tester le MPI -> ok sur radiative shock ngrp=4 (sauf que numbtot different et devrait etre sum, min,max et pas coherent...)
+dirac3d -> increase ngridmax
+teste nimhd-cshock ad + ohm
+
+patch_rhd files
+--------------
+adaptive_loop.f90
+add_list.f90
+amr_commons.f90
+amr_parameters.f90
+amr_step.f90
+!!!!clfind_commons.f90
+!!!!!clump_finder.f90
+!!!!!clump_merger.f90
+condinit.f90
+cooling_fine.f90
+courant_fine.f90
+!!!!!flag_formation_sites.f90
+!!!!!flag_utils.f90
+godunov_fine.f90
+godunov_utils.f90
+hydro_boundary.f90
+hydro_commons.f90
+hydro_flag.f90
+hydro_parameters.f90
+init_amr.f90
+init_flow_fine.f90
+init_hydro.f90
+init_part.f90
+!!!!!!interpol_hydro.f90
+move_fine.f90
+multigrid_fine_commons.f90
+newdt_fine.f90
+output_amr.f90
+output_hydro.f90
+output_part.f90
+particle_tree.f90
+pm_commons.f90 -> A FINIR
+radiative_transfer_bicg.f90
+radiative_transfer_cg.f90
+read_hydro_params.f90
+read_params.f90
+sink_particle.f90
+synchro_fine.f90
+!!!!!!!synchro_hydro_fine.f90
+umuscl.f90
+units.f90
+update_time.f90
+uplmde_sts_ohm.f90
+uplmde_sts_ohm_dtu.f90
+write_screen.f90
+
+
+collapse -> pas meme bouche les trous eos...
+
+nvector=15 ?
+nexpand=4 ?
+
+collapse files (reste à faire turb et DTU aussi)
+--------------
+condinit.f90 -> a reverifier... (en particulier 1/(gamma-1) pour e ou P)
+cooling_fine.f90 -> a reverifier...
+radiation_boundary.f90 -> done
+radiation_parameters.f90 -> done
+read_hydro_params.f90 -> done
+units.f90 -> done
