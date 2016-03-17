@@ -11,7 +11,7 @@ ar     = 7.56591469318689378e-015
 kb     = 1.3806200e-16
 mh     = 1.66e-24
 mu_gas = 1.0
-xshift = 4060.55
+xshift = 4205.08
 
 # Read in data
 data   = loadtxt('data.dat')

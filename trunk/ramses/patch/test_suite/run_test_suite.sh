@@ -579,7 +579,7 @@ if ${DELDATA} ; then
       n=${testnum[i]};
       cd ${TEST_DIRECTORY}/${testdir[n]};
       $DELETE_RESULTS;
-      rm ${testname[n]}"_stats.txt" ${testname[n]}".pdf"
+      rm ${testname[n]}"_stats.txt" ${testname[n]}".pdf" "resdiff-"${testname[n]}
    done
    if $VERBOSE ; then
       cd ${VISU_DIR}
