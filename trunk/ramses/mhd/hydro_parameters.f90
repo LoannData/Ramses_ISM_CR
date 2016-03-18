@@ -52,11 +52,11 @@ module hydro_parameters
 
   ! Initialize NVAR
 #ifndef NVAR
-#if NIMHD==1
-  integer,parameter::nvar=8+3+nent+nrad+nextinct+npscal ! store the current
-#else
+!#if NIMHD==1
+!  integer,parameter::nvar=8+3+nent+nrad+nextinct+npscal ! store the current
+!#else
   integer,parameter::nvar=8+nent+nrad+nextinct+npscal
-#endif
+!#endif
 #else
   integer,parameter::nvar=NVAR
 #endif
@@ -249,7 +249,7 @@ module hydro_parameters
   real(dp),allocatable,dimension(:,:,:)::data_PMS
 
   ! modif nimhd
-    integer:: nxx=1
+  integer:: nxx=1
   integer:: nyy=2
   integer:: nzz=3
 

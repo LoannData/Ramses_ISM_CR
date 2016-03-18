@@ -25,13 +25,16 @@ PATCH = ../patch/rhd
 EXEC = ramses
 
 MPI = 1
-COMP = "INTEL"
+COMP = "GNU"
 
-NPSCAL := $(NPSCAL)+1 # for internal energy
+#NPSCAL := $(NPSCAL)+1 # for internal energy
 ifeq ($(NIMHD),1)
-   NCURRENT=3
+   #NCURRENT=3
+   NCURRENT=0
+   NPSCAL := $(NPSCAL)+4 # for internal energy + current
 else
    NCURRENT=0
+   NPSCAL := $(NPSCAL)+1 # for internal energy
 endif
 ifeq ($(USE_FLD),1)
    NVAR=8+$(NCURRENT)+$(NENER)+$(NEXTINCT)+$(NPSCAL)

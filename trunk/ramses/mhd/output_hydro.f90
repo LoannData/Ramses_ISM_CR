@@ -246,6 +246,15 @@ subroutine backup_hydro(filename)
               end do
 #endif
 
+! #if NIMHD==1
+!               do ivar=1,3     ! Write current if nimhd
+!                  do i=1,ncache
+!                     xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+npscal+ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
+!                  end do
+!                  write(ilun)xdp
+!               end do              
+! #endif
+              
               if(eos) then
                  ! Write temperature
                  do i=1,ncache
