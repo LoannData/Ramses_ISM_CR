@@ -52,11 +52,7 @@ module hydro_parameters
 
   ! Initialize NVAR
 #ifndef NVAR
-!#if NIMHD==1
-!  integer,parameter::nvar=8+3+nent+nrad+nextinct+npscal ! store the current
-!#else
   integer,parameter::nvar=8+nent+nrad+nextinct+npscal
-!#endif
 #else
   integer,parameter::nvar=NVAR
 #endif

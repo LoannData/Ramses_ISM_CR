@@ -62,7 +62,7 @@ module amr_parameters
   logical::clumpfind=.false.  ! Enable clump finder
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
   logical::FLD     =.false.   ! FLD module activated
-  logical::DTU     =.false.   ! Unique time-step activated for niMHD diffusion routin
+  logical::DTU     =.false.   ! Unique time-step activated for niMHD diffusion routines
   logical :: radiative_nimhdheating=.false. ! Enable niMHD heating as a source term in radiative transfer
 
   ! Mesh parameters

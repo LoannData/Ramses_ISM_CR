@@ -151,6 +151,7 @@ subroutine courant_fine(ilevel)
         ! Compute CFL time-step
         if(nleaf>0)then
 #if NIMHD==1
+           ! modif nimhd
            call cmpdt(uu,gg,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
            dt_loc=min(dt_loc,dt_lev)
            

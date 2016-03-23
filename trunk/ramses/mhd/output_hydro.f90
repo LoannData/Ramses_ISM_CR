@@ -50,39 +50,36 @@ subroutine file_descriptor_hydro(filename)
   write(ilun,'("variable #",I2,": thermal_pressure")')ivar
 #if NGRP>0
   ! Radiative energies
-  do ivar=12+nent,11+nener
-     write(ilun,'("variable #",I2,": radiative_energy_",I1)')ivar,ivar-11-nent
+  do ivar=1,ngrp
+     write(ilun,'("variable #",I2,": radiative_energy_",I1)')firstindex_er+3+ivar,ivar
   end do
 #endif
 #if USE_M_1==1
   ! Radiative fluxes
-  do ivar=12+nener,11+nener+ngrp
-     write(ilun,'("variable #",I2,": radiative_flux_x",I1)')ivar,ivar-11-nener
+  do ivar=1,ngrp
+     write(ilun,'("variable #",I2,": radiative_flux_x",I1)')firstindex_fr+3       +ivar,ivar
   end do
-  do ivar=13+nener+ngrp,12+nener+2*ngrp
-     write(ilun,'("variable #",I2,": radiative_flux_y",I1)')ivar,ivar-12-nener-ngrp
+if(ndim>1) then
+  do ivar=1,ngrp
+     write(ilun,'("variable #",I2,": radiative_flux_y",I1)')firstindex_fr+3+  ngrp+ivar,ivar
   end do
-  do ivar=14+nener+2*ngrp,13+nener+3*ngrp
-     write(ilun,'("variable #",I2,": radiative_flux_z",I1)')ivar,ivar-13-nener-2*ngrp
+endif
+if(ndim>2) then
+  do ivar=1,ngrp
+     write(ilun,'("variable #",I2,": radiative_flux_z",I1)')firstindex_fr+3+2*ngrp+ivar,ivar
   end do
+endif
 #endif
 #if NEXTINCT>0
   ! Extinction
-#if USE_FLD==1
-  do ivar=12+nener,11+nener+nextinct
-     write(ilun,'("variable #",I2,": extinction",I1)')ivar,ivar-11-nener
+  do ivar=1,nextinct
+     write(ilun,'("variable #",I2,": extinction",I1)')firstindex_extinct+3+ivar,ivar
   end do
-#endif
-#if USE_M_1==1
-  do ivar=12+nener+ndim*ngrp,11+nener+ndim*ngrp+nextinct
-     write(ilun,'("variable #",I2,": extinction",I1)')ivar,ivar-11-nener-ndim*ngrp
-  end do
-#endif
 #endif
 #if NPSCAL>0
   ! Passive scalars
   do ivar=1,npscal
-     write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+ivar,ivar
+     write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+3+ivar,ivar
   end do
 #endif
 
@@ -245,15 +242,6 @@ subroutine backup_hydro(filename)
                  write(ilun)xdp
               end do
 #endif
-
-! #if NIMHD==1
-!               do ivar=1,3     ! Write current if nimhd
-!                  do i=1,ncache
-!                     xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+npscal+ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
-!                  end do
-!                  write(ilun)xdp
-!               end do              
-! #endif
               
               if(eos) then
                  ! Write temperature

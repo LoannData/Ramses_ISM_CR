@@ -133,17 +133,17 @@ subroutine velana(x,v,dx,t,ncell)
   twopi=2d0*ACOS(-1d0)
   do i=1,ncell
 
-     xx=x(i,1)
-#if NDIM > 1
-     yy=x(i,2)
-#endif
-#if NDIM > 2
-     zz=x(i,3)
-#endif
-     ! ABC
-     vx=aa*(cos(twopi*yy)+sin(twopi*zz))
-     vy=aa*(sin(twopi*xx)+cos(twopi*zz))
-     vz=aa*(cos(twopi*xx)+sin(twopi*yy))
+!!$     xx=x(i,1)
+!!$#if NDIM > 1
+!!$     yy=x(i,2)
+!!$#endif
+!!$#if NDIM > 2
+!!$     zz=x(i,3)
+!!$#endif
+!!$     ! ABC
+!!$     vx=aa*(cos(twopi*yy)+sin(twopi*zz))
+!!$     vy=aa*(sin(twopi*xx)+cos(twopi*zz))
+!!$     vz=aa*(cos(twopi*xx)+sin(twopi*yy))
 
 !!$     ! 1D advection test
 !!$     vx=1.0_dp
@@ -169,13 +169,14 @@ subroutine velana(x,v,dx,t,ncell)
 !!$     vx=-sin(tt)*rr*omega
 !!$     vy=+cos(tt)*rr*omega
      
-     v(i,1)=vx
-#if NDIM > 1
-     v(i,2)=vy
-#endif
-#if NDIM > 2
-     v(i,3)=vz
-#endif
+!!$     v(i,1)=vx
+!!$#if NDIM > 1
+!!$     v(i,2)=vy
+!!$#endif
+!!$#if NDIM > 2
+!!$     v(i,3)=vz
+!!$#endif
+
   end do
 
 

@@ -333,6 +333,7 @@ recursive subroutine amr_step(ilevel,icount)
         ! Otherwise, update time and finer level time-step
         dtold(ilevel+1)=dtnew(ilevel)/dble(nsubcycle(ilevel))
 #if NIMHD==1
+        ! modif nimhd
         if((nmagdiffu2==0.and.nmagdiffu==1).or.&
              &(nambipolar2==0.and.nambipolar==1))then
            dtambdiffold(ilevel+1)=dtambdiff(ilevel)/dble(nsubcycle(ilevel))
