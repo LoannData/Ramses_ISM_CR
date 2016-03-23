@@ -133,6 +133,11 @@ program amr2cell
   read(10,*)
   read(10,*)
   read(10,*)
+  read(10,*)
+  read(10,*)
+  read(10,*)
+  read(10,*)
+  read(10,*)
 
   read(10,'(A14,A80)')temp_label,ordering
   write(*,'(XA14,A20)')temp_label,TRIM(ordering)

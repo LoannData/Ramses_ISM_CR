@@ -135,6 +135,11 @@ program amr2map
 !  read(10,'("unit_t      =",E23.15)')scale_t
   read(10,'(A13,E23.15)')GMGM,scale_t
   read(10,*)
+  read(10,*)
+  read(10,*)
+  read(10,*)
+  read(10,*)
+  read(10,*)
 
 !  read(10,'("ordering type=",A80)'),ordering
   read(10,'(A14,A80)')GMGM,ordering
