@@ -722,7 +722,7 @@ subroutine condinit(x,u,dx,nn)
      u(1:nn,firstindex_pscal+ivar)=q(1:nn,1)*q(1:nn,firstindex_pscal+ivar)
   end do
   ! Internal energy
-  u(1:nn,nvar)=q(1:nn,5)/(gamma-1.0d0)
+  u(1:nn,nvar)=q(1:nn,5)
 #endif
 
 end subroutine condinit
@@ -748,22 +748,22 @@ subroutine velana(x,v,dx,t,ncell)
   real(dp)::xx,yy,zz,vx,vy,vz,rr,tt,omega,aa,twopi
 
   ! Add here, if you wish, some user-defined initial conditions
-  aa=1.0
-  twopi=2d0*ACOS(-1d0)
-  do i=1,ncell
-
-     xx=x(i,1)
-#if NDIM > 1
-     yy=x(i,2)
-#endif
-#if NDIM > 2
-     zz=x(i,3)
-#endif
-     ! ABC
-     vx=aa*(cos(twopi*yy)+sin(twopi*zz))
-     vy=aa*(sin(twopi*xx)+cos(twopi*zz))
-     vz=aa*(cos(twopi*xx)+sin(twopi*yy))
-
+!!$  aa=1.0
+!!$  twopi=2d0*ACOS(-1d0)
+!!$  do i=1,ncell
+!!$
+!!$     xx=x(i,1)
+!!$#if NDIM > 1
+!!$     yy=x(i,2)
+!!$#endif
+!!$#if NDIM > 2
+!!$     zz=x(i,3)
+!!$#endif
+!!$     ! ABC
+!!$     vx=aa*(cos(twopi*yy)+sin(twopi*zz))
+!!$     vy=aa*(sin(twopi*xx)+cos(twopi*zz))
+!!$     vz=aa*(cos(twopi*xx)+sin(twopi*yy))
+!!$
 !!$     ! 1D advection test
 !!$     vx=1.0_dp
 !!$     vy=0.0_dp
@@ -788,14 +788,14 @@ subroutine velana(x,v,dx,t,ncell)
 !!$     vx=-sin(tt)*rr*omega
 !!$     vy=+cos(tt)*rr*omega
      
-     v(i,1)=vx
-#if NDIM > 1
-     v(i,2)=vy
-#endif
-#if NDIM > 2
-     v(i,3)=vz
-#endif
-  end do
+!!$     v(i,1)=vx
+!!$#if NDIM > 1
+!!$     v(i,2)=vy
+!!$#endif
+!!$#if NDIM > 2
+!!$     v(i,3)=vz
+!!$#endif
+!!$  end do
 
 
 end subroutine velana

@@ -42,7 +42,7 @@ set rmargin at screen 0.90
 set bmargin at screen 0.70
 set tmargin at screen 0.98
 
-set label "t= %4.3f",t," Kyears" at screen 0.15, screen 0.95
+set label sprintf("t= %4.3f Kyears",t) at screen 0.15, screen 0.95
 
 set logscale x
 set logscale y

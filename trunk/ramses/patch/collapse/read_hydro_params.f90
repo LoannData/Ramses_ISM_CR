@@ -736,17 +736,17 @@ subroutine read_hydro_params(nml_ok)
         ee=0
         gg=0
         do ir=2,nRho-1
-           do ie=2,nener-1
-              if (P_eos(ir,ie) .eq. 0.0d0) then           
+           do ie=2,nEnergy-1
+              if (P_eos(ir,ie) .eq. 0.0d0) then
                  ii = ii+1
                  xx = P_eos(ir,ie+1) * P_eos(ir,ie-1) *  P_eos(ir-1,ie) * P_eos(ir+1,ie)
                  yy = P_eos(ir+1,ie+1) * P_eos(ir+1,ie-1) *  P_eos(ir-1,ie-1) * P_eos(ir-1,ie+1)
-                 if(ie > 2 .and. ie < nener-1 .and. ir > 2 .and. ir < nRho-1)then
+                 if(ie > 2 .and. ie < nEnergy-1 .and. ir > 2 .and. ir < nRho-1)then
                     ww = P_eos(ir,ie+2) * P_eos(ir,ie-2) *  P_eos(ir-2,ie) * P_eos(ir+2,ie)
                  else
                     ww = 0.0_dp
                  endif
-                 if(ie > 3 .and. ie < nener-2 .and. ir > 3 .and. ir < nRho-2)then
+                 if(ie > 3 .and. ie < nEnergy-2 .and. ir > 3 .and. ir < nRho-2)then
                     zz = P_eos(ir+3,ie+3) * P_eos(ir-3,ie-3) *  P_eos(ir-3,ie+3) * P_eos(ir+3,ie-3)
                  else
                     zz = 0.0_dp
@@ -780,17 +780,17 @@ subroutine read_hydro_params(nml_ok)
         ee=0
         gg=0
         do ir=2,nRho-1
-           do ie=2,nener-1
+           do ie=2,nEnergy-1
               if (Cs_eos(ir,ie) .eq. 0.0d0) then           
                  ii = ii+1
                  xx = Cs_eos(ir,ie+1) * Cs_eos(ir,ie-1) *  Cs_eos(ir-1,ie) * Cs_eos(ir+1,ie)
                  yy = Cs_eos(ir+1,ie+1) * Cs_eos(ir+1,ie-1) *  Cs_eos(ir-1,ie-1) * Cs_eos(ir-1,ie+1)
-                 if(ie > 2 .and. ie < nener-1 .and. ir > 2 .and. ir < nRho-1)then
+                 if(ie > 2 .and. ie < nEnergy-1 .and. ir > 2 .and. ir < nRho-1)then
                     ww = Cs_eos(ir,ie+2) * Cs_eos(ir,ie-2) *  Cs_eos(ir-2,ie) * Cs_eos(ir+2,ie)
                  else
                     ww = 0.0_dp
                  endif
-                 if(ie > 3 .and. ie < nener-2 .and. ir > 3 .and. ir < nRho-2)then
+                 if(ie > 3 .and. ie < nEnergy-2 .and. ir > 3 .and. ir < nRho-2)then
                     zz = Cs_eos(ir+3,ie+3) * Cs_eos(ir-3,ie-3) *  Cs_eos(ir-3,ie+3) * Cs_eos(ir+3,ie-3)
                  else
                     zz = 0.0_dp
@@ -824,17 +824,17 @@ subroutine read_hydro_params(nml_ok)
         ee=0
         gg=0
         do ir=2,nRho-1
-           do ie=2,nener-1
+           do ie=2,nEnergy-1
               if (Temp_eos(ir,ie) .eq. 0.0d0) then           
                  ii = ii+1
                  xx = Temp_eos(ir,ie+1) * Temp_eos(ir,ie-1) *  Temp_eos(ir-1,ie) * Temp_eos(ir+1,ie)
                  yy = Temp_eos(ir+1,ie+1) * Temp_eos(ir+1,ie-1) *  Temp_eos(ir-1,ie-1) * Temp_eos(ir-1,ie+1)
-                 if(ie > 2 .and. ie < nener-1 .and. ir > 2 .and. ir < nRho-1)then
+                 if(ie > 2 .and. ie < nEnergy-1 .and. ir > 2 .and. ir < nRho-1)then
                     ww = Temp_eos(ir,ie+2) * Temp_eos(ir,ie-2) *  Temp_eos(ir-2,ie) * Temp_eos(ir+2,ie)
                  else
                     ww = 0.0_dp
                  endif
-                 if(ie > 3 .and. ie < nener-2 .and. ir > 3 .and. ir < nRho-2)then
+                 if(ie > 3 .and. ie < nEnergy-2 .and. ir > 3 .and. ir < nRho-2)then
                     zz = Temp_eos(ir+3,ie+3) * Temp_eos(ir-3,ie-3) *  Temp_eos(ir-3,ie+3) * Temp_eos(ir+3,ie-3)
                  else
                     zz = 0.0_dp
@@ -923,7 +923,7 @@ subroutine read_hydro_params(nml_ok)
            endif
         end do
      end do
-     Cv_eos(:,nener)=Cv_eos(:,nener-1)
+     Cv_eos(:,nEnergy)=Cv_eos(:,nEnergy-1)
      
      if (myid == 1) print*, "ok pour le bouchage"
   end if

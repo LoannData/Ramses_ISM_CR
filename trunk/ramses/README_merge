@@ -1,7 +1,7 @@
 ! Test suite
 !-----------
-- verifier les tests nimhd (durent très très longtemps pour les 2 premiers, et problèmes de visu pour les 2 derniers)
-- test collapse marche pas
+- verifier le test nimhd-cshock-ohm : probleme si nmagdiffu2, ok si nmagdiffu
+- test collapse marche pas : routine add_pdV_terms dans godunov_fine fait Tp_loc<0 (pbm de pressure_fix ou energy_fix avec variable nvar ?)
 !-----------
 
 adaptive_loop.f90: modif pour l'extinction
@@ -36,7 +36,7 @@ IMPLICIT NONE !!!!
 rshock_lowrie -> mhd/hydro_boundary index 1 out of bounds
 tester le MPI -> ok sur radiative shock ngrp=4 (sauf que numbtot different et devrait etre sum, min,max et pas coherent...)
 dirac3d -> increase ngridmax
-teste nimhd-cshock ad + ohm
+
 
 patch_rhd files
 --------------
@@ -85,9 +85,6 @@ update_time.f90
 uplmde_sts_ohm.f90
 uplmde_sts_ohm_dtu.f90
 write_screen.f90
-
-
-collapse -> pas meme bouche les trous eos...
 
 nvector=15 ?
 nexpand=4 ?

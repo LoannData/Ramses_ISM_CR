@@ -261,6 +261,27 @@ flags[${itest}]="NGRP=1 USE_FLD=1";
 make_clean[${itest}]=true;
 del_files[${itest}]="output_*";
 
+itest=$((itest + 1)); # Test 14
+testdir[${itest}]="collapse";
+testname[${itest}]="collapse-baro";
+testpatch[${itest}]="../patch/collapse";
+testlist[${itest}]="collapse-baro.nml";
+ndim[${itest}]=3;
+solver[${itest}]="mhd";
+make_clean[${itest}]=true;
+del_files[${itest}]="output_*";
+
+itest=$((itest + 1)); # Test 15
+testdir[${itest}]="collapse";
+testname[${itest}]="collapse-ohm";
+testpatch[${itest}]="../patch/rhd/core/:../patch/rhd";
+testlist[${itest}]="collapse-ohm.nml";
+ndim[${itest}]=3;
+solver[${itest}]="mhd";
+flags[${itest}]="NIMHD=1 NGRP=1 USE_FLD=1";
+make_clean[${itest}]=true;
+del_files[${itest}]="output_*";
+
 # Store total number of tests
 ntestsfull=${#testname[@]};
 

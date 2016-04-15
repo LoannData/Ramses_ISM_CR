@@ -5,7 +5,7 @@ COMP = "GNU"
 
 # GFORTRAN
 ifeq ($(COMP),"GNU")
-   F90 = gfortran
+   F90 = gfortran -ffree-line-length-none
 endif
 
 # INTEL
@@ -13,7 +13,7 @@ ifeq ($(COMP),"INTEL")
    F90 = ifort
 endif
 
-LIST = amr2cube amr2cell amr2map
+LIST = amr2cube amr2cell amr2map amr2cold amr2azav
 
 #############################################################################
 all:	$(LIST)

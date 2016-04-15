@@ -214,7 +214,7 @@ subroutine set_uold(ilevel)
 
            if(Tp_loc .lt. 0.3d0*Tr_floor.and. ntestDADM.eq.0)then
               ! Prevent articifial cooling due to negligible internal energy (wto the total energy)
-                 call enerint_eos(d,0.3d0*Tr_floor,e_prim)
+              call enerint_eos(d,0.3d0*Tr_floor,e_prim)
               if((.not.(barotrop)).and. (ntestDADM.eq.0))print*,'WARNING TP_LOC',tp_loc,e_trunc,e_prim,e_cons,dd
               uold(ind_cell,5)=e_prim+e_kin+e_mag
               uold(ind_cell,nvar)=e_prim
