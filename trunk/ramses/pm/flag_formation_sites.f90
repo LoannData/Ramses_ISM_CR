@@ -212,7 +212,7 @@ subroutine compute_clump_properties_round2(xx)
   real(dp)::d,vol,M,ekk,err,phi_rel,de,c_sound,d0,v_bulk2,p,T2,c_code
   real(dp)::dx,dx_loc,scale,vol_loc,abs_err,A1=0.,A2=0.,A3=0.
   real(dp),dimension(1:nlevelmax)::volume
-  real(dp),dimension(1:3)::vd,xcell,xpeak,v_cl,rrel,vrel,fgrav,skip_loc,frad
+  real(dp),dimension(1:3)::vd,xcell,xpeak,v_cl,rrel,vrel,fgrav,skip_loc,frad_loc
   real(dp),dimension(1:twotondim,1:3)::xc
   real(dp),dimension(1:3,1:3)::eigenv,a
   real(dp),dimension(1:npeaks,1:3)::contractions
@@ -391,11 +391,11 @@ subroutine compute_clump_properties_round2(xx)
         p=p+err/3.d0
         
         ! compute radiative acceleration by streaming photons
-        frad=0.d0
+        frad_loc=0.d0
 #ifdef RT
         do ig=1,nGroups
            kappa=kappaSc(ig)/scale_kappa
-           frad(1:ndim)  = frad(1:ndim) +  Fp(ig,1:ndim) * kappa / c_code
+           frad_loc(1:ndim)  = frad_loc(1:ndim) +  Fp(ig,1:ndim) * kappa / c_code
         end do
 #endif
 
@@ -405,7 +405,7 @@ subroutine compute_clump_properties_round2(xx)
         do i=1,3
            kinetic_support(peak_nr)= kinetic_support(peak_nr)  + vrel(i)**2         * vol*d
            grav_term(peak_nr)      = grav_term(peak_nr)        + fgrav(i) * rrel(i) * vol*d
-           rad_term(peak_nr)       = rad_term(peak_nr)         + frad(i)  * rrel(i) * vol*d
+           rad_term(peak_nr)       = rad_term(peak_nr)         + frad_loc(i)  * rrel(i) * vol*d
         end do
         
         ! time derivatives of the moment of inertia
