@@ -96,7 +96,8 @@ subroutine read_hydro_params(nml_ok)
   ! modif nimhd
   namelist/nonidealmhd_params/nambipolar,gammaAD &
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
-       & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm
+       & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm &
+       & ,rho_threshold,use_x1d,use_x2d,use_res
   namelist/pseudovisco_params/nvisco,visco
   ! fin modif nimhd
 #endif
@@ -216,6 +217,14 @@ subroutine read_hydro_params(nml_ok)
      call clean_stop
   end if
 
+  if( (nambipolar.eq.1) .or. (nambipolar2.eq.1) .or. &
+      (nmagdiffu .eq.1) .or. (nmagdiffu2 .eq.1) .or. &
+      (nhall.eq.1) )then
+     use_nonideal_mhd = .true.
+  else
+     use_nonideal_mhd = .false.
+  endif
+  
   if(myid==1) then
      write(*,*)'!!!!!!!!!!!!!!!  Non Ideal MHD   !!!!!!!!!!!!!!!!'
      write(*,*)'Non ideal MHD parameters'
