@@ -702,10 +702,34 @@ subroutine add_pdv_source_terms(ilevel)
 
         !update internal energy in unew(nvar)
         do i=1,ngrid
+
+           usquare=0.0
+           do idim=1,ndim
+              usquare=usquare+(uold(ind_cell(i),idim+1)/uold(ind_cell(i),1))**2
+           end do
+           
+           ! Compute total magnetic energy
+           emag = 0.0d0
+           do ivar=1,3
+              emag = emag + 0.125d0*(uold(ind_cell(i),5+ivar) &
+                   &  +uold(ind_cell(i),nvar+ivar))**2
+           end do
+           erad_loc=0.0D0
+#if NENER>0
+           do igroup=1,nener
+              erad_loc = erad_loc + uold(ind_cell(i),8+igroup)
+           end do
+#endif
+
+           d     = uold(ind_cell(i),1)
+           ekin  = d*usquare/2.0
+           ! Compute gas pressure in cgs
+           eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
+           if(energy_fix)eps   = uold(ind_cell(i),nvar) 
            call pressure_eos(d,eps,pp_eos)
            do idim=1,ndim
               unew(ind_cell(i),nvar) = unew(ind_cell(i),nvar) &
-                   & + pp_eos*divu_loc(i,idim,idim)
+                   & - pp_eos*divu_loc(i,idim,idim)*dtnew(ilevel)
            end do
         end do
 
