@@ -268,13 +268,14 @@ testpatch[${itest}]="../patch/collapse";
 testlist[${itest}]="collapse-baro.nml";
 ndim[${itest}]=3;
 solver[${itest}]="mhd";
+flags[${itest}]="NIMHD=1";
 make_clean[${itest}]=true;
 del_files[${itest}]="output_*";
 
 itest=$((itest + 1)); # Test 15
 testdir[${itest}]="collapse";
 testname[${itest}]="collapse-ohm";
-testpatch[${itest}]="../patch/rhd/core/:../patch/rhd";
+testpatch[${itest}]="../patch/collapse";
 testlist[${itest}]="collapse-ohm.nml";
 ndim[${itest}]=3;
 solver[${itest}]="mhd";
