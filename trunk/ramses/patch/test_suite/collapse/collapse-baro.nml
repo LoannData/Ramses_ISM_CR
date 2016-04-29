@@ -59,6 +59,7 @@ pressure_fix=.true.
 eos=.false.
 barotrop=.true.
 analytical_barotrop=.true.
+n_star=1.0d-13
 /
 
 &NONIDEALMHD_PARAMS

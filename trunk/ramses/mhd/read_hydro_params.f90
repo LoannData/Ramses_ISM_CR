@@ -73,14 +73,12 @@ subroutine read_hydro_params(nml_ok)
        & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group  &
        & ,numin,numax,Tr_floor,robin,rad_trans_model,min_optical_depth,rt_feedback &
        & ,PMS_evol,Hosokawa_track,energy_fix,facc_star,facc_star_lum,valp_min,store_matrix,external_radiation_field
-#if NIMHD==1
   ! modif nimhd
   namelist/nonidealmhd_params/nambipolar,gammaAD &
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
        & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm
   namelist/pseudovisco_params/nvisco,visco
   ! fin modif nimhd
-#endif
 
   ! Read namelist file
   rewind(1)
@@ -280,6 +278,16 @@ subroutine read_hydro_params(nml_ok)
         call clean_stop
      end if
   end if
+#else
+  rewind(1)
+  read(1,NML=nonidealmhd_params,END=108)
+108 continue
+  if( (nambipolar.eq.1) .or. (nambipolar2.eq.1) .or. &
+       (nmagdiffu .eq.1) .or. (nmagdiffu2 .eq.1) .or. &
+       (nhall.eq.1) )then
+     if (myid==1) write(*,*)'You must recompile with NIMHD=1 for non-ideal MHD...'
+     call clean_stop
+  endif
   ! fin modif nimhd
 #endif
 
