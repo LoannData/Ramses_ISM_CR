@@ -11,8 +11,9 @@ rho  = data[:,2].reshape(256,256)
 
 # Density
 density = subplot(211)
-density.imshow(rho,origin='lower',extent=[0.0,1.0,0.0,1.0],interpolation='None',cmap='jet')
-density.set_xlabel('Distance x (cm)')
-density.set_ylabel('Distance y (cm)')
+imshow(rho,origin='lower',extent=[0.0,1.0,0.0,1.0],interpolation='None',cmap='jet',vmin=0.05,vmax=0.5)
+xlabel('Distance x (cm)')
+ylabel('Distance y (cm)')
+colorbar(label='Density')
 
 savefig('orszag-tang.pdf',bbox_inches='tight')

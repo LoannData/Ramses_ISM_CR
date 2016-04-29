@@ -1,6 +1,6 @@
 ! Test suite
 !-----------
-- verifier le test nimhd-cshock-ohm : probleme si nmagdiffu2, ok si nmagdiffu
+- python scripts to be done for: nimhd-diffusion-ad, nimhd-diffusion-ohm, collapse-rhd, collapse-baro, collapse-ohm
 !-----------
 
 cooling_fine.f90: ajout modules de Valeska pour l'extinction et la chimie. Voir avec Valeska si il faut updater.
@@ -36,3 +36,11 @@ sink
 
 nvector=15 ?
 nexpand=4 ?
+
+
+HOWTO (upstream est le master du bitbucket de Romain : git remote add upstream https://bitbucket.org/rteyssie/ramses)
+------
+git checkout master
+git pull upstream master
+git checkout fld
+git merge master

@@ -80,6 +80,7 @@ set cntrparam levels incremental 0.0,inc,bmax
 unset surface
 unset clabel
 unset key
+unset y2tics
 splot file3 u 1:3:4 w l lt 1
 
 unset multiplot

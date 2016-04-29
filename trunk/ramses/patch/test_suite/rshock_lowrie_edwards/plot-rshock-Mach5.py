@@ -30,8 +30,10 @@ Tg_ana    = data_ana[:,3]/(8.57274781455567/855.7)
 xTr_ana   = data_ana[:,0]
 Tr_ana    = data_ana[:,1]
 
-xmin = -4000.0
+xmin = -3000.0
 xmax =   500.0
+ymin =   100.0
+ymax =  1000.0
 
 # Temperature
 temperature = subplot(111)
@@ -45,7 +47,9 @@ levels = temperature.twinx()
 majorLocatorY = MultipleLocator(1.0)
 levels.yaxis.set_major_locator(majorLocatorY)
 levels.plot(x,amrlev,color='black',ls='dotted')
+levels.set_ylim([7,11])
 levels.set_ylabel('AMR Level')
 temperature.set_xlim([xmin,xmax])
+temperature.set_ylim([ymin,ymax])
 
 savefig('rshock-Mach5.pdf',bbox_inches='tight')

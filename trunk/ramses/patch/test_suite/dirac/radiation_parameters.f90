@@ -48,7 +48,7 @@ module radiation_parameters
   logical :: stellar_photon=.false.  ! Stellar photons are treated as a separate group (igrp=1). No emission for this group (radiation_source=0)
 
   ! Opacities
-  character(len=12) :: opacity_type = 'semenov'  ! 'dust_and_gas' or 'semenov'
+  character(len=12) :: opacity_type = 'grey'  ! 'grey' or 'multigroup'
 
   ! Radiation solver parameters
   real(dp)::epsilon_diff=1d-6                        ! CG iteration break criteria
