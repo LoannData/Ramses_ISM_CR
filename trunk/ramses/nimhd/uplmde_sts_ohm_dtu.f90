@@ -140,7 +140,7 @@ subroutine diffusion_sts_dtu
       do  icycle=1,nsubdiff
          if (nsubdiff > 0) then
             
-            if(myid==1 .and. (mod(nstep,ncontrol)==0))write(*,*)nu_sts,'dtdiffcoeff',dtdiffcoef,'dtdiffsum',dtdiffsum,'dtdiff',dtdiffold
+!            if(myid==1 .and. (mod(nstep,ncontrol)==0))write(*,*)nu_sts,'dtdiffcoeff',dtdiffcoef,'dtdiffsum',dtdiffsum,'dtdiff',dtdiffold,'dtsts',sommeinit*dtdiffcoef,dtnew(levelmin:nlevelmax)
             
 !!$            dtdiff=dtdiffold*((-1.d0+nu)*cos((2.d0*dble(icycle)-1.d0)*acos(-1.d0)/(2.d0*nsubdiff))+1.d0+nu)**(-1)    ! pas de temps du STS
             dtdiff=dtdiffcoef*dtdiffold*((-1.d0+nu_sts)*cos((2.d0*dble(icycle)-1.d0)*acos(-1.d0)/(2.d0*nsubdiff))+1.d0+nu_sts)**(-1)    ! pas de temps du STS
@@ -1245,6 +1245,21 @@ subroutine ctoprim_sts(uin,q,ngrid)
          end do
       end do
    end do
+   ! Passive scalar (and extinction and internal energy and rad fluxes in M1) !!!!!!
+#if NVAR>8+NENER
+  do n = 9+nener, nvar
+     do k = ku1, ku2
+        do j = ju1, ju2
+           do i = iu1, iu2
+              do l = 1, ngrid
+                 q(l,i,j,k,n) = uin(l,i,j,k,n)/q(l,i,j,k,1)
+              end do
+           end do
+        end do
+     end do
+  end do
+#endif
+
 
  end subroutine ctoprim_sts
 !###########################################################

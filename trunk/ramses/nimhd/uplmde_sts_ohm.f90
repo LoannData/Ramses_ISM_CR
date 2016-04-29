@@ -41,7 +41,7 @@ subroutine diffusion_sts(ilevel,nsub)
    dtdiffold=min(dtdiff,dtnew(ilevel))
    dtdiffsum=0.0d0
    !nu=0
-   nu = 1.d0/(4.d0*nsts(ilevel)**2)
+   nu = nu_sts!1.d0/(4.d0*nsts(ilevel)**2)
 
    call make_virtual_fine_dp(unew(1,1),ilevel)
    call make_virtual_fine_dp(unew(1,5),ilevel)
@@ -55,12 +55,11 @@ subroutine diffusion_sts(ilevel,nsub)
    call make_virtual_fine_dp(enew(1),ilevel)
    call make_virtual_fine_dp(divu(1),ilevel)
 
-!!$   do  jcycle=1,100
-      call set_unew_sts(ilevel,0,dtohm,dtad)  ! needed ? probably yes
+   call set_unew_sts(ilevel,0,dtohm,dtad)  ! needed ? probably yes
 #ifndef WITHOUTMPI
-      call MPI_ALLREDUCE(dtloc     ,dtall      ,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
-         &MPI_COMM_WORLD,info)
-      dtloc=dtall
+   call MPI_ALLREDUCE(dtloc     ,dtall      ,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
+        &MPI_COMM_WORLD,info)
+   dtloc=dtall
 #endif
 
 
@@ -85,9 +84,10 @@ subroutine diffusion_sts(ilevel,nsub)
       !      call make_virtual_fine_dp(enew(1),ilevel)
 
 
-!       if(myid==1)print*,dtnew(ilevel),dtdiffsum,dtdiff,nsts(ilevel),dtsts(ilevel)
-      !!$         nsubdiff=ceiling(sqrt((dtnew(ilevel)-dtdiffsum)/dtdiff))
+      nsts(ilevel)=min(100,floor(sqrt(dtnew(ilevel)/dtdiffold))+1)
       nsubdiff=max(1,nsts(ilevel))
+      dtsts(ilevel) = dtdiffold*nsts(ilevel)/(2.*sqrt(nu_sts))*((1.+sqrt(nu_sts))**(2.*nsts(ilevel))-(1.-sqrt(nu_sts))**(2.*nsts(ilevel))) &         ! somme des dtsts, theorique
+             & /((1.+sqrt(nu_sts))**(2.*nsts(ilevel))+(1.-sqrt(nu_sts))**(2.*nsts(ilevel)))
       dtdiffcoef= dtnew(ilevel)/dtsts(ilevel)
 
 
@@ -99,15 +99,11 @@ subroutine diffusion_sts(ilevel,nsub)
 
 !!$            dtdiff=dtdiffold*((-1.d0+nu)*cos((2.d0*dble(icycle)-1.d0)*acos(-1.d0)/(2.d0*nsubdiff))+1.d0+nu)**(-1)    ! pas de temps du STS
             dtdiff=dtdiffcoef*dtdiffold*((-1.d0+nu)*cos((2.d0*dble(icycle)-1.d0)*acos(-1.d0)/(2.d0*nsubdiff))+1.d0+nu)**(-1)    ! pas de temps du STS
-            !!$               if (dtdiffold==dtnew(ilevel)) dtdiff = dtdiffold
-            !!$               if  (dtdiff+dtdiffsum > dtnew(ilevel))then
+
          else if (nsts(ilevel) == 0) then
             dtdiff = dtnew(ilevel)
          end if
-         !                  write(*,*)'WARNING: leaves STS before last dt_sts',dtdiff,dtdiffsum ,dtnew(ilevel),dtdiff+dtdiffsum - dtnew(ilevel)
-         !   stop
-         !!$               end if
-         !!$               if  (nsubdiff == 1) dtdiff = dtnew(ilevel)-dtdiffsum
+
          dtdiffsum=dtdiffsum+dtdiff
          if(myid==1 .and. (mod(nstep,ncontrol)==0))write(*,*)'subcycling through STS',icycle,'ilevel',ilevel,'nsubdiff :',nsubdiff,&
             'dtmagdiff :',dtmagdiff(ilevel),'dtambdiff :',dtambdiff(ilevel),&
@@ -148,13 +144,6 @@ subroutine diffusion_sts(ilevel,nsub)
 
       end do
 
-!!$   end if
-
-
-!!$   if  (jcycle == 100) then
-!!$      print *, "PROBLEM IN STS"
-!!$      stop
-!!$   end if
 
 
 #ifndef WITHOUTMPI
@@ -268,7 +257,7 @@ subroutine diffine1_sts(ind_grid,ncache,dtdiff,ilevel,icycle)
    integer::interpol_type_old,ivar1,ivar2,ivar3,ivar4,ivar5,ivar6
    real(dp)::dflux_x,dflux_y,dflux_z
    real(dp)::dx_loc,scale,oneontwotondim
-   real(dp)::emag,emagold
+   real(dp)::emag,emagold,ekin,u,v,w,d
    real(dp)::dflux,weight,A,B,C
    integer ::mvar
 
@@ -373,7 +362,22 @@ subroutine diffine1_sts(ind_grid,ncache,dtdiff,ilevel,icycle)
                            B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
                            C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
                            enew(ind_cell(i))=A**2+B**2+C**2
-                           divu(ind_cell(i))=uold(ind_cell(i),nvar)
+                           if(energy_fix)then
+                              divu(ind_cell(i))=uold(ind_cell(i),nvar)
+                           else
+                              d=max(uold(ind_cell(i),1),smallr)
+                              u=uold(ind_cell(i),2)/d
+                              v=uold(ind_cell(i),3)/d
+                              w=uold(ind_cell(i),4)/d
+                              ekin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+                              do irad=1,nener
+                                 ekin=ekin+uold(ind_cell(i),8+irad)
+                              end do
+#endif
+                              emag=0.5d0*(A**2+B**2+C**2)
+                              divu(ind_cell(i))=uold(ind_cell(i),5)-ekin-emag
+                           end if
                         end do
 
                      end if
@@ -1107,10 +1111,10 @@ subroutine set_unew_sts(ilevel,iupdate,dtohm,dtad)
 
            if(iupdate==0)then
               enew(active(ilevel)%igrid(i)+iskip) = (A**2+B**2+C**2)
-              divu(active(ilevel)%igrid(i)+iskip) = uold(active(ilevel)%igrid(i)+iskip,nvar)
 
               eps   = e 
               if(energy_fix)eps   = uold(active(ilevel)%igrid(i)+iskip,nvar) 
+              divu(active(ilevel)%igrid(i)+iskip) = eps !uold(active(ilevel)%igrid(i)+iskip,nvar)
 
               ! Compute gas temperature in cgs
               call temperature_eos(d,eps,Tcell,ht)
@@ -1240,8 +1244,6 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
   dx_loc=dx*scale ! Warning: scale factor already done in dx
   vol_loc=dx_loc**ndim
   surf_loc=dx_loc**(ndim-1)
-!!$  r_soft = ncell_rsoft * dx
-!!$  rmax_bc = real(nrep_sbd)  
 
   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -1250,139 +1252,6 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
   iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
   iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
 
-!!$  ! Cells center position relative to grid center position
-!!$  do ind=1,twotondim  
-!!$     iz=(ind-1)/4
-!!$     iy=(ind-1-4*iz)/2
-!!$     ix=(ind-1-2*iy-4*iz)
-!!$     xc(ind,1)=(dble(ix)-0.5D0)*dx
-!!$     if(ndim>1)xc(ind,2)=(dble(iy)-0.5D0)*dx
-!!$     if(ndim>2)xc(ind,3)=(dble(iz)-0.5D0)*dx
-!!$  end do
-!!$
-! Compute Ambipolar diff heating as a source term
-!!$  if(iend==1)then
-!!$     ! Loop over myid grids by vector sweeps
-!!$     ncache=active(ilevel)%ngrid
-!!$     do igrid=1,ncache,nvector   
-!!$        ! Gather nvector grids
-!!$        ngrid=MIN(nvector,ncache-igrid+1)
-!!$        do i=1,ngrid
-!!$           ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
-!!$        end do
-!!$        
-!!$        ! Gather neighboring grids
-!!$        do i=1,ngrid
-!!$           igridn(i,0)=ind_grid(i)
-!!$        end do
-!!$        do idim=1,ndim
-!!$           do i=1,ngrid
-!!$              ind_left (i,idim)=nbor(ind_grid(i),2*idim-1)
-!!$              ind_right(i,idim)=nbor(ind_grid(i),2*idim  )
-!!$              igridn(i,2*idim-1)=son(ind_left (i,idim))
-!!$              igridn(i,2*idim  )=son(ind_right(i,idim))
-!!$           end do
-!!$        end do
-!!$        
-!!$        ! Loop over cells
-!!$        do ind=1,twotondim
-!!$           
-!!$           ! Compute central cell index
-!!$           iskip=ncoarse+(ind-1)*ngridmax
-!!$           do i=1,ngrid
-!!$              ind_cell(i)=iskip+ind_grid(i)
-!!$           end do
-!!$           
-!!$           ! Gather neighboring temperature
-!!$           do idim=1,ndim
-!!$              id1=jjj(idim,1,ind); ig1=iii(idim,1,ind)
-!!$              ih1=ncoarse+(id1-1)*ngridmax
-!!$              do i=1,ngrid
-!!$                 if(igridn(i,ig1)>0)then
-!!$                    do jdim=1,ndim
-!!$                       Bg(i,idim,jdim) = (unew(igridn(i,ig1)+ih1,5+jdim)+unew(igridn(i,ig1)+ih1,nvar+jdim))/2.0d0
-!!$                    end do
-!!$                    dx_g(i,idim) = dx_loc
-!!$                 else
-!!$                    do jdim=1,ndim
-!!$                       Bg(i,idim,jdim) = (unew(ind_left(i,idim),5+jdim)+unew(ind_left(i,idim),nvar+jdim))/2.0d0
-!!$                    end do
-!!$                    dx_g(i,idim) = dx_loc*1.5_dp
-!!$                 end if
-!!$              enddo
-!!$              id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
-!!$              ih2=ncoarse+(id2-1)*ngridmax
-!!$              do i=1,ngrid
-!!$                 if(igridn(i,ig2)>0)then
-!!$                    do jdim=1,ndim                 
-!!$                       Bd(i,idim,jdim) = (unew(igridn(i,ig2)+ih2,5+jdim)+unew(igridn(i,ig2)+ih2,nvar+jdim))/2.0d0
-!!$                    end do
-!!$                    dx_d(i,idim)=dx_loc
-!!$                 else 
-!!$                    do jdim=1,ndim
-!!$                       Bd(i,idim,jdim) = (unew(ind_right(i,idim),5+jdim)+unew(ind_right(i,idim),nvar+jdim))/2.0d0
-!!$                    end do
-!!$                    dx_d(i,idim)=dx_loc*1.5_dp
-!!$                 end if
-!!$              enddo
-!!$           end do
-!!$           ! End loop over dimensions
-!!$           
-!!$           do i=1,ngrid
-!!$              
-!!$              Bx = 0.5d0*(unew(ind_cell(i),6)+unew(ind_cell(i),nvar+1))
-!!$              By = 0.5d0*(unew(ind_cell(i),7)+unew(ind_cell(i),nvar+2))
-!!$              Bz = 0.5d0*(unew(ind_cell(i),8)+unew(ind_cell(i),nvar+3))
-!!$              
-!!$              !compute jcenter
-!!$              jcenter(i,1) = (Bd(i,2,3)-Bg(i,2,3))/(dx_g(i,2)+dx_d(i,2)) - (Bd(i,3,2)-Bg(i,3,2))/(dx_g(i,3)+dx_d(i,3)) 
-!!$              jcenter(i,2) = (Bd(i,3,1)-Bg(i,3,1))/(dx_g(i,3)+dx_d(i,3)) - (Bd(i,1,3)-Bg(i,1,3))/(dx_g(i,1)+dx_d(i,1)) 
-!!$              jcenter(i,3) = (Bd(i,1,2)-Bg(i,1,2))/(dx_g(i,1)+dx_d(i,1)) - (Bd(i,2,1)-Bg(i,2,1))/(dx_g(i,2)+dx_d(i,2)) 
-!!$              
-!!$              ! compute jxb
-!!$              jxb(i,1) = jcenter(i,2)*Bz - jcenter(i,3)*By
-!!$              jxb(i,2) = jcenter(i,3)*Bx - jcenter(i,1)*Bz
-!!$              jxb(i,3) = jcenter(i,1)*By - jcenter(i,2)*Bx
-!!$
-!!$              
-!!$              B2 = (Bx**2+By**2+Bz**2)
-!!$              e  = unew(ind_Cell(i),nvar)
-!!$              d  = uold(ind_Cell(i),1)
-!!$              
-!!$              if(barotrop)then
-!!$                 tcell=barotrop1D(d*scale_d)
-!!$              else if(eos)then
-!!$                 call temperature_eos(d,e,tcell,ht)
-!!$              else
-!!$                 Cv= kB/(mu_gas*mH*(gamma-1.0))!(cgs)
-!!$                 Tcell =  e/(Cv*d)  *scale_v**2
-!!$              endif
-!!$              
-!!$              eta_ad=betaad(d,B2,tcell) 
-!!$              eta_ohm=etaohmdiss(d,B2,tcell) 
-!!$              
-!!$              norm_jcenter   = (jcenter(i,1)**2+jcenter(i,2)**2+jcenter(i,3)**2)
-!!$              norm_jxb = (jxb(i,1)**2+jxb(i,2)**2+jxb(i,3)**2)
-!!$              
-!!$              AD_heating  = 0.0_dp
-!!$              ohm_heating = 0.0_dp
-!!$              if(nambipolar2==1) AD_heating  = norm_jxb     * eta_ad * dtloc !dtnew(ilevel)
-!!$              if(nmagdiffu2 ==1) ohm_heating = norm_jcenter * eta_ohm  * dtloc !dtnew(ilevel)
-!!$              
-!!$              
-!              if(eintnew < eintold)then
-!!$!                 write(*,*) 'eintold,eintnew,eintold-eintnew,AD_heating,ohm_heating',eintold,eintnew,eintold-eintnew,AD_heating,ohm_heating
-!!$!                 if(.not. barotrop)unew(ind_cell(i),5) = unew(ind_cell(i),nvar)+ekinnew+emagnew+ernew+AD_heating+ohm_heating
-!              endif
-!!$                 
-!!$!if((.not. barotrop) .and. (son(ind_cell(i))==0))unew(ind_cell(i),nvar) = unew(ind_cell(i),nvar)+AD_heating+ohm_heating
-!              endif
-!!$              
-!!$           end do
-!!$           
-!!$        end do
-!!$     end do
-!!$  end if
 
   ! Set uold to unew for myid cells
   do ind=1,twotondim
@@ -1406,19 +1275,9 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
               e_r=e_r+uold(active(ilevel)%igrid(i)+iskip,8+j)
            end do      
 #endif     
+           e_cons=divu(active(ilevel)%igrid(i)+iskip)!uold(active(ilevel)%igrid(i)+iskip,5)-e_kin-e_mag-e_r
+           if(energy_fix)e_cons=uold(active(ilevel)%igrid(i)+iskip,nvar)
 
-!         ! Using nvar
-!!$         e_cons=uold(active(ilevel)%igrid(i)+iskip,5)-e_kin-e_mag-e_r
-!!$         e_prim=uold(active(ilevel)%igrid(i)+iskip,nvar)
-         
-
-!         uold(active(ilevel)%igrid(i)+iskip,5)=e_cons
-        
-        ! Using U(5)       
-!!$        e_cons=uold(active(ilevel)%igrid(i)+iskip,5)-e_kin-e_mag-e_r
-!!$        if(iend==1)uold(active(ilevel)%igrid(i)+iskip,nvar)=e_cons
-!!$        uold(active(ilevel)%igrid(i)+iskip,nvar)=e_cons
-           e_cons=uold(active(ilevel)%igrid(i)+iskip,nvar)+e_kin+e_mag+e_r
            if(iend==1)then
               nimhd_heating=0.0d0
               if(.not. radiative_nimhdheating)then
@@ -1444,10 +1303,8 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
                  endif
                  nimhd_heating=ambi_heating+ohm_heating
               end if
-!!$              print*,nimhd_heating,uold(active(ilevel)%igrid(i)+iskip,nvar),jsquare,jx,jy,jz,a,b,c
-              e_cons=uold(active(ilevel)%igrid(i)+iskip,nvar)+e_kin+e_mag+e_r+nimhd_heating
-              uold(active(ilevel)%igrid(i)+iskip,5)=e_cons
-              uold(active(ilevel)%igrid(i)+iskip,nvar)= uold(active(ilevel)%igrid(i)+iskip,nvar)+nimhd_heating
+              uold(active(ilevel)%igrid(i)+iskip,5)=e_cons+e_kin+e_mag+e_r+nimhd_heating
+              uold(active(ilevel)%igrid(i)+iskip,nvar)= e_cons+nimhd_heating
            end if
 
            ! Compute gas temperature in cgs
