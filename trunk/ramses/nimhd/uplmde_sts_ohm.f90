@@ -371,8 +371,8 @@ subroutine diffine1_sts(ind_grid,ncache,dtdiff,ilevel,icycle)
                               w=uold(ind_cell(i),4)/d
                               ekin=0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
-                              do irad=1,nener
-                                 ekin=ekin+uold(ind_cell(i),8+irad)
+                              do ivar=1,nener
+                                 ekin=ekin+uold(ind_cell(i),8+ivar)
                               end do
 #endif
                               emag=0.5d0*(A**2+B**2+C**2)

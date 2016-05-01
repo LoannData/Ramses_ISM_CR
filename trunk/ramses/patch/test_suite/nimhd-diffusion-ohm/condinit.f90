@@ -24,44 +24,29 @@ subroutine condinit(x,u,dx,nn)
   ! scalars in the hydro solver.
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
-  integer::ivar,i
+  integer::i,ivar
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp)::xc,xr,xl,yl,yr,yc,al,ar,B0,pi
 
-  pi=ACOS(-1.0_dp)
-  B0=1.0_dp/sqrt(4.0_dp*pi)
-  do i=1,nn
+  real(dp) :: xx,yy,zz
 
-     xl=x(i,1)-0.5_dp*dx
-     xr=x(i,1)+0.5_dp*dx
-     xc=x(i,1)
-     yl=x(i,2)-0.5_dp*dx
-     yr=x(i,2)+0.5_dp*dx
-     yc=x(i,2)
+  ! Call built-in initial condition generator
+  call region_condinit(x,q,dx,nn)
+  
+  do i = 1,nn
+     xx = x(i,1) - 0.5_dp*(1.0_dp + dx)
+     yy = x(i,2) - 0.5_dp*(1.0_dp + dx)
+     zz = x(i,3) - 0.5_dp*(1.0_dp + dx)
+!      if((abs(xx) < 0.9_dp*dx) .and. (abs(yy) < 0.9_dp*dx) .and. (abs(zz) < 0.9_dp*dx))then
+     if((abs(xx) < 0.9_dp*dx) .and. (abs(zz) < 0.9_dp*dx))then
+!      if(abs(xx) < 0.9_dp*dx)then
+       q(i,     7) = 1.0_dp
+       q(i,nvar+2) = 1.0_dp
+     endif
+  enddo
+  
 
-     q(i,1)=25.0_dp/(36.0_dp*pi)
-     q(i,2)=-sin(2.0_dp*pi*yc)
-     q(i,3)=+sin(2.0_dp*pi*xc)
-     q(i,4)=0.0_dp
-     q(i,5)=5.0_dp/(12.0_dp*pi)
-
-     Ar = B0*(cos(4.0_dp*pi*xl)/(4.0_dp*pi)+cos(2.0_dp*pi*yr)/(2.0_dp*pi))
-     Al = B0*(cos(4.0_dp*pi*xl)/(4.0_dp*pi)+cos(2.0_dp*pi*yl)/(2.0_dp*pi))
-     q(i,6)=(Ar-Al)/dx
-     Ar = B0*(cos(4.0_dp*pi*xr)/(4.0_dp*pi)+cos(2.0_dp*pi*yr)/(2.0_dp*pi))
-     Al = B0*(cos(4.0_dp*pi*xr)/(4.0_dp*pi)+cos(2.0_dp*pi*yl)/(2.0_dp*pi))
-     q(i,nvar+1)=(Ar-Al)/dx
-     Ar = B0*(cos(4.0_dp*pi*xr)/(4.0_dp*pi)+cos(2.0_dp*pi*yl)/(2.0_dp*pi))
-     Al = B0*(cos(4.0_dp*pi*xl)/(4.0_dp*pi)+cos(2.0_dp*pi*yl)/(2.0_dp*pi))
-     q(i,7)=(Al-Ar)/dx
-     Ar = B0*(cos(4.0_dp*pi*xr)/(4.0_dp*pi)+cos(2.0_dp*pi*yr)/(2.0_dp*pi))
-     Al = B0*(cos(4.0_dp*pi*xl)/(4.0_dp*pi)+cos(2.0_dp*pi*yr)/(2.0_dp*pi))
-     q(i,nvar+2)=(Al-Ar)/dx
-
-     q(i,8)=0.0_dp
-     q(i,nvar+3)=0.0_dp
-  end do
-
+  ! Add here, if you wish, some user-defined initial conditions
+  ! ........
 
   ! Convert primitive to conservative variables
   ! density -> density
@@ -71,22 +56,55 @@ subroutine condinit(x,u,dx,nn)
   u(1:nn,3)=q(1:nn,1)*q(1:nn,3)
   u(1:nn,4)=q(1:nn,1)*q(1:nn,4)
   ! kinetic energy
-  u(1:nn,5)=0.0_dp
-  u(1:nn,5)=u(1:nn,5)+0.5_dp*q(1:nn,1)*q(1:nn,2)**2
-  u(1:nn,5)=u(1:nn,5)+0.5_dp*q(1:nn,1)*q(1:nn,3)**2
-  u(1:nn,5)=u(1:nn,5)+0.5_dp*q(1:nn,1)*q(1:nn,4)**2
+  u(1:nn,5)=0.0d0
+  u(1:nn,5)=u(1:nn,5)+0.5*q(1:nn,1)*q(1:nn,2)**2
+  u(1:nn,5)=u(1:nn,5)+0.5*q(1:nn,1)*q(1:nn,3)**2
+  u(1:nn,5)=u(1:nn,5)+0.5*q(1:nn,1)*q(1:nn,4)**2
   ! pressure -> total fluid energy
-  u(1:nn,5)=u(1:nn,5)+q(1:nn,5)/(gamma-1.0_dp)
+  u(1:nn,5)=u(1:nn,5)+q(1:nn,5)/(gamma-1.0d0)
   ! magnetic energy -> total fluid energy
-  u(1:nn,5)=u(1:nn,5)+0.125_dp*(q(1:nn,6)+q(1:nn,nvar+1))**2
-  u(1:nn,5)=u(1:nn,5)+0.125_dp*(q(1:nn,7)+q(1:nn,nvar+2))**2
-  u(1:nn,5)=u(1:nn,5)+0.125_dp*(q(1:nn,8)+q(1:nn,nvar+3))**2
+  u(1:nn,5)=u(1:nn,5)+0.125d0*(q(1:nn,6)+q(1:nn,nvar+1))**2
+  u(1:nn,5)=u(1:nn,5)+0.125d0*(q(1:nn,7)+q(1:nn,nvar+2))**2
+  u(1:nn,5)=u(1:nn,5)+0.125d0*(q(1:nn,8)+q(1:nn,nvar+3))**2
   u(1:nn,6:8)=q(1:nn,6:8)
   u(1:nn,nvar+1:nvar+3)=q(1:nn,nvar+1:nvar+3)
-  ! passive scalars
-  do ivar=9,nvar
-     u(1:nn,ivar)=q(1:nn,1)*q(1:nn,ivar)
+#if NENER>0
+  ! non-thermal pressure -> non-thermal energy
+  ! non-thermal energy   -> total fluid energy
+  do ivar=1,nener-ngrp
+     u(1:nn,8+ivar)=q(1:nn,8+ivar)/(gamma_rad(ivar)-1.0d0)
+     u(1:nn,5)=u(1:nn,5)+u(1:nn,8+ivar)
+  enddo
+ ! Radiative transfer
+#if NGRP>0
+  ! radiative energy   -> total fluid energy
+  do ivar=1,ngrp
+     u(1:nn,firstindex_er+ivar)= q(1:nn,firstindex_er+ivar)
+     u(1:nn,5)=u(1:nn,5)+ u(1:nn,firstindex_er+ivar)
+  enddo
+#if USE_M_1==1
+  ! radiative flux
+  do ivar=1,ndim*ngrp
+     do i=1,ncache
+        u(1:nn,fisrtindex_fr+ivar)=q(1:nn,firstindex+ivar)
+     end do
+     write(ilun)xdp
   end do
+#endif
+#endif
+#endif
+#if NEXTINCT>0
+  ! Extinction
+  if(extinction)u(1:nn,firstindex_extinct+nextinct)=1.0D0
+#endif
+#if NPSCAL>0
+  ! passive scalars
+  do ivar=1,npscal
+     u(1:nn,firstindex_pscal+ivar)=q(1:nn,1)*q(1:nn,firstindex_pscal+ivar)
+  end do
+  ! Internal energy
+  u(1:nn,nvar)=q(1:nn,5)/(gamma-1.0d0)
+#endif
 
 end subroutine condinit
 !================================================================
@@ -111,22 +129,53 @@ subroutine velana(x,v,dx,t,ncell)
   real(dp)::xx,yy,zz,vx,vy,vz,rr,tt,omega,aa,twopi
 
   ! Add here, if you wish, some user-defined initial conditions
-  aa=1.0_dp
-  twopi=2.0_dp*ACOS(-1.0_dp)
+  aa=1.0
+  twopi=2d0*ACOS(-1d0)
   do i=1,ncell
 
-     xx=x(i,1)
-     yy=x(i,2)
-     zz=x(i,3)
+!!$     xx=x(i,1)
+!!$#if NDIM > 1
+!!$     yy=x(i,2)
+!!$#endif
+!!$#if NDIM > 2
+!!$     zz=x(i,3)
+!!$#endif
+!!$     ! ABC
+!!$     vx=aa*(cos(twopi*yy)+sin(twopi*zz))
+!!$     vy=aa*(sin(twopi*xx)+cos(twopi*zz))
+!!$     vz=aa*(cos(twopi*xx)+sin(twopi*yy))
 
-     ! ABC
-     vx=aa*(cos(twopi*yy)+sin(twopi*zz))
-     vy=aa*(sin(twopi*xx)+cos(twopi*zz))
-     vz=aa*(cos(twopi*xx)+sin(twopi*yy))
+!!$     ! 1D advection test
+!!$     vx=1.0_dp
+!!$     vy=0.0_dp
+!!$     vz=0.0_dp
 
-     v(i,1)=vx
-     v(i,2)=vy
-     v(i,3)=vz
+!!$     ! Ponomarenko
+!!$     xx=xx-boxlen/2.0
+!!$     yy=yy-boxlen/2.0
+!!$     rr=sqrt(xx**2+yy**2)
+!!$     if(yy>0)then
+!!$        tt=acos(xx/rr)
+!!$     else
+!!$        tt=-acos(xx/rr)+twopi
+!!$     endif
+!!$     if(rr<1.0)then
+!!$        omega=0.609711
+!!$        vz=0.792624
+!!$     else
+!!$        omega=0.0
+!!$        vz=0.0
+!!$     endif
+!!$     vx=-sin(tt)*rr*omega
+!!$     vy=+cos(tt)*rr*omega
+     
+!!$     v(i,1)=vx
+!!$#if NDIM > 1
+!!$     v(i,2)=vy
+!!$#endif
+!!$#if NDIM > 2
+!!$     v(i,3)=vz
+!!$#endif
 
   end do
 
@@ -137,12 +186,10 @@ end subroutine velana
 !========================================================================================
 !========================================================================================
 subroutine calc_boxlen
- 
+
   implicit none
-  !================================================================
-  !this routine calculate boxlen
-  !================================================================
-  
+
   return
 
 end subroutine calc_boxlen
+

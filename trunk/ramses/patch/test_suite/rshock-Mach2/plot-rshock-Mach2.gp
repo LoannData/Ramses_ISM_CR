@@ -16,8 +16,8 @@ lwidth = 2
 file1 = 'data.dat'
 file2 = 'rshock-Mach2-ana.dat'
 
-lmin = int(system(sprintf("grep levelmin Mach2.nml | cut -d '=' -f2")))
-lmax = int(system(sprintf("grep levelmax Mach2.nml | cut -d '=' -f2")))
+lmin = int(system(sprintf("grep levelmin rshock-Mach2.nml | cut -d '=' -f2")))
+lmax = int(system(sprintf("grep levelmax rshock-Mach2.nml | cut -d '=' -f2")))
 
 set term post enh color portrait
 set output 'rshock-Mach2.ps'

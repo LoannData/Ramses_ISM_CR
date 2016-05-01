@@ -7,8 +7,8 @@ file4 = 'data4.dat'
 file5 = 'data5.dat'
 file6 = 'nimhd-cshock-ohm-ana.dat'
 
-lmin = int(system(sprintf("grep levelmin nimhd-cshock-ad.nml | cut -d '=' -f2")))
-lmax = int(system(sprintf("grep levelmax nimhd-cshock-ad.nml | cut -d '=' -f2")))
+lmin = int(system(sprintf("grep levelmin nimhd-cshock-ohm.nml | cut -d '=' -f2")))
+lmax = int(system(sprintf("grep levelmax nimhd-cshock-ohm.nml | cut -d '=' -f2")))
 
 tt = system(sprintf("cat time.dat"))
 t  = tt + 0.0

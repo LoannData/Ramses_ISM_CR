@@ -3,8 +3,6 @@
 #######################################################################
 #
 # Script to run the RAMSES test suite
-# 
-# Neil Vaytet (ENS Lyon) - 07/2014 - neil.vaytet@ens-lyon.fr
 #
 # Usage:
 #   ./run_test_suite.sh
@@ -20,8 +18,10 @@
 #       ./run_test_suite -d
 #   - Run in verbose mode:
 #       ./run_test_suite -v
-#   - Select test number (for tests 3 to 5, and 10):
-#       ./run_test_suite -t 3-5,10
+#   - Select test number (for test number 3):
+#       ./run_test_suite -t 3-5,8
+#   - Use batch submission :
+#       ./run_test_suite -q "qsub"
 #
 #######################################################################
 
@@ -30,14 +30,18 @@
 #######################################################################
 MPI=0;
 NCPU=1;
-USE_GNUPLOT=true;
-USE_PYTHON=false;
+USE_PYTHON=0;
 RUN_FULL_SUITE=false;
 VERBOSE=false;
 DELDATA=true;
 SELECTTEST=false;
-while getopts "dfp:t:vy" OPTION; do
+CLEAN_ALL=false;
+QUEUE=false;
+while getopts "cdfp:q:t:vy" OPTION; do
    case $OPTION in
+      c)
+         CLEAN_ALL=true;
+      ;;
       d)
          DELDATA=false;
       ;;
@@ -48,6 +52,10 @@ while getopts "dfp:t:vy" OPTION; do
          MPI=1;
          NCPU=$OPTARG;
       ;;
+      q)
+         QUEUE=true;
+         SUBMITSTRING=$OPTARG;
+      ;;
       t)
          SELECTTEST=true;
          TESTNUMBER=$OPTARG;
@@ -56,8 +64,7 @@ while getopts "dfp:t:vy" OPTION; do
          VERBOSE=true;
       ;;
       y)
-         USE_PYTHON=true;
-         USE_GNUPLOT=false;
+         USE_PYTHON=1;
       ;;
    esac
 done
@@ -71,23 +78,47 @@ length=${#TEST_DIRECTORY};
 icut=$(($length - 17));
 
 BASE_DIRECTORY="${TEST_DIRECTORY:0:${icut}}";
-
 BIN_DIRECTORY="${BASE_DIRECTORY}/bin";
+PATCH_DIRECTORY="${BASE_DIRECTORY}/patch/rhd";
+
 VISU_DIR="${TEST_DIRECTORY}/visu";
-DELETE_RESULTS="rm -rf output_* log data*.dat time.dat";
+DELETE_RESULTS="rm -rf output_* data*.dat time.dat";
 DELETE_SOURCES="rm -f units.o condinit.o";
 RETURN_TO_BIN="cd ${BIN_DIRECTORY}";
 EXECNAME="test_exe_";
 LOGFILE="${TEST_DIRECTORY}/test_suite.log";
-echo > $LOGFILE;
+echo -n > $LOGFILE;
+COMPLETEDTESTS="${TEST_DIRECTORY}/completed_tests.txt";
+if $QUEUE; then
+   echo -n > $COMPLETEDTESTS;
+fi
+nbatch=5;
+MYLATEXPATH=/gpfs/data1/nvaytet/texlive2015/bin/x86_64-linux/;
+MYMODULES="gnuplot anaconda openmpi/1.8.3-gnu4.8.4";
+#COMP=$(grep COMP ${BIN_DIRECTORY}/Makefile | grep "=" | cut -d '"' -f2);
 
 if [ ${MPI} -eq 1 ]; then
-   RUN_TEST_BASE="mpirun -np ${NCPU} ${BIN_DIRECTORY}/${EXECNAME}";
+#    MPIFLAGS="--default-hostfile none"
+   RUN_TEST_BASE="mpirun -np ${NCPU} ${MPIFLAGS}";
 else
-   RUN_TEST_BASE="${BIN_DIRECTORY}/${EXECNAME}";
+   RUN_TEST_BASE="./";
 fi
 
-STARTTIME=$(date +%s);
+TOTALSTARTTIME=$(date +%s);
+
+#######################################################################
+# Clean all directories and exit
+#######################################################################
+if $CLEAN_ALL ; then
+   cd ${TEST_DIRECTORY};
+   rm -r */output_* */*.log */data*.dat */time.dat */resdiff* */*.pdf */*.ps */*.o */*.mod */build* */ramses_* completed_tests.txt test_results.* test_suite.log */barotropic_eos.dat */Hosokawa_track.dat */vaytet_grey_opacities*.bin */groups.dat */init_turb.data */tab_eos.dat */res*.dat */submit*.sh;
+   cd ${BIN_DIRECTORY};
+   make clean;
+   rm ${EXECNAME}*;
+   cd ${VISU_DIR};
+   make clean;
+   exit;
+fi
 
 #######################################################################
 # Welcome message
@@ -109,181 +140,100 @@ echo "############################################" >> $LOGFILE;
 #######################################################################
 
 itest=0; # Test 1
-testdir[${itest}]="sod-tube";
 testname[${itest}]="sod-tube";
 testpatch[${itest}]="";
-testlist[${itest}]="sod-tube.nml";
 ndim[${itest}]=1;
-#nvar[${itest}]=8;
-solver[${itest}]="mhd";
 flags[${itest}]="";
-make_clean[${itest}]=true;
-del_files[${itest}]="";
 
 itest=$((itest + 1)); # Test 2
-testdir[${itest}]="imhd-tube";
 testname[${itest}]="imhd-tube";
 testpatch[${itest}]="";
-testlist[${itest}]="imhd-tube.nml";
 ndim[${itest}]=1;
-#nvar[${itest}]=8;
-solver[${itest}]="mhd";
 flags[${itest}]="";
-make_clean[${itest}]=true;
-del_files[${itest}]="";
 
 itest=$((itest + 1)); # Test 3
-testdir[${itest}]="orszag-tang";
-testname[${itest}]="orszag-tang";
-testpatch[${itest}]="../patch/test_suite/orszag-tang";
-testlist[${itest}]="orszag-tang.nml";
-ndim[${itest}]=2;
-#nvar[${itest}]=8;
-solver[${itest}]="mhd";
-flags[${itest}]="";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
+testname[${itest}]="nimhd-diffusion-ad";
+testpatch[${itest}]="../patch/test_suite/nimhd-diffusion-ad";
+ndim[${itest}]=3;
+flags[${itest}]="NIMHD=1";
 
 itest=$((itest + 1)); # Test 4
-testdir[${itest}]="nimhd-diffusion";
-testname[${itest}]="nimhd-diffusion-ad";
-testpatch[${itest}]="../patch/test_suite/nimhd-diffusion";
-testlist[${itest}]="nimhd-diffusion-ad.nml";
+testname[${itest}]="nimhd-diffusion-ohm";
+testpatch[${itest}]="../patch/test_suite/nimhd-diffusion-ohm";
 ndim[${itest}]=3;
-solver[${itest}]="mhd";
 flags[${itest}]="NIMHD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
 
 itest=$((itest + 1)); # Test 5
-testdir[${itest}]="nimhd-diffusion";
-testname[${itest}]="nimhd-diffusion-ohm";
-testpatch[${itest}]="../patch/test_suite/nimhd-diffusion";
-testlist[${itest}]="nimhd-diffusion-ohm.nml";
-ndim[${itest}]=3;
-solver[${itest}]="mhd";
-flags[${itest}]="NIMHD=1";
-make_clean[${itest}]=false;
-del_files[${itest}]="output_*";
-
-itest=$((itest + 1)); # Test 6
-testdir[${itest}]="dirac";
 testname[${itest}]="dirac";
 testpatch[${itest}]="../patch/test_suite/dirac";
-testlist[${itest}]="dirac.nml";
 ndim[${itest}]=1;
-solver[${itest}]="mhd";
 flags[${itest}]="NGRP=1 USE_FLD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="";
 
-itest=$((itest + 1)); # Test 7
-testdir[${itest}]="rshock_lowrie_edwards";
+itest=$((itest + 1)); # Test 6
 testname[${itest}]="rshock-Mach2";
 testpatch[${itest}]="";
-testlist[${itest}]="Mach2.nml";
 ndim[${itest}]=1;
-solver[${itest}]="mhd";
 flags[${itest}]="NGRP=1 USE_FLD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="";
 
-itest=$((itest + 1)); # Test 8
-testdir[${itest}]="rshock_lowrie_edwards";
+itest=$((itest + 1)); # Test 7
 testname[${itest}]="rshock-Mach5";
 testpatch[${itest}]="";
-testlist[${itest}]="Mach5.nml";
 ndim[${itest}]=1;
-solver[${itest}]="mhd";
 flags[${itest}]="NGRP=1 USE_FLD=1";
-make_clean[${itest}]=false;
-del_files[${itest}]="";
 
-itest=$((itest + 1)); # Test 9
-testdir[${itest}]="radiative-shock";
+itest=$((itest + 1)); # Test 8
 testname[${itest}]="radiative-shock";
 testpatch[${itest}]="";
-testlist[${itest}]="tube1d.nml";
 ndim[${itest}]=1;
-solver[${itest}]="mhd";
 flags[${itest}]="NGRP=4 USE_FLD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="";
 
+itest=$((itest + 1)); # Test 9
+testname[${itest}]="orszag-tang";
+testpatch[${itest}]="../patch/test_suite/orszag-tang";
+ndim[${itest}]=2;
+flags[${itest}]="";
 
 # Store number of standard tests
 ntestsstandard=${#testname[@]};
 
-# Additional tests: include your own tests here ==============
-# ============================================================
+# Additional tests ==========================
 
 itest=$((itest + 1)); # Test 10
-testdir[${itest}]="dirac";
 testname[${itest}]="dirac3d";
-testpatch[${itest}]="../patch/test_suite/dirac";
-testlist[${itest}]="dirac3d.nml";
+testpatch[${itest}]="../patch/test_suite/dirac3d";
 ndim[${itest}]=3;
-solver[${itest}]="mhd";
 flags[${itest}]="NGRP=1 USE_FLD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
 
 itest=$((itest + 1)); # Test 11
-testdir[${itest}]="nimhd-cshock";
 testname[${itest}]="nimhd-cshock-ad";
 testpatch[${itest}]="";
-testlist[${itest}]="nimhd-cshock-ad.nml";
 ndim[${itest}]=3;
-solver[${itest}]="mhd";
 flags[${itest}]="NIMHD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
 
 itest=$((itest + 1)); # Test 12
-testdir[${itest}]="nimhd-cshock";
 testname[${itest}]="nimhd-cshock-ohm";
 testpatch[${itest}]="";
-testlist[${itest}]="nimhd-cshock-ohm.nml";
 ndim[${itest}]=3;
-solver[${itest}]="mhd";
 flags[${itest}]="NIMHD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
 
 itest=$((itest + 1)); # Test 13
-testdir[${itest}]="collapse";
 testname[${itest}]="collapse-rhd";
 testpatch[${itest}]="../patch/collapse";
-testlist[${itest}]="collapse-rhd.nml";
 ndim[${itest}]=3;
-solver[${itest}]="mhd";
 flags[${itest}]="NGRP=1 USE_FLD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
 
 itest=$((itest + 1)); # Test 14
-testdir[${itest}]="collapse";
 testname[${itest}]="collapse-baro";
 testpatch[${itest}]="../patch/collapse";
-testlist[${itest}]="collapse-baro.nml";
 ndim[${itest}]=3;
-solver[${itest}]="mhd";
 flags[${itest}]="NIMHD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
 
 itest=$((itest + 1)); # Test 15
-testdir[${itest}]="collapse";
 testname[${itest}]="collapse-ohm";
 testpatch[${itest}]="../patch/collapse";
-testlist[${itest}]="collapse-ohm.nml";
 ndim[${itest}]=3;
-solver[${itest}]="mhd";
-flags[${itest}]="NIMHD=1 NGRP=1 USE_FLD=1";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
+flags[${itest}]="NGRP=1 USE_FLD=1 NIMHD=1";
 
-# Store total number of tests
 ntestsfull=${#testname[@]};
 
 # Count number of tests
@@ -294,9 +244,6 @@ else
 fi
 
 ntests=$ntestsall;
-
-# Count number of tests
-ntests=${#testname[@]};
 all_tests_ok=true;
 
 #######################################################################
@@ -356,7 +303,7 @@ echo "Will perform the following tests:";
 echo "Will perform the following tests:" >> $LOGFILE;
 for ((i=0;i<$ntests;i++)); do
    n=${testnum[i]};
-   j=$(($n + 1));
+   j=$(($i + 1));
    if [ $ntests -gt 9 ] && [ $j -lt 10 ] ; then
       echo " [ ${j}] ${testname[n]}";
       echo " [ ${j}] ${testname[n]}" >> $LOGFILE;
@@ -375,11 +322,9 @@ echo "Compiling visualization software";
 echo "Compiling visualization software" >> $LOGFILE;
 cd ${VISU_DIR};
 if $VERBOSE ; then
-   make clean;
    make;
 else
-   { make clean >> $LOGFILE; } 2>> $LOGFILE;
-   { make >> $LOGFILE; } 2>> $LOGFILE;
+   make &>> $LOGFILE;
 fi
 echo "--------------------------------------------";
 echo "--------------------------------------------" >> $LOGFILE;
@@ -388,87 +333,219 @@ echo "--------------------------------------------" >> $LOGFILE;
 # Loop through all tests
 #######################################################################
 itest=0;
+count1=0;
+count2=1;
 for ((i=0;i<$ntests;i++)); do
 
    n=${testnum[i]};
    itest=$(($itest + 1));
-   echo "Test ${itest}/${ntests}: ${testname[n]}";
-   echo "Test ${itest}/${ntests}: ${testname[n]}" >> $LOGFILE;
-      
-   # Initial cleanup
-   $RETURN_TO_BIN;
-   if ${make_clean[n]}; then
-      echo "Cleanup";
-      echo "Cleanup" >> $LOGFILE;
-      if $VERBOSE ; then
-         make clean;
-      else
-         { make clean >> $LOGFILE; } 2>> $LOGFILE;
-      fi
-   fi
-   rm -f ${del_files[n]};
    
-   # Compile source
-   echo "Compiling source";
-   echo "Compiling source" >> $LOGFILE;
-   if $VERBOSE ; then
-      make EXEC=${EXECNAME} PATCH=${testpatch[n]} SOLVER=${solver[n]} MPI=${MPI} NDIM=${ndim[n]} ${flags[n]}; #NVAR=${nvar[n]} 
-   else
-      { make EXEC=${EXECNAME} PATCH=${testpatch[n]} SOLVER=${solver[n]} MPI=${MPI} NDIM=${ndim[n]} ${flags[n]} >> $LOGFILE; } 2>> $LOGFILE; #NVAR=${nvar[n]} 
-   fi
-   
-   # Run tests
-   cd ${TEST_DIRECTORY}/${testdir[n]};
-   $DELETE_RESULTS;
-   if $VERBOSE ; then
-      ./prepare-${testname[n]}.sh;
-   else
-      { ./prepare-${testname[n]}.sh >> $LOGFILE; } 2>> $LOGFILE;
-   fi
-   RUN_TEST="${RUN_TEST_BASE}${ndim[n]}d ${testlist[n]}";
-   echo "Running test";
-   echo "Running test" >> $LOGFILE;
-   { time ${RUN_TEST} > log ; } 2> ${testname[n]}"_stats.txt";
-   cat log >> $LOGFILE;
+   THISTESTLOG="${TEST_DIRECTORY}/${testname[n]}/${testname[n]}.log";
+   echo -n > ${THISTESTLOG};
 
-   # Plot results
-   echo "Plotting results";
-   echo "Plotting results" >> $LOGFILE;
-   if $VERBOSE ; then
-      ./plot-${testname[n]}.sh;
-   else
-      { ./plot-${testname[n]}.sh >> $LOGFILE; } 2>> $LOGFILE;
-   fi
-   if ${USE_GNUPLOT} ; then
-      gnuplot plot-${testname[n]}.gp;
-      ps2pdf ${testname[n]}.ps;
-      rm ${testname[n]}.ps;
-   fi
-   if ${USE_PYTHON} ; then
-      python plot-${testname[n]}.py;
-   fi
+   # Check if we are using batch queue or not
+   if $QUEUE; then
+
+      # Pause if we are submitting in batches
+      if [ $nbatch -gt 0 ] && [ $count1 -ge $nbatch ] ; then
+         waitingforbatch=true;
+         while $waitingforbatch ; do
+            ncomp=$(wc -l $COMPLETEDTESTS | cut -d ' ' -f1);
+            if [ $ncomp -ge $count2 ]; then
+               waitingforbatch=false;
+#               count2=$(($count2 + $nbatch));
+               count2=$(($count2 + 1));
+            fi
+            sleep 1;
+         done
+#         count1=0;
+         #count1=$(($count1 - 1));
+      fi
+
+      echo "Test ${itest}/${ntests}: ${testname[n]}";
+
+      count1=$(($count1 + 1));
    
-   # Check for differences in results
-   echo "Analysing results";
-   echo "Analysing results" >> $LOGFILE;
-   difffile="resdiff-${testname[n]}";
-   diff data.dat ${testname[n]}"-ref.dat" > ${difffile};
-   # Size of diff file?
-   diffoutput=$(cat ${difffile});
-   diffsize=${#diffoutput};
-   if [ ${diffsize} -gt 0 ]; then
-      diff_not_empty[n]=true;
-      echo "Test failed!                          [FAIL]";
-      echo "Test failed!                          [FAIL]" >> $LOGFILE;
-      all_tests_ok=false;
+      SUBFILE="submit_${testname[n]}.sh";
+      
+      cd ${TEST_DIRECTORY}/${testname[n]};
+      
+      # Write submission script
+      echo "#!/bin/bash" > $SUBFILE;
+      echo "#$ -N ${testname[n]}" >> $SUBFILE;
+      echo "#$ -o ${THISTESTLOG}" >> $SUBFILE;
+      echo "#$ -j y" >> $SUBFILE;
+      echo "#$ -cwd" >> $SUBFILE;
+      echo "#$ -pe mpi ${NCPU}" >> $SUBFILE;
+      echo "STARTTIME=\$(date +%s);" >> $SUBFILE;
+      echo "source /etc/profile.d/modules.sh" >> $SUBFILE;
+      echo "module purge" >> $SUBFILE;
+      echo "module load ${MYMODULES}" >> $SUBFILE;
+#      if [ $COMP == "GNU" ] ; then
+#         echo "module load gnuplot" >> $SUBFILE;
+#         echo "module load gnuplot openmpi/1.8.3-gnu4.8.4" >> $SUBFILE;
+#       echo "module load "
+#      elif [ $COMP == "INTEL" ] ; then
+#         echo "module load openmpi/1.5.4-intel12.0.0" >> $SUBFILE;
+#      else
+#         echo "WARNING: unknown compiler";
+#      fi
+      echo "echo \"Test ${itest}/${ntests}: ${testname[n]}\" >> ${THISTESTLOG};" >> $SUBFILE;
+      
+      # Initial cleanup
+      echo "mkdir build-${testname[n]};" >> $SUBFILE;
+      echo "cd build-${testname[n]};" >> $SUBFILE;
+      echo "cp ${BIN_DIRECTORY}/Makefile .;" >> $SUBFILE;
+      BINSTRING=$(echo ${BIN_DIRECTORY} | sed 's/\//\\\//g');
+      echo "sed -i 's/BINDIR = \./BINDIR = ${BINSTRING}/g' Makefile;" >> $SUBFILE;
+      echo "echo \"Cleanup\";" >> $SUBFILE;
+      echo "make clean;" >> $SUBFILE;
+
+      # Compile source
+      echo "echo \"Compiling source\";" >> $SUBFILE;
+      echo "make EXEC=${EXECNAME} PATCH=${testpatch[n]} MPI=${MPI} NDIM=${ndim[n]} ${flags[n]};" >> $SUBFILE;
+      echo "cd ../;" >> $SUBFILE;
+      
+      # Run tests
+      echo "$DELETE_RESULTS;" >> $SUBFILE;
+      echo "./prepare-${testname[n]}.sh;" >> $SUBFILE;
+      echo "mv build-${testname[n]}/${EXECNAME}${ndim[n]}d ramses_${testname[n]};" >> $SUBFILE;
+      
+      echo "echo \"Running test\";" >> $SUBFILE;
+      
+#      RUN_TEST="${RUN_TEST_BASE}ramses_${testname[n]} ${testlist[n]}";     
+#      echo "{ time { ${RUN_TEST}; } 2>> ${THISTESTLOG}; } 2> ${testname[n]}_stats.txt;" >> $SUBFILE;
+      echo "${RUN_TEST_BASE}ramses_${testname[n]} ${testname[n]}.nml;" >> $SUBFILE;
+      
+      # Plot results
+      echo "echo \"Plotting results\";" >> $SUBFILE;
+      echo "./plot-${testname[n]}.sh ${USE_PYTHON};" >> $SUBFILE;
+  #    if ${USE_GNUPLOT} ; then
+  #       echo "module load gnuplot" >> $SUBFILE;
+  #       echo "gnuplot plot-${testname[n]}.gp;" >> $SUBFILE;
+  #       echo "ps2pdf ${testname[n]}.ps;" >> $SUBFILE;
+  #       echo "rm ${testname[n]}.ps;" >> $SUBFILE;
+  #    fi
+  #    if ${USE_PYTHON} ; then
+  #       echo "module load anaconda" >> $SUBFILE;
+  #       echo "python plot-${testname[n]}.py;" >> $SUBFILE;
+  #    fi
+      
+      # Check for differences in results
+      echo "echo \"Analysing results\";" >> $SUBFILE;
+      echo "difffile=\"resdiff-${testname[n]}\";" >> $SUBFILE;
+      echo "diff data.dat ${testname[n]}\"-ref.dat\" >> \${difffile};" >> $SUBFILE;
+      # Size of diff file?
+      echo "diffoutput=\$(cat \${difffile});" >> $SUBFILE;
+      echo "diffsize=\${#diffoutput};" >> $SUBFILE;
+      echo "if [ \${diffsize} -gt 0 ]; then" >> $SUBFILE;
+      echo "   echo \"Test failed!                          [FAIL]\";" >> $SUBFILE;
+      echo "   all_tests_ok=false;" >> $SUBFILE;
+      echo "else" >> $SUBFILE;
+      echo "   echo \"Test passed                           [ OK ]\";" >> $SUBFILE;
+      echo "fi" >> $SUBFILE;
+      
+      # Let script know that test has finished
+      echo "echo \"${testname[n]}\" >> $COMPLETEDTESTS;" >> $SUBFILE;
+      
+      # Report elapsed time
+      echo "ENDTIME=\$(date +%s);" >> $SUBFILE;
+      echo "seconds=\$((\$ENDTIME - \$STARTTIME));" >> $SUBFILE;
+      echo "echo \"Test duration: \$seconds s\" >> ${THISTESTLOG};" >> $SUBFILE;
+
+      # Submit script in batch system
+      ${SUBMITSTRING} $SUBFILE;
+
    else
-      diff_not_empty[n]=false;
-      echo "Test passed                           [ OK ]";
-      echo "Test passed                           [ OK ]" >> $LOGFILE;
+   
+      echo "Test ${itest}/${ntests}: ${testname[n]}";
+      echo "Test ${itest}/${ntests}: ${testname[n]}" >> ${THISTESTLOG};
+
+      STARTTIME=$(date +%s);
+
+      # Initial cleanup
+      $RETURN_TO_BIN;
+      echo "Cleanup";
+      echo "Cleanup" >> ${THISTESTLOG};
+      if $VERBOSE ; then
+         make clean |& tee -a ${THISTESTLOG};
+      else
+         make clean &>> ${THISTESTLOG};
+      fi
+      
+      # Compile source
+      echo "Compiling source";
+      echo "Compiling source" >> ${THISTESTLOG};
+      MAKESTRING="make EXEC=${EXECNAME} PATCH=${testpatch[n]} MPI=${MPI} NDIM=${ndim[n]} ${flags[n]}";
+      if $VERBOSE ; then
+         $MAKESTRING |& tee -a ${THISTESTLOG};
+      else
+         $MAKESTRING &>> ${THISTESTLOG};
+      fi
+      
+      # Run tests
+      cd ${TEST_DIRECTORY}/${testname[n]};
+      $DELETE_RESULTS;
+      if $VERBOSE ; then
+         ./prepare-${testname[n]}.sh |& tee -a ${THISTESTLOG};
+      else
+         ./prepare-${testname[n]}.sh &>> ${THISTESTLOG};
+      fi
+      mv ${BIN_DIRECTORY}/${EXECNAME}${ndim[n]}d ramses_${testname[n]};
+      
+      RUN_TEST="${RUN_TEST_BASE}ramses_${testname[n]} ${testname[n]}.nml";
+      echo "Running test";
+      echo "Running test" >> ${THISTESTLOG};
+   
+      if $VERBOSE ; then
+         ${RUN_TEST} |& tee -a ${THISTESTLOG};
+      else
+         ${RUN_TEST} &>> ${THISTESTLOG};
+      fi
+
+      # Plot results
+      echo "Plotting results";
+      echo "Plotting results" >> ${THISTESTLOG};
+      if $VERBOSE ; then
+         ./plot-${testname[n]}.sh ${USE_PYTHON} |& tee -a ${THISTESTLOG};
+      else
+         ./plot-${testname[n]}.sh ${USE_PYTHON} &>> ${THISTESTLOG};
+      fi
+#      if ${USE_GNUPLOT} ; then
+#         gnuplot plot-${testname[n]}.gp;
+#         ps2pdf ${testname[n]}.ps;
+#         rm ${testname[n]}.ps;
+#      fi
+#      if ${USE_PYTHON} ; then
+#         python plot-${testname[n]}.py;
+#      fi
+      
+      # Check for differences in results
+      echo "Analysing results";
+      echo "Analysing results" >> ${THISTESTLOG};
+      difffile="resdiff-${testname[n]}";
+      diff data.dat ${testname[n]}"-ref.dat" &> ${difffile};
+      # Size of diff file?
+      diffoutput=$(cat ${difffile});
+      diffsize=${#diffoutput};
+      if [ ${diffsize} -gt 0 ]; then
+         echo "Test failed!                          [FAIL]";
+         echo "Test failed!                          [FAIL]" >> ${THISTESTLOG};
+      else
+         echo "Test passed                           [ OK ]";
+         echo "Test passed                           [ OK ]" >> ${THISTESTLOG};
+      fi
+      
+      ENDTIME=$(date +%s);
+      seconds=$(($ENDTIME - $STARTTIME));
+      echo "Test duration: $seconds s" >> ${THISTESTLOG};
+
+      echo "--------------------------------------------";
+      
    fi
    
 #    # Check for differences in log files
-#    echo "Analysing logs"; echo "Analysing logs" >> $LOGFILE;
+#    echo "Analysing logs"; echo "Analyzing logs" >> $LOGFILE;
 #    # Remove grids and memory from log file as they change with MPI
 #    sed -i 's/has.*$//' log;
 #    sed -i 's/mem.*$//' log;
@@ -491,18 +568,37 @@ for ((i=0;i<$ntests;i++)); do
 #       echo "Test passed"; echo "Test passed" >> $LOGFILE;
 #    fi
    
-   echo "--------------------------------------------";
-   echo "--------------------------------------------" >> $LOGFILE;
+#    echo "--------------------------------------------";
+#    echo "--------------------------------------------" >> $LOGFILE;
 
 done
 
 #######################################################################
-ENDTIME=$(date +%s);
-seconds=$(($ENDTIME - $STARTTIME));
-hours=$((seconds / 3600));
-seconds=$((seconds % 3600));
-minutes=$((seconds / 60));
-seconds=$((seconds % 60));
+cd ${TEST_DIRECTORY};
+
+if $QUEUE; then
+   notcompleted=true;
+   while ${notcompleted} ; do
+      ncomp=$(wc -l $COMPLETEDTESTS | cut -d ' ' -f1);
+      if [ ${ncomp} -eq ${ntests} ]; then
+         notcompleted=false;
+      fi
+      sleep 5;
+   done
+fi
+
+TOTALENDTIME=$(date +%s);
+totalseconds=$((${TOTALENDTIME} - ${TOTALSTARTTIME}));
+totalhours=$((${totalseconds} / 3600));
+totalseconds=$((${totalseconds} % 3600));
+totalminutes=$((${totalseconds} / 60));
+totalseconds=$((${totalseconds} % 60));
+
+for ((i=0;i<${ntests};i++)); do
+   n=${testnum[i]};
+   cat ${TEST_DIRECTORY}/${testname[n]}/${testname[n]}.log >> $LOGFILE;
+   echo "--------------------------------------------" >> $LOGFILE;
+done
 #######################################################################
 
 #######################################################################
@@ -510,7 +606,6 @@ seconds=$((seconds % 60));
 #######################################################################
 echo "Generating pdf document with test results";
 echo "Generating pdf document with test results" >> $LOGFILE;
-cd ${TEST_DIRECTORY};
 latexfile="test_results.tex";
 echo "\documentclass[12pt]{article}" > $latexfile;
 echo "\usepackage{graphicx,color}" >> $latexfile;
@@ -532,26 +627,33 @@ echo >> $latexfile;
 echo "\begin{table}[ht]" >> $latexfile;
 echo "\centering" >> $latexfile;
 echo "\caption{Test run summary using ${NCPU} processor(s)}" >> $latexfile;
-echo "\begin{tabular}{|r|l|l|l|l|}" >> $latexfile;
+echo "\begin{tabular}{|r|l|l|l|}" >> $latexfile;
 echo "\hline" >> $latexfile;
-echo "~ & Test name & Real time & User time & Status\\\\" >> $latexfile;
+echo "~ & Test name & Duration & Status\\\\" >> $latexfile;
 echo "\hline" >> $latexfile;
 for ((i=0;i<$ntests;i++)); do
    n=${testnum[i]};
-   statfile="${TEST_DIRECTORY}/${testdir[n]}/${testname[n]}_stats.txt"
-   itest=$(($n + 1));
-   if ${diff_not_empty[n]} ; then
+   logfile="${TEST_DIRECTORY}/${testname[n]}/${testname[n]}.log";
+   itest=$(($i + 1));
+   checkfail=$(grep "\[FAIL\]" ${logfile});
+   if [ ${#checkfail} -gt 0 ]; then
       status="\hyperref[fig-${testname[n]}]{\textcolor{red}{failed}}";
+      all_tests_ok=false;
    else
       status="\hyperref[fig-${testname[n]}]{\textcolor{green}{passed}}";
    fi
-   echo $itest "& \hyperref[fig-${testname[n]}]{${testname[n]}} &" $(grep real ${statfile} | cut -d 'l' -f2) "&" $(grep user ${statfile} | cut -d 'r' -f2) "&" ${status} "\\\\" >> $latexfile;
+   seconds=$(grep "Test duration:" ${logfile} | cut -d ' ' -f3);
+   hours=$(($seconds / 3600));
+   seconds=$(($seconds % 3600));
+   minutes=$(($seconds / 60));
+   seconds=$(($seconds % 60));
+   echo $itest "& \hyperref[fig-${testname[n]}]{${testname[n]}} & ${hours}h${minutes}m${seconds}s & ${status} \\\\" >> $latexfile;
 done
 echo "\hline" >> $latexfile;
 echo "\end{tabular}" >> $latexfile;
 echo "\end{table}" >> $latexfile;
 echo "\begin{center}" >> $latexfile;
-echo "Total run time (including compilations): ${hours}h${minutes}m${seconds}s" >> $latexfile;
+echo "Total run time (including compilations): ${totalhours}h${totalminutes}m${totalseconds}s" >> $latexfile;
 echo "\end{center}" >> $latexfile;
 echo "\clearpage" >> $latexfile;
 echo >> $latexfile;
@@ -560,7 +662,7 @@ for ((i=0;i<$ntests;i++)); do
    n=${testnum[i]};
    echo "\begin{figure}" >> $latexfile;
    echo "\centering" >> $latexfile;
-   echo "\includegraphics[scale=0.7]{${TEST_DIRECTORY}/${testdir[n]}/${testname[n]}.pdf}" >> $latexfile;
+   echo "\includegraphics[scale=0.7]{${TEST_DIRECTORY}/${testname[n]}/${testname[n]}.pdf}" >> $latexfile;
    echo "\caption{${testname[n]} test}" >> $latexfile;
    echo "\label{fig-${testname[n]}}" >> $latexfile;
    echo "\end{figure}" >> $latexfile;
@@ -568,27 +670,26 @@ for ((i=0;i<$ntests;i++)); do
    echo >> $latexfile;
 #    if ${diff_not_empty[n]} ; then
 #       echo "{\bf Differences in log for test ${testname[n]}:}\\\\" >> $latexfile;
-#       echo "\input{${TEST_DIRECTORY}/${testdir[n]}/${testname[n]}_logdiff.tex}" >> $latexfile;
+#       echo "\input{${TEST_DIRECTORY}/${testname[n]}/${testname[n]}_logdiff.tex}" >> $latexfile;
 #       echo "\clearpage" >> $latexfile;
 #       echo >> $latexfile;
 #    fi
 done
 echo "\end{document}" >> $latexfile;
 if $VERBOSE ; then
-   pdflatex $latexfile;
-   pdflatex $latexfile;
+   ${MYLATEXPATH}pdflatex $latexfile |& tee -a $LOGFILE;
+   ${MYLATEXPATH}pdflatex $latexfile |& tee -a $LOGFILE;
 else
-   pdflatex $latexfile >> $LOGFILE;
-   pdflatex $latexfile >> $LOGFILE;
+   ${MYLATEXPATH}pdflatex $latexfile &>> $LOGFILE;
+   ${MYLATEXPATH}pdflatex $latexfile &>> $LOGFILE;
 fi
-rm ${latexfile/.tex/.log};
-rm ${latexfile/.tex/.aux};
-rm ${latexfile/.tex/.out};
-rm $latexfile;
+if ${DELDATA} ; then
+   rm -f ${latexfile/.tex/.log};
+   rm -f ${latexfile/.tex/.aux};
+   rm -f ${latexfile/.tex/.out};
+   rm -f $latexfile;
+fi
 
-#######################################################################
-# Clean up
-#######################################################################
 if $all_tests_ok ; then
    echo "All tests were completed successfully";
    echo "All tests were completed successfully" >> $LOGFILE;
@@ -596,23 +697,33 @@ else
    echo "There were some failed tests";
    echo "There were some failed tests" >> $LOGFILE;
 fi
+
+#######################################################################
+# Clean up
+#######################################################################
+
 if ${DELDATA} ; then
    for ((i=0;i<$ntests;i++)); do
       n=${testnum[i]};
-      cd ${TEST_DIRECTORY}/${testdir[n]};
+      cd ${TEST_DIRECTORY}/${testname[n]};
       $DELETE_RESULTS;
-      rm ${testname[n]}"_stats.txt" ${testname[n]}".pdf" "resdiff-"${testname[n]}
+      rm -rf ${testname[n]}_stats.txt ${testname[n]}.pdf ${testname[n]}.log build-${testname[n]} ramses_${testname[n]} submit_${testname[n]}.sh;
    done
+   rm -f $COMPLETEDTESTS;
    if $VERBOSE ; then
       cd ${VISU_DIR}
-      make clean;
-      $RETURN_TO_BIN;
-      make clean;
+      make clean |& tee -a ${LOGFILE};
+      if [ !${QUEUE} ] ; then
+         $RETURN_TO_BIN;
+         make clean |& tee -a ${LOGFILE};
+      fi
    else
       cd ${VISU_DIR}
-      make clean >> $LOGFILE;
-      $RETURN_TO_BIN;
-      make clean >> $LOGFILE;
+      make clean &>> $LOGFILE;
+      if [ !${QUEUE} ] ; then
+         $RETURN_TO_BIN;
+         make clean &>> $LOGFILE;
+      fi
    fi
    rm -f ${EXECNAME}*d;
 fi

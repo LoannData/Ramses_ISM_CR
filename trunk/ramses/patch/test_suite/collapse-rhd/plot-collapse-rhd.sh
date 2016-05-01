@@ -1,5 +1,9 @@
 #!/bin/bash
 
+testname="collapse-rhd";
+
+USEPYTHON=$1;
+
 ../visu/amr2cell -inp output_00002 -out data1.dat;
 
 ../visu/amr2cold -inp output_00002 -out data2.dat -typ 1 -fil vtk -dir 1 -fen 3.0 -lma 12;
@@ -12,5 +16,17 @@ cat data1.dat data2.dat data3.dat data4.dat data5.dat > data6.dat;
 echo $(md5sum data6.dat | cut -d ' ' -f 1) > data.dat
 
 rm barotropic_eos.dat Hosokawa_track.dat vaytet_grey_opacities*.bin groups.dat init_turb.data tab_eos.dat res*.dat
+
+if [ ${USEPYTHON} -eq 1 ] ; then
+
+    python plot-${testname}.py;
+
+else
+
+    gnuplot plot-${testname}.gp;
+    ps2pdf ${testname}.ps;
+    rm ${testname}.ps;
+
+fi
 
 exit;

@@ -18,15 +18,15 @@ lwidth2 = 6
 file1 = 'data.dat'
 file2 = 'radiative-shock-ref.dat'
 
-lmin = int(system(sprintf("grep levelmin tube1d.nml | cut -d '=' -f2")))
-lmax = int(system(sprintf("grep levelmax tube1d.nml | cut -d '=' -f2")))
+lmin = int(system(sprintf("grep levelmin radiative-shock.nml | cut -d '=' -f2")))
+lmax = int(system(sprintf("grep levelmax radiative-shock.nml | cut -d '=' -f2")))
 
 t  = system(sprintf("cat time.dat"))
 tt = t + 0.0
 tt = tt*scale_l/scale_v
 
-nvar  = int(system(sprintf("grep nvar log | cut -d '=' -f3")))
-ngr   = int(system(sprintf("grep groups log | cut -d ':' -f2")))
+#nvar  = int(system(sprintf("grep nvar radiative-shock.log | cut -d '=' -f2")))
+ngr   = int(system(sprintf("grep groups radiative-shock.log | cut -d ':' -f2")))
 
 imin  = 12
 imax  = imin+ngr-1

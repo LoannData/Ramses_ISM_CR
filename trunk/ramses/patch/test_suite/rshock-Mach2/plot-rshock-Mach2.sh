@@ -1,6 +1,6 @@
 #!/bin/bash
 
-testname="imhd-tube";
+testname="rshock-Mach2";
 
 USEPYTHON=$1;
 

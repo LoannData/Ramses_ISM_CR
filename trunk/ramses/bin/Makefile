@@ -21,7 +21,7 @@ NPSCAL = 0
 
 NENER = $(NENT)+$(NGRP)
 
-PATCH = ../patch/rhd
+PATCH = 
 EXEC = ramses
 
 MPI = 1
@@ -138,7 +138,10 @@ endif
 
 #############################################################################
 # Sources directories are searched in this exact order
-VPATH = $(PATCH):../$(SOLVER):../fld/:../nimhd:../aton:../hydro:../pm:../poisson:../amr
+BINDIR = .
+#PATHSTRING = $(subst ../,$(BINDIR)/../,$(PATCH):../$(SOLVER):../fld/:../nimhd:../aton:../hydro:../pm:../poisson:../amr)
+#VPATH = $(PATHSTRING)$(B
+VPATH = $(BINDIR)/$(PATCH):$(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o \
@@ -177,7 +180,7 @@ endif
 AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) # $(TURBOBJ) 
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
-ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o ../aton/atonlib/libaton.a
+ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o $(BINDIR)/../aton/atonlib/libaton.a
 #############################################################################
 all:
 	for file in $(MODOBJ); do unset MAKELEVEL ; $(MAKE) $$file; done
@@ -193,12 +196,12 @@ ramses_aton: $(MODOBJ) $(ATON_MODOBJ) $(AMRLIB) $(ATON_OBJ) ramses.o
 #############################################################################
 write_gitinfo.o: FORCE
 	$(F90) $(FFLAGS) -DPATCH=\'$(PATCH)\' -DGITBRANCH=\'$(GITBRANCH)\' -DGITHASH=\'"$(GITHASH)"\' \
- -DGITREPO=\'$(GITREPO)\' -DBUILDDATE=\'"$(BUILDDATE)"\' -c ../amr/write_gitinfo.f90 -o $@		
+ -DGITREPO=\'$(GITREPO)\' -DBUILDDATE=\'"$(BUILDDATE)"\' -c $(BINDIR)/../amr/write_gitinfo.f90 -o $@		
 write_makefile.o: FORCE
-	../utils/scripts/cr_write_makefile.sh $(MAKEFILE_LIST)
+	$(BINDIR)/../utils/scripts/cr_write_makefile.sh $(MAKEFILE_LIST)
 	$(F90) $(FFLAGS) -c write_makefile.f90 -o $@
 write_patch.o: FORCE
-	../utils/scripts/cr_write_patch.sh $(PATCH)
+	$(BINDIR)/../utils/scripts/cr_write_patch.sh $(PATCH)
 	$(F90) $(FFLAGS) -c write_patch.f90 -o $@
 %.o:%.f90
 	$(F90) $(FFLAGS) -c $^ -o $@

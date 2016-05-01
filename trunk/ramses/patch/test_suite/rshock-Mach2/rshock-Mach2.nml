@@ -3,7 +3,7 @@
 &RUN_PARAMS
 hydro=.true.
 nremap=10
-ncontrol=10
+ncontrol=100
 nsubcycle=15*2
 fld=.true.
 static=.false.
@@ -11,32 +11,28 @@ verbose=.false.
 /
 
 &AMR_PARAMS
-levelmin=4
-levelmax=6
-ngridmax=100000
+levelmin=6
+levelmax=10
+ngridmax=10000
 nexpand=20*2
 boxlen=2000.0d0
 /
 
 &INIT_PARAMS
-nregion=4
+nregion=2
 region_type(1)='square'
 region_type(2)='square'
-region_type(3)='square'
-region_type(4)='square'
-y_center=500.0,500.0,1500.0,1500.0
-x_center=500.0,1500.0,500.0,1500.0
-exp_region=10.0,10.0,10.0,10.0
-length_x=1000,1000,1000,1000
-length_y=1000,1000,1000,1000
-d_region=5.45887d-13,5.45887d-13,1.2479d-12,1.2479d-12
-v_region=2.3547d5,2.3547d5,1.0300d5,1.0300d5
-p_region=4.5401356d-003,4.5401356d-003,2.1563286d-02,2.1563286d-02
+x_center=500.0,1500.0
+exp_region=10.0,10.0
+length_x=1000,1000
+d_region=5.45887d-13,1.2479d-12
+u_region=2.3547d5,1.0300d5
+p_region=4.5401356d-003,2.1563286d-02
 /
 
 &OUTPUT_PARAMS
 noutput=2
-foutput=100000
+foutput=100000000
 tout=0.0,1.0d-1
 /
 
@@ -51,21 +47,19 @@ smallr=1.d-20
 /
 
 &REFINE_PARAMS
-err_grad_d=0.05
-err_grad_e=0.05
+err_grad_d=0.01
+err_grad_e=0.01
 interpol_var=0
-interpol_type=1
+interpol_type=2
 /
 
 &BOUNDARY_PARAMS
-nboundary = 4
-jbound_min=-1,+1,-1,-1
-jbound_max=-1,+1,+1,+1
-ibound_min= 0, 0,-1,+1
-ibound_max= 0, 0,-1,+1
-bound_type= 3,3,0,0
+nboundary = 2
+ibound_min=-1,+1
+ibound_max=-1,+1
+bound_type= 3,3
 d_bound=5.45887d-13,1.2479d-12
-v_bound=2.3547d5,1.0300d5
+u_bound=2.3547d5,1.0300d5
 p_bound=4.5401356d-003,2.1563286d-02
 /
 
@@ -76,4 +70,5 @@ fld_limiter='nolim'
 robin=1.0d0
 rosseland_params=0.848902d0,0.0d0,0.0d0
 planck_params=3.92664d-5,0.0d0,0.0d0
+energy_fix=.false.
 /

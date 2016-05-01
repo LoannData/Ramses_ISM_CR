@@ -11,9 +11,9 @@ verbose=.false.
 /
 
 &AMR_PARAMS
-levelmin=4
-levelmax=6
-ngridmax=500000
+levelmin=7
+levelmax=10
+ngridmax=10000
 nexpand=2
 boxlen=1.0d0
 /
@@ -22,22 +22,16 @@ boxlen=1.0d0
 nregion=1
 region_type(1)='square'
 x_center=0.5
-y_center=0.5
-z_center=0.5
 exp_region=10.0
 length_x=1.0d15
-length_y=1.0d15
-length_z=1.0d15
 d_region=1.0d0
-u_region=0.0d0
-v_region=-1.0d0
-w_region=0.0d0
+u_region=-1.0d0
 p_region=2.309d-3
 /
 
 &OUTPUT_PARAMS
 noutput=2
-foutput=100000
+foutput=1
 tout=0.0,3.0d-1
 /
 
@@ -46,39 +40,34 @@ gamma=1.4
 courant_factor=0.5
 slope_type=1
 scheme='muscl'
-riemann='hll'
+riemann='llf'
 pressure_fix=.true.
 /
 
 &REFINE_PARAMS
-err_grad_d=0.2
-err_grad_e=0.2
+err_grad_d=0.1
+err_grad_e=0.1
 interpol_var=1
 interpol_type=2
 /
 
 &BOUNDARY_PARAMS
-nboundary = 6
-jbound_min=+1,-1,-1,-1,-1,-1
-jbound_max=+1,-1,+1,+1,+1,+1
-ibound_min= 0, 0,-1,+1,-1,-1
- ibound_max= 0, 0,-1,+1,+1,+1
-ibound_min= 0, 0, 0, 0,-1,+1
-ibound_max= 0, 0, 0, 0,-1,+1
-bound_type= 3,1,0,0,0,0
+nboundary = 2
+ibound_min=+1,-1
+ibound_max=+1,-1
+bound_type= 3,1
 d_bound=1.0d0
-u_bound=0.0d0
-v_bound=-1.0d0
-w_bound=0.0d0
+u_bound=-1.0d0
 p_bound=2.309d-3
 /
 
 &RADIATION_PARAMS
-grey_rad_transfer=.true.
-rosseland_params=3.1d-10,-1.0,0.0
-planck_params=3.1d-10,-1.0,0.0
+grey_rad_transfer=.false.
+rosseland_params=3.1d-10,0.0,0.0
+planck_params=3.1d-10,0.0,0.0
 epsilon_diff=1.d-8
 fld_limiter='minerbo'
+split_groups_log=.false.
 numax=1.5d14
 extra_end_group=.true.
 /
