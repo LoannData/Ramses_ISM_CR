@@ -1,7 +1,3 @@
-! Test suite
-!-----------
-- python scripts to be done for: nimhd-diffusion-ad, nimhd-diffusion-ohm, collapse-rhd, collapse-baro, collapse-ohm
-!-----------
 
 cooling_fine.f90: ajout modules de Valeska pour l'extinction et la chimie. Voir avec Valeska si il faut updater.
 

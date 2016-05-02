@@ -18,7 +18,7 @@
 #       ./run_test_suite -d
 #   - Run in verbose mode:
 #       ./run_test_suite -v
-#   - Select test number (for test number 3):
+#   - Select test number (for test number 3 to 5, and 8):
 #       ./run_test_suite -t 3-5,8
 #   - Use batch submission :
 #       ./run_test_suite -q "qsub"
