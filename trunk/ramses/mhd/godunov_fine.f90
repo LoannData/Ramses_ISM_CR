@@ -190,7 +190,7 @@ subroutine set_uold(ilevel)
               uold(ind_cell,5)=e_prim+e_kin+e_mag
            end if
 
-           e_prim = e_cons ! uncomment this for radiative shock
+           e_prim = uold(ind_cell,5)-e_kin-e_mag ! uncomment this for radiative shock
            if(energy_fix)then
               e_prim = uold(ind_cell,nvar)
            end if
