@@ -641,10 +641,12 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      if(isothermal)then
         do i=1,nleaf
            uold(ind_leaf(i),5) = T2min(i)
+           uold(ind_leaf(i),nvar) = T2min(i) - ekk(i) - emag(i) - err(i)
         end do
      else
         do i=1,nleaf
            uold(ind_leaf(i),5) = max(T2(i),T2min(i))
+           uold(ind_leaf(i),nvar) = T2min(i) - ekk(i) - emag(i) - err(i)
         end do
      endif
 
