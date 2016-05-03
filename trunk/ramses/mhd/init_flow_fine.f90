@@ -34,6 +34,9 @@ subroutine init_flow_fine(ilevel)
   use cooling_module
   use radiation_parameters,only:eray_min,small_er
   use units_commons
+#if USE_TURB==1
+  use turb_commons
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -446,6 +449,14 @@ subroutine init_flow_fine(ilevel)
         ! End loop over cells
      end do
      ! End loop over grids
+
+#if USE_TURB==1
+     ! Add initial turbulent velocity
+     if (turb .AND. turb_type == 3) then
+        call calc_turb_forcing(ilevel)
+        call add_turb_forcing(ilevel,1.0_dp)
+     end if
+#endif
 
   end if
   

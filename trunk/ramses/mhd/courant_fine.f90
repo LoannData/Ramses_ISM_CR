@@ -3,6 +3,9 @@ subroutine courant_fine(ilevel)
   use hydro_commons
   use poisson_commons
   use radiation_parameters,only:frad,dtdiff_params
+#if USE_TURB==1
+  use turb_commons
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -113,6 +116,17 @@ subroutine courant_fine(ilevel)
            end do
         end if
 #endif
+        ! Gather turbulent force
+#if USE_TURB==1
+        if (turb .AND. turb_type/=3) then
+           do idim=1,ndim
+              do i=1,nleaf
+                 gg(i,idim)=gg(i,idim)+fturb(ind_leaf(i),idim)
+              end do
+           end do
+        end if
+#endif
+        
         ! Compute total mass
         do i=1,nleaf
            mass_loc=mass_loc+uu(i,1)*vol

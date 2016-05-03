@@ -10,6 +10,9 @@ recursive subroutine amr_step(ilevel,icount)
   use coolrates_module, only: update_coolrates_tables
   use rt_cooling_module, only: update_UVrates
 #endif
+#if USE_TURB==1
+  use turb_commons
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -270,6 +273,15 @@ recursive subroutine amr_step(ilevel,icount)
   ! Compute radiative acceleration
   if(fld)call rad_force_fine(ilevel)
 #endif
+
+#if USE_TURB==1
+  ! Compute turbulent forcing
+                               call timer('turb','start')
+  if (turb .and. turb_type/=3) then
+     ! Calculate turbulent acceleration on each cell in this level
+     call calc_turb_forcing(ilevel)
+  end if
+#endif
   !----------------------
   ! Compute new time step
   !----------------------
@@ -410,6 +422,15 @@ recursive subroutine amr_step(ilevel,icount)
      ! in order to complete the time step 
                                call timer('poisson','start')
      if(poisson)call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel))
+
+#if USE_TURB==1
+     ! Compute turbulent forcing
+                               call timer('turb','start')
+     if (turb .and. turb_type/=3) then
+        ! Calculate turbulent acceleration on each cell in this level
+        call calc_turb_forcing(ilevel)
+     end if
+#endif
 
      ! Restriction operator
                                call timer('hydro upload fine','start')

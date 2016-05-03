@@ -16,6 +16,8 @@ USE_FLD=0
 USE_M_1=0
 NGRP = 0
 
+USE_TURB=1
+
 NEXTINCT = 0
 NPSCAL = 0
 
@@ -45,7 +47,7 @@ GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR="$(NVAR)" -DNENER=$(NENER) \
           -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL="$(NPSCAL)" -DNIMHD=$(NIMHD) \
-	  -DNEXTINCT=$(NEXTINCT) #-DQUADHILBERT=$(QUADHILBERT)
+          -DNEXTINCT=$(NEXTINCT) -DUSE_TURB=$(USE_TURB) #-DQUADHILBERT=$(QUADHILBERT)
 ifneq (,$(filter 1,$(USE_FLD) $(USE_M_1)))
 DEFINES += -DUSE_FLD=$(USE_FLD) -DUSE_M_1=$(USE_M_1)
 endif
@@ -141,7 +143,7 @@ endif
 BINDIR = .
 #PATHSTRING = $(subst ../,$(BINDIR)/../,$(PATCH):../$(SOLVER):../fld/:../nimhd:../aton:../hydro:../pm:../poisson:../amr)
 #VPATH = $(PATHSTRING)$(B
-VPATH = $(BINDIR)/$(PATCH):$(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr
+VPATH = $(BINDIR)/$(PATCH):$(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr:$(BINDIR)/../turb
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o \
@@ -172,12 +174,14 @@ ifeq ($(NIMHD),1)
 HYDROOBJ += uplmde_sts_ohm.o uplmde_sts_ohm_dtu.o
 endif
 # Turbulence objects
-#MODOBJ += turb_parameters.o turb_commons.o
-#TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
-#          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
-#          add_turb_forcing.o write_pymses.o libfftw3.a
+ifeq ($(USE_TURB),1)
+MODOBJ += turb_parameters.o turb_commons.o
+TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
+          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
+          add_turb_forcing.o libfftw3.a
+endif
 # All objects
-AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) # $(TURBOBJ) 
+AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(TURBOBJ) 
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
 ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o $(BINDIR)/../aton/atonlib/libaton.a
