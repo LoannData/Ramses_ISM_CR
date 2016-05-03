@@ -5135,6 +5135,8 @@ subroutine uslope(bf,q,dq,dbf,dx,dt,ngrid)
   real(dp)::dfllm,dflmm,dflrm,dfmlm,dfmmm,dfmrm,dfrlm,dfrmm,dfrrm
   real(dp)::dfllr,dflmr,dflrr,dfmlr,dfmmr,dfmrr,dfrlr,dfrmr,dfrrr
   real(dp)::vmin,vmax,dfx,dfy,dfz,dff
+  real(dp)::dpos_lim, dpos_rlim, dpos_ulim, dpos_plim
+  real(dp)::beta_x, beta_y, beta_z, beta_abs, dtdx, dxdt, tgp1
   integer::ilo,ihi,jlo,jhi,klo,khi
   
   ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
@@ -5165,6 +5167,54 @@ subroutine uslope(bf,q,dq,dbf,dx,dt,ngrid)
     end do
   else
      write(*,*)'Unknown slope type'
+     stop
+  end if
+  
+  if (positivity_type==0) then
+     continue  ! No positivity limiting
+  else if (positivity_type==1) then
+     ! Note this is as restrictive as the 3D version (intentionally)
+     dtdx = dt/dx
+     dxdt = dx/dt
+     tgp1 = (gamma * 3.d0) + 1.d0
+     do k = klo, khi
+        do j = jlo, jhi
+           do i = ilo, ihi
+              do l = 1, ngrid
+                 ! Extra limiting to ensure positivity preservation for
+                 ! density and pressure during MUSCL-Hancock predictor
+                 ! step; following K Waagan 2009, JCompPhys
+                 ! May require CFL number less than 1/ndim?
+                 ! Full limiting for unsplit scheme (sort of)
+                 ! on density, positivity on edge reconstruction only for
+                 ! pressure. Considers the actual speeds rather than just
+                 ! assuming the courant condition (less limiting).
+                 beta_abs = abs(q(l,i,j,k,2) * dtdx)
+                 dpos_lim = 1.d0 / (beta_abs + 3.5d0)
+                 dpos_rlim = q(l,i,j,k,1) * dpos_lim
+                 ! For 2D and 3D, we can assume gamma < 2 and dpos_lim < dpos_plim,
+                 ! but this is not true in 1D
+                 dpos_plim = 2.d0 / (beta_abs + tgp1)
+                 dpos_ulim = dxdt * min(dpos_lim, dpos_plim)
+                 dpos_plim = q(l,i,j,k,5) * dpos_plim
+                 
+                 ! Limit the density
+                 dsgn = sign(one, dq(l,i,j,k,1,1))
+                 dq(l,i,j,k,1,1) = dsgn*min(abs(dq(l,i,j,k,1,1)), dpos_rlim)
+                 
+                 ! Limit the velocity
+                 dsgn = sign(one, dq(l,i,j,k,2,1))
+                 dq(l,i,j,k,2,1) = dsgn*min(abs(dq(l,i,j,k,2,1)), dpos_ulim)
+                 
+                 ! Limit the pressure (guarantees edge reconstruction only)
+                 dsgn = sign(one, dq(l,i,j,k,5,1))
+                 dq(l,i,j,k,5,1) = dsgn * min(abs(dq(l,i,j,k,5,1)), dpos_plim)
+              end do
+           end do
+        end do
+     end do
+  else
+     write(*,*)'Unknown positivity slope type'
      stop
   end if
 #endif
@@ -5288,6 +5338,61 @@ subroutine uslope(bf,q,dq,dbf,dx,dt,ngrid)
      write(*,*)'Unknown mag. slope type'
      stop
   endif
+  
+  if (positivity_type==0) then
+     continue  ! No positivity limiting
+  else if (positivity_type==1) then
+     ! Note this is as restrictive as the 3D version (intentionally)
+     dtdx = dt/dx
+     dxdt = dx/dt
+     tgp1 = (gamma * 3.d0) + 1.d0
+     do k = klo, khi
+        do j = jlo, jhi
+           do i = ilo, ihi
+              do l = 1, ngrid
+                 ! Extra limiting to ensure positivity preservation for
+                 ! density and pressure during MUSCL-Hancock predictor
+                 ! step; following K Waagan 2009, JCompPhys
+                 ! May require CFL number less than 1/ndim?
+                 ! Full limiting for unsplit scheme (sort of)
+                 ! on density, positivity on edge reconstruction only for
+                 ! pressure. Considers the actual speeds rather than just
+                 ! assuming the courant condition (less limiting).
+                 beta_x = q(l,i,j,k,2) * dtdx
+                 beta_y = q(l,i,j,k,3) * dtdx
+                 beta_abs = abs(beta_x) + abs(beta_y)
+                 dpos_lim = 1.d0 / (beta_abs + 3.5d0)
+                 dpos_rlim = q(l,i,j,k,1) * dpos_lim
+                 dpos_ulim = dxdt * dpos_lim
+                 dpos_plim = q(l,i,j,k,5) * 2.d0 / (beta_abs + tgp1)
+                 
+                 ! Limit the density
+                 dsgn = sign(one, dq(l,i,j,k,1,1))
+                 dq(l,i,j,k,1,1) = dsgn*min(abs(dq(l,i,j,k,1,1)), dpos_rlim)
+                 dsgn = sign(one, dq(l,i,j,k,1,2))
+                 dq(l,i,j,k,1,2) = dsgn*min(abs(dq(l,i,j,k,1,2)), dpos_rlim)
+                 
+                 ! Limit the velocity
+                 do n=2,3
+                    dsgn = sign(one, dq(l,i,j,k,n,1))
+                    dq(l,i,j,k,n,1) = dsgn*min(abs(dq(l,i,j,k,n,1)), dpos_ulim)
+                    dsgn = sign(one, dq(l,i,j,k,n,2))
+                    dq(l,i,j,k,n,2) = dsgn*min(abs(dq(l,i,j,k,n,2)), dpos_ulim)
+                 end do
+                 
+                 ! Limit the pressure (guarantees edge reconstruction only)
+                 dsgn = sign(one, dq(l,i,j,k,5,1))
+                 dq(l,i,j,k,5,1) = dsgn * min(abs(dq(l,i,j,k,5,1)), dpos_plim)
+                 dsgn = sign(one, dq(l,i,j,k,5,2))
+                 dq(l,i,j,k,5,2) = dsgn * min(abs(dq(l,i,j,k,5,2)), dpos_plim)
+              end do
+           end do
+        end do
+     end do
+  else
+     write(*,*)'Unknown positivity slope type'
+     stop
+  end if
 #endif
 
 #if NDIM==3
@@ -5757,6 +5862,67 @@ subroutine uslope(bf,q,dq,dbf,dx,dt,ngrid)
      write(*,*)'Unknown slope_mag_type'
      stop
   endif
+  
+  if (positivity_type==0) then
+     continue  ! No positivity limiting
+  else if (positivity_type==1) then
+     dtdx = dt/dx
+     dxdt = dx/dt
+     tgp1 = (gamma * 3.d0) + 1.d0
+     do k = klo, khi
+        do j = jlo, jhi
+           do i = ilo, ihi
+              do l = 1, ngrid
+                 ! Extra limiting to ensure positivity preservation for
+                 ! density and pressure during MUSCL-Hancock predictor
+                 ! step; following K Waagan 2009, JCompPhys
+                 ! May require CFL number less than 1/ndim?
+                 ! Full limiting for unsplit scheme (sort of)
+                 ! on density, positivity on edge reconstruction only for
+                 ! pressure. Considers the actual speeds rather than just
+                 ! assuming the courant condition (less limiting).
+                 beta_x = q(l,i,j,k,2) * dtdx
+                 beta_y = q(l,i,j,k,3) * dtdx
+                 beta_z = q(l,i,j,k,4) * dtdx
+                 beta_abs = abs(beta_x) + abs(beta_y) + abs(beta_z)
+                 dpos_lim = 1.d0 / (beta_abs + 3.5d0)
+                 dpos_rlim = q(l,i,j,k,1) * dpos_lim
+                 dpos_ulim = dxdt * dpos_lim
+                 dpos_plim = q(l,i,j,k,5) * 2.d0 / (beta_abs + tgp1)
+                 
+                 ! Limit the density
+                 dsgn = sign(one, dq(l,i,j,k,1,1))
+                 dq(l,i,j,k,1,1) = dsgn*min(abs(dq(l,i,j,k,1,1)), dpos_rlim)
+                 dsgn = sign(one, dq(l,i,j,k,1,2))
+                 dq(l,i,j,k,1,2) = dsgn*min(abs(dq(l,i,j,k,1,2)), dpos_rlim)
+                 dsgn = sign(one, dq(l,i,j,k,1,3))
+                 dq(l,i,j,k,1,3) = dsgn*min(abs(dq(l,i,j,k,1,3)), dpos_rlim)
+                 
+                 ! Limit the velocity
+                 do n=2,4
+                    dsgn = sign(one, dq(l,i,j,k,n,1))
+                    dq(l,i,j,k,n,1) = dsgn*min(abs(dq(l,i,j,k,n,1)), dpos_ulim)
+                    dsgn = sign(one, dq(l,i,j,k,n,2))
+                    dq(l,i,j,k,n,2) = dsgn*min(abs(dq(l,i,j,k,n,2)), dpos_ulim)
+                    dsgn = sign(one, dq(l,i,j,k,n,3))
+                    dq(l,i,j,k,n,3) = dsgn*min(abs(dq(l,i,j,k,n,3)), dpos_ulim)
+                 end do
+                 
+                 ! Limit the pressure (guarantees edge reconstruction only)
+                 dsgn = sign(one, dq(l,i,j,k,5,1))
+                 dq(l,i,j,k,5,1) = dsgn * min(abs(dq(l,i,j,k,5,1)), dpos_plim)
+                 dsgn = sign(one, dq(l,i,j,k,5,2))
+                 dq(l,i,j,k,5,2) = dsgn * min(abs(dq(l,i,j,k,5,2)), dpos_plim)
+                 dsgn = sign(one, dq(l,i,j,k,5,3))
+                 dq(l,i,j,k,5,3) = dsgn * min(abs(dq(l,i,j,k,5,3)), dpos_plim)
+              end do
+           end do
+        end do
+     end do
+  else
+     write(*,*)'Unknown positivity slope type'
+     stop
+  end if
 #endif
   
 end subroutine uslope
