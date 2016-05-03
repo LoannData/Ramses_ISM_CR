@@ -28,14 +28,14 @@ MPI = 1
 COMP = "GNU"
 
 ifeq ($(NIMHD),1)
-   NPSCAL := $(NPSCAL)+4 # for internal energy + current
+   NPSCAL := ($(NPSCAL)+4)# for internal energy + current
 else
-   NPSCAL := $(NPSCAL)+1 # for internal energy
+   NPSCAL := ($(NPSCAL)+1)# for internal energy
 endif
 ifeq ($(USE_FLD),1)
-   NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
+   NVAR=(8+$(NENER)+$(NEXTINCT)+$(NPSCAL))
 else
-   NVAR=8+$(NENER)+$(NDIM)*$(NGRP)+$(NEXTINCT)+$(NPSCAL)
+   NVAR=(8+$(NENER)+$(NDIM)*$(NGRP)+$(NEXTINCT)+$(NPSCAL))
 endif
 
 #############################################################################
@@ -43,8 +43,8 @@ GITBRANCH = $(shell git rev-parse --abbrev-ref HEAD)
 GITHASH = $(shell git log --pretty=format:'%H' -n 1)
 GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
-DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR=$(NVAR) -DNENER=$(NENER) \
-          -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL) -DNIMHD=$(NIMHD) \
+DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR="$(NVAR)" -DNENER=$(NENER) \
+          -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL="$(NPSCAL)" -DNIMHD=$(NIMHD) \
 	  -DNEXTINCT=$(NEXTINCT) #-DQUADHILBERT=$(QUADHILBERT)
 ifneq (,$(filter 1,$(USE_FLD) $(USE_M_1)))
 DEFINES += -DUSE_FLD=$(USE_FLD) -DUSE_M_1=$(USE_M_1)
@@ -117,7 +117,7 @@ endif
 #############################################################################
 MOD = mod
 #############################################################################
-# MPI librairies
+# MPI libraries
 LIBMPI = 
 #LIBMPI = -lfmpi -lmpi -lelan
 
@@ -208,5 +208,5 @@ write_patch.o: FORCE
 FORCE:
 #############################################################################
 clean :
-	rm *.o *.$(MOD) *__genmod.f90
+	rm -f *.o *.$(MOD) *__genmod.f90
 #############################################################################
