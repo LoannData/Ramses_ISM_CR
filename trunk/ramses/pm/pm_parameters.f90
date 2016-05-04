@@ -12,6 +12,8 @@ module pm_parameters
 
   ! More sink related parameters, can all be set in namelist file
 
+  real(dp)::auto_nsinks_jeans_lengths=4      ! Number of jeans length at max level if automatically calculating sink density
+
   integer::ir_cloud=4                        ! Radius of cloud region in unit of grid spacing (i.e. the ACCRETION RADIUS)
   integer::ir_cloud_massive=3                ! Radius of massive cloud region in unit of grid spacing for PM sinks
   real(dp)::sink_soft=2.d0                   ! Sink grav softening length in dx at levelmax for "direct force" sinks
