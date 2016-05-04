@@ -69,6 +69,9 @@ while getopts "cdfp:q:t:vy" OPTION; do
    esac
 done
 
+#MYLATEXPATH= /gpfs/data1/nvaytet/texlive2015/bin/x86_64-linux/;
+#MYMODULES= "gnuplot anaconda openmpi/1.8.3-gnu4.8.4";
+
 #######################################################################
 # Setup paths and commands
 #######################################################################
@@ -93,8 +96,6 @@ if $QUEUE; then
    echo -n > $COMPLETEDTESTS;
 fi
 nbatch=5;
-MYLATEXPATH=/gpfs/data1/nvaytet/texlive2015/bin/x86_64-linux/;
-MYMODULES="gnuplot anaconda openmpi/1.8.3-gnu4.8.4";
 #COMP=$(grep COMP ${BIN_DIRECTORY}/Makefile | grep "=" | cut -d '"' -f2);
 
 if [ ${MPI} -eq 1 ]; then
@@ -324,7 +325,7 @@ cd ${VISU_DIR};
 if $VERBOSE ; then
    make;
 else
-   make &>> $LOGFILE;
+   make >> $LOGFILE 2>&1;
 fi
 echo "--------------------------------------------";
 echo "--------------------------------------------" >> $LOGFILE;
@@ -468,9 +469,9 @@ for ((i=0;i<$ntests;i++)); do
       echo "Cleanup";
       echo "Cleanup" >> ${THISTESTLOG};
       if $VERBOSE ; then
-         make clean |& tee -a ${THISTESTLOG};
+         make clean 2>&1 | tee -a ${THISTESTLOG};
       else
-         make clean &>> ${THISTESTLOG};
+         make clean >> ${THISTESTLOG} 2>&1;
       fi
       
       # Compile source
@@ -478,18 +479,18 @@ for ((i=0;i<$ntests;i++)); do
       echo "Compiling source" >> ${THISTESTLOG};
       MAKESTRING="make EXEC=${EXECNAME} PATCH=${testpatch[n]} MPI=${MPI} NDIM=${ndim[n]} ${flags[n]}";
       if $VERBOSE ; then
-         $MAKESTRING |& tee -a ${THISTESTLOG};
+         $MAKESTRING 2>&1 | tee -a ${THISTESTLOG};
       else
-         $MAKESTRING &>> ${THISTESTLOG};
+         $MAKESTRING >> ${THISTESTLOG} 2>&1;
       fi
       
       # Run tests
       cd ${TEST_DIRECTORY}/${testname[n]};
       $DELETE_RESULTS;
       if $VERBOSE ; then
-         ./prepare-${testname[n]}.sh |& tee -a ${THISTESTLOG};
+         ./prepare-${testname[n]}.sh 2>&1 | tee -a ${THISTESTLOG};
       else
-         ./prepare-${testname[n]}.sh &>> ${THISTESTLOG};
+         ./prepare-${testname[n]}.sh >> ${THISTESTLOG} 2>&1;
       fi
       mv ${BIN_DIRECTORY}/${EXECNAME}${ndim[n]}d ramses_${testname[n]};
       
@@ -498,18 +499,18 @@ for ((i=0;i<$ntests;i++)); do
       echo "Running test" >> ${THISTESTLOG};
    
       if $VERBOSE ; then
-         ${RUN_TEST} |& tee -a ${THISTESTLOG};
+         ${RUN_TEST} 2>&1 | tee -a ${THISTESTLOG};
       else
-         ${RUN_TEST} &>> ${THISTESTLOG};
+         ${RUN_TEST} >> ${THISTESTLOG} 2>&1;
       fi
 
       # Plot results
       echo "Plotting results";
       echo "Plotting results" >> ${THISTESTLOG};
       if $VERBOSE ; then
-         ./plot-${testname[n]}.sh ${USE_PYTHON} |& tee -a ${THISTESTLOG};
+         ./plot-${testname[n]}.sh ${USE_PYTHON} 2>&1 | tee -a ${THISTESTLOG};
       else
-         ./plot-${testname[n]}.sh ${USE_PYTHON} &>> ${THISTESTLOG};
+         ./plot-${testname[n]}.sh ${USE_PYTHON} >> ${THISTESTLOG} 2>&1;
       fi
 #      if ${USE_GNUPLOT} ; then
 #         gnuplot plot-${testname[n]}.gp;
@@ -677,11 +678,11 @@ for ((i=0;i<$ntests;i++)); do
 done
 echo "\end{document}" >> $latexfile;
 if $VERBOSE ; then
-   ${MYLATEXPATH}pdflatex $latexfile |& tee -a $LOGFILE;
-   ${MYLATEXPATH}pdflatex $latexfile |& tee -a $LOGFILE;
+   ${MYLATEXPATH}pdflatex $latexfile 2>&1 | tee -a $LOGFILE;
+   ${MYLATEXPATH}pdflatex $latexfile 2>&1 | tee -a $LOGFILE;
 else
-   ${MYLATEXPATH}pdflatex $latexfile &>> $LOGFILE;
-   ${MYLATEXPATH}pdflatex $latexfile &>> $LOGFILE;
+   ${MYLATEXPATH}pdflatex $latexfile >> $LOGFILE 2>&1;
+   ${MYLATEXPATH}pdflatex $latexfile >> $LOGFILE 2>&1;
 fi
 if ${DELDATA} ; then
    rm -f ${latexfile/.tex/.log};
@@ -712,17 +713,17 @@ if ${DELDATA} ; then
    rm -f $COMPLETEDTESTS;
    if $VERBOSE ; then
       cd ${VISU_DIR}
-      make clean |& tee -a ${LOGFILE};
+      make clean 2>&1 | tee -a ${LOGFILE};
       if [ !${QUEUE} ] ; then
          $RETURN_TO_BIN;
-         make clean |& tee -a ${LOGFILE};
+         make clean 2>&1 | tee -a ${LOGFILE};
       fi
    else
       cd ${VISU_DIR}
-      make clean &>> $LOGFILE;
+      make clean >> $LOGFILE 2>&1;
       if [ !${QUEUE} ] ; then
          $RETURN_TO_BIN;
-         make clean &>> $LOGFILE;
+         make clean >> $LOGFILE 2>&1;
       fi
    fi
    rm -f ${EXECNAME}*d;
