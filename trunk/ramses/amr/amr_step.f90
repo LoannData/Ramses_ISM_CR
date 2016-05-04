@@ -426,10 +426,11 @@ recursive subroutine amr_step(ilevel,icount)
 #if USE_TURB==1
      ! Compute turbulent forcing
                                call timer('turb','start')
-     if (turb .and. turb_type/=3) then
-        ! Calculate turbulent acceleration on each cell in this level
-        call calc_turb_forcing(ilevel)
+     if (turb .AND. turb_type/=3) then
+        ! Euler step, adding turbulent acceleration
+        call add_turb_forcing(ilevel,dtnew(ilevel))
      end if
+
 #endif
 
      ! Restriction operator
