@@ -528,6 +528,13 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      ! You can put your own polytrope EOS here
      !==========================================
 
+     if(isothermal)then
+        ! Set to T2_star
+        do i=1,nleaf
+           T2min(i) = T2_star
+        end do
+     end if
+     
      if(cooling)then
         ! Compute thermal temperature by substracting polytrope
         do i=1,nleaf
