@@ -2938,7 +2938,7 @@ subroutine read_sink_params()
   namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,nol_accretion,merging_timescale,&
        ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,c_acc,create_sinks,mass_sink_seed,&
        eddington_limit,sink_drag,acc_sink_boost,mass_merger_vel_check_AGN,&
-       clump_core,verbose_AGN,T2_AGN,v_AGN,cone_opening,mass_halo_AGN,mass_clump_AGN,feedback_scheme
+       clump_core,verbose_AGN,T2_AGN,v_AGN,cone_opening,mass_halo_AGN,mass_clump_AGN,feedback_scheme,auto_nsinks_jeans_lengths
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)  
@@ -3001,13 +3001,13 @@ subroutine read_sink_params()
         call clean_stop
      else
         if(myid==1)write(*,*)'Trying to setting sink threshold such that jeans length at '
-        if(myid==1)write(*,*)'max resolution is resolved by 4 cells, assuming isothermal gas'
+        if(myid==1)write(*,'(A,G0,A)')' max resolution is resolved by ',auto_nsinks_jeans_lengths,' cells, assuming isothermal gas'
         if(T2_star==0.)then 
            if(myid==1)write(*,*)'No value for T2_star given. Do not know what to do...'
            call clean_stop
         else
            dx_min=0.5**nlevelmax*scale
-           d_sink=T2_star/scale_T2 *3.14159/16./(dx_min**2)
+           d_sink=(T2_star/scale_T2) * 3.14159/(auto_nsinks_jeans_lengths*dx_min**2)
            if(myid==1)write(*,*)'d_sink = ',d_sink
            if(myid==1)write(*,*)'rho_sink = ',d_sink*scale_d
            if(myid==1)write(*,*)'n_sink = ',d_sink*scale_nH

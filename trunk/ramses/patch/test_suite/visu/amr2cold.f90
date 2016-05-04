@@ -67,7 +67,7 @@ program amr2cube
   character(LEN=1)::proj='z'
   real(KIND=4) :: norm
   ! nouvelles variables de normalisation
-  real(KIND=8)   :: G,mu,mu_mp,scale_d,scale_t_kyrs,scale_ua,scale_cm,jnorm
+  real(KIND=8)   :: scale_t_kyrs,scale_ua,jnorm
   integer      :: old, direction
   real(KIND=8) :: tempmin,tempmax 
   real(KIND=8),dimension(3) :: center,J10,J100,J500,J1000,z_tilde,y_tilde
@@ -99,13 +99,6 @@ program amr2cube
   !-----------------------------------------------
   ! Normalisation
   !-----------------------------------------------
-  G = 6.67d-8
-  mu = 2.33
-  mu_mp = 1.660531d-24
-  scale_d = mu * mu_mp
-  scale_t_kyrs = 1./(sqrt(G*scale_d)*3.15d10)
-  scale_ua = 206264.
-  scale_cm = 3.08d18
 
   J100 = (/0.0,0.0,1.0/)
   
@@ -169,44 +162,37 @@ program amr2cube
   open(unit=10,file=nomfich,form='formatted',status='old')
   read(10,*)
   read(10,*)
-!  read(10,'(13x,I11)')levelmin
   read(10,'(A13,I11)')temp_label,levelmin
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
 
-!  read(10,'(13x,E23.15)')boxlen
   read(10,'(A13,E23.15)')temp_label,boxlen
   read(10,'(A13,E23.15)')temp_label,t
-!  read(10,'(13x,E23.15)')t
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
-!  read(10,'(13x,E23.15)')ul
-!  read(10,'(13x,E23.15)')ud
-!  read(10,'(13x,E23.15)')ut
   read(10,'(A13,E23.15)')temp_label,ul
   read(10,'(A13,E23.15)')temp_label,ud
   read(10,'(A13,E23.15)')temp_label,ut
+  read(10,'(A13,E23.15)')temp_label,mu_gas
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
-  read(10,*)
-  print*,'ud',ud,ul,ut
-  mu_gas=2.375
+  !print*,'ud',ud,ul,ut
+  scale_t_kyrs = ut/(3600.*24*365.25*1.e3) ! convert code units to kyrs
+  scale_ua = ul*6.6846e-14 ! convert code units to cm (ul) and then to AU
   utemp=mu_gas*1.66d-24/1.38d-16
   utemp=utemp*ul*ul/ut/ut
-print*,utemp
+  !print*,utemp
   read(10,'(A14,A80)')temp_label,ordering
   write(*,'(XA14,A20)')temp_label,TRIM(ordering)
-!  read(10,'(14x,A80)'),ordering
-!  write(*,'(" ordering type=",A20)'),TRIM(ordering)
   read(10,*)
   allocate(cpu_list(1:ncpu))
   if(TRIM(ordering).eq.'hilbert')then
@@ -619,7 +605,7 @@ end if
                  & +(x(:,3)-center(3))*z_tilde(3))
 
 
-                 rho = var(:,ind,1)*ud*dx*boxlen*scale_cm !rho en g/cc
+                 rho = var(:,ind,1)*ud*dx*boxlen*ul !rho en g/cc
               case (2)
                  rho = var(:,ind,2)*ul/ut !u en cm/s
               case (3)

@@ -70,7 +70,7 @@ program amr2cube
   real(KIND=4) :: norm,maxvec,maxr,minr,minvec,thres,minh,maxh
   integer :: hmin,hmax,rmin,rmax
   ! nouvelles variables de normalisation
-  real(KIND=8)   :: G,mu,mu_mp,scale_d,scale_t_kyrs,scale_ua,mdisk,Jnorm,scale_m
+  real(KIND=8)   :: scale_t_kyrs,scale_ua,mdisk,Jnorm,scale_m
   integer      :: old, direction,tempmin,tempmax
   real(KIND=8),dimension(3) :: center,J10,J100,J500,J1000,z_tilde,y_tilde
   real(KIND=8),dimension(:,:),allocatable :: rvectJ,B_flux
@@ -100,13 +100,6 @@ program amr2cube
   !-----------------------------------------------
   ! Normalisation
   !-----------------------------------------------
-  G = 6.67d-8
-  mu = 2.33
-  mu_mp = 1.660531d-24
-  scale_d = mu * mu_mp
-  scale_t_kyrs = 1./(sqrt(G*scale_d)*3.15d10)
-  scale_ua = 206264.
-  scale_m = 3.086e16        ! pc -> m
   map(:,:)=1.
   map2(:,:,:)=0.
   res = norm!300.
@@ -200,17 +193,19 @@ program amr2cube
   read(10,'(13x,E23.15)')ul
   read(10,'(13x,E23.15)')ud
   read(10,'(13x,E23.15)')ut
+  read(10,'(A13,E23.15)')temp_label,mu_gas
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
   read(10,*)
-  read(10,*)
-  print*,'ud',ud,ul,ut
-  mu_gas=2.375
+!  print*,'ud',ud,ul,ut
+  scale_t_kyrs = ut/(3600.*24*365.25*1.e3) ! convert code units to kyrs
+  scale_ua = ul*6.6846e-14 ! convert code units to cm (ul) and then to AU
+  scale_m  = ul*1.e-2      ! convert code units to cm (ul) and then to m
   utemp=mu_gas*1.66d-24/1.38d-16
   utemp=utemp*ul*ul/ut/ut
-  print*,utemp
+!  print*,utemp
   read(10,'(A14,A80)')temp_label,ordering
   write(*,'(XA14,A20)')temp_label,TRIM(ordering)
 !  read(10,'(14x,A80)'),ordering
