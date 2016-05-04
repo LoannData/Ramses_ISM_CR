@@ -21,7 +21,7 @@ USE_TURB=1
 NEXTINCT = 0
 NPSCAL = 0
 
-NENER = $(NENT)+$(NGRP)
+NENER = ($(NENT)+$(NGRP))
 
 PATCH = 
 EXEC = ramses
@@ -45,7 +45,7 @@ GITBRANCH = $(shell git rev-parse --abbrev-ref HEAD)
 GITHASH = $(shell git log --pretty=format:'%H' -n 1)
 GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
-DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR="$(NVAR)" -DNENER=$(NENER) \
+DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR="$(NVAR)" -DNENER="$(NENER)" \
           -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL="$(NPSCAL)" -DNIMHD=$(NIMHD) \
           -DNEXTINCT=$(NEXTINCT) -DUSE_TURB=$(USE_TURB) #-DQUADHILBERT=$(QUADHILBERT)
 ifneq (,$(filter 1,$(USE_FLD) $(USE_M_1)))
