@@ -69,8 +69,8 @@ while getopts "cdfp:q:t:vy" OPTION; do
    esac
 done
 
-#MYLATEXPATH= /gpfs/data1/nvaytet/texlive2015/bin/x86_64-linux/;
-#MYMODULES= "gnuplot anaconda openmpi/1.8.3-gnu4.8.4";
+MYLATEXPATH="/gpfs/data1/nvaytet/texlive2015/bin/x86_64-linux/";
+MYMODULES="gnuplot anaconda openmpi/1.8.3-gnu4.8.4";
 
 #######################################################################
 # Setup paths and commands

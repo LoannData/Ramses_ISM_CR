@@ -11,8 +11,8 @@ verbose=.false.
 /
 
 &AMR_PARAMS
-levelmin=6
-levelmax=10
+levelmin=5
+levelmax=11
 ngridmax=10000
 nexpand=20*2
 boxlen=2000.0d0
