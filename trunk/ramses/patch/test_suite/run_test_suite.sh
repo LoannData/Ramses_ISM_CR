@@ -95,7 +95,7 @@ COMPLETEDTESTS="${TEST_DIRECTORY}/completed_tests.txt";
 if $QUEUE; then
    echo -n > $COMPLETEDTESTS;
 fi
-nbatch=5;
+nbatch=10;
 #COMP=$(grep COMP ${BIN_DIRECTORY}/Makefile | grep "=" | cut -d '"' -f2);
 
 if [ ${MPI} -eq 1 ]; then
