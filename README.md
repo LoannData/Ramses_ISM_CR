@@ -1,5 +1,5 @@
 [1]: https://bitbucket.org/rteyssie/ramses/wiki/Content
-[2]: https://bitbucket.org/rteyssie/ramses/wiki/AutoTests
+[2]: https://bitbucket.org/bcommerc/ramses_benoit/wiki/Home
 [3]: http://www.ics.uzh.ch/~teyssier/ramses/RAMSES.html
 [4]: https://bitbucket.org/rteyssie/ramses/wiki/ramses_ug.pdf
 [5]: https://bitbucket.org/vperret/dice
