@@ -141,7 +141,11 @@ endif
 BINDIR = .
 #PATHSTRING = $(subst ../,$(BINDIR)/../,$(PATCH):../$(SOLVER):../fld/:../nimhd:../aton:../hydro:../pm:../poisson:../amr)
 #VPATH = $(PATHSTRING)$(B
+ifeq ($(strip $(PATCH)),)
+VPATH = $(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr
+else
 VPATH = $(BINDIR)/$(PATCH):$(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr
+endif
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o \
