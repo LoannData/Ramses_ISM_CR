@@ -11,8 +11,8 @@ verbose=.false.
 /
 
 &AMR_PARAMS
-levelmin=7
-levelmax=10
+levelmin=5
+levelmax=8
 ngridmax=10000
 nexpand=2
 boxlen=1.0d0
@@ -45,8 +45,8 @@ pressure_fix=.true.
 /
 
 &REFINE_PARAMS
-err_grad_d=0.1
-err_grad_e=0.1
+err_grad_d=0.2
+err_grad_e=0.2
 interpol_var=1
 interpol_type=2
 /
