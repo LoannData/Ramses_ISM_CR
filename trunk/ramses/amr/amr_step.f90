@@ -13,15 +13,16 @@ recursive subroutine amr_step(ilevel,icount)
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  integer::mpi_err
 #endif
-  integer::ilevel,icount
+  integer::ilevel,icount,ilev
   !-------------------------------------------------------------------!
   ! This routine is the adaptive-mesh/adaptive-time-step main driver. !
   ! Each routine is called using a specific order, don't change it,   !
   ! unless you check all consequences first                           !
   !-------------------------------------------------------------------!
   integer::i,idim,ivar
-  logical::ok_defrag
+  logical::ok_defrag,output_now_all
   logical,save::first_step=.true.
 
   if(numbtot(1,ilevel)==0)return
@@ -95,6 +96,12 @@ recursive subroutine amr_step(ilevel,icount)
         if(nremap>0)then
            ! Skip first load balance because it has been performed before file dump
            if(nrestart>0.and.first_step)then
+              if(nrestart.eq.nrestart_quad) restart_remap=.true.
+              if(restart_remap) then
+                 call load_balance
+                 call defrag
+                 ok_defrag=.true.
+              endif
               first_step=.false.
            else
               if(MOD(nstep_coarse,nremap)==0)then
@@ -123,7 +130,15 @@ recursive subroutine amr_step(ilevel,icount)
   ! Output results to files
   !------------------------
   if(ilevel==levelmin)then
-     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now.EQV..true.)then
+
+#ifdef WITHOUTMPI
+     output_now_all = output_now
+#else
+     ! check if any of the processes received a signal for output
+     call MPI_BARRIER(MPI_COMM_WORLD,mpi_err)
+     call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
+#endif
+     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.EQV..true.)then
                                call timer('io','start')
         if(.not.ok_defrag)then
            call defrag
@@ -139,7 +154,7 @@ recursive subroutine amr_step(ilevel,icount)
         ! Dump lightcone
         if(lightcone) call output_cone()
 
-        if (output_now.EQV..true.) then
+        if (output_now_all.EQV..true.) then
           output_now=.false.
         endif
 
@@ -313,7 +328,7 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('sinks','start')
      call grow_sink(ilevel,.false.)
   end if
-  
+
   !-----------
   ! Hydro step
   !-----------
@@ -356,7 +371,6 @@ recursive subroutine amr_step(ilevel,icount)
 
   endif
 
-  
   !---------------------
   ! Do RT/Chemistry step
   !---------------------
