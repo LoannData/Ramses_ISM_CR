@@ -37,7 +37,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Make new refinements and update boundaries
   !-------------------------------------------
                                call timer('refine','start')
-  if(levelmin.lt.nlevelmax .and..not. static)then
+  if(levelmin.lt.nlevelmax .and.(.not.static.or.(nstep_coarse_old.eq.nstep_coarse.and.restart_remap)))then
      if(ilevel==levelmin.or.icount>1)then
         do i=ilevel,nlevelmax
            if(i>levelmin)then
@@ -583,7 +583,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Compute refinement map
   !-----------------------
                                call timer('flag','start')
-  if(.not.static) call flag_fine(ilevel,icount)
+  if(.not.static.or.(nstep_coarse_old.eq.nstep_coarse.and.restart_remap)) call flag_fine(ilevel,icount)
 
   !----------------------------
   ! Merge finer level particles
