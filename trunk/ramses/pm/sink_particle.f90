@@ -880,8 +880,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               e=e-uold(indp(j,ind),inener-1+irad)
            end do
 #endif
-           if(energy_fix)e=uold(indp(j,ind),nvar)/d
            e=e/d
+           if(energy_fix)e=uold(indp(j,ind),nvar)/d
            eint=e*d
 
            call temperature_eos(d,eint,temp,ht)
@@ -1522,22 +1522,22 @@ subroutine print_sink_properties(dMEDoverdt,rho_inf,r2,v_bondi)
         xmsink(1:nsink)=msink(1:nsink)
         call quick_sort_dp(xmsink(1),idsink_sort(1),nsink)
         write(*,*)'Number of sink = ',nsink
-        write(*,*)'Total mass in sink = ',sum(msink(1:nsink))*scale_m/1.9891d33
+        write(*,*)'Total mass in sink = ',sum(msink(1:nsink))*scale_m/Msun
         write(*,*)'simulation time = ',t
-        write(*,'(" ================================================================================================================================================ ")')
+        write(*,'(" ============================================================================================================================================================================= ")')
         write(*,'("   Id     M[Msol]          x             y             z            vx            vy            vz    acc_rate[Msol/y] acc_lum[Lsol]     age[y]    int_lum[Lsol]     Teff [K] ")')
-        write(*,'(" ================================================================================================================================================ ")')
+        write(*,'(" ============================================================================================================================================================================= ")')
         do i=nsink,1,-1
            isink=idsink_sort(i)
            l_abs=(lsink(isink,1)**2+lsink(isink,2)**2+lsink(isink,3)**2)**0.5+1.d10*tiny(0.d0)
-           write(*,'(I5,10(2X,E12.5))')&
+           write(*,'(I5,12(2X,E12.5))')&
                 idsink(isink),msink(isink)*scale_m/Msun, &
                 xsink(isink,1:ndim),vsink(isink,1:ndim),&
                 acc_rate(isink)*scale_m/Msun/(scale_t)*year,acc_lum(isink)/scale_t**2*scale_l**3*scale_d*scale_l**2/scale_t/Lsun,&
                 (t-tsink(isink))*scale_t/year,&
                 int_lum(isink)*scale_d*scale_l**3*scale_v**2/scale_t/Lsun,Teff_sink(isink)
         end do
-        write(*,'(" ================================================================================================================================================ ")')
+        write(*,'(" ============================================================================================================================================================================= ")')
      endif
   endif
 end subroutine print_sink_properties

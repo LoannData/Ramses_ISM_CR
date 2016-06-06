@@ -43,6 +43,8 @@ subroutine init_sink
   acc_rate=0.
   allocate(acc_lum(1:nsinkmax))
   acc_lum=0.
+  allocate(int_lum(1:nsinkmax))
+  int_lum=0.
   allocate(dt_acc(1:nsinkmax))
   allocate(rho_sink_tff(levelmin:nlevelmax))
   allocate(lsink(1:nsinkmax,1:3))
