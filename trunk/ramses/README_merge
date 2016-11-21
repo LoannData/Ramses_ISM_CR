@@ -1,3 +1,6 @@
+change 8+ in firstindex_er for a bunch of routines !!!! (except umuscl)
+
+
 ! Test suite
 !-----------
 - python scripts to be done for: collapse-rhd, collapse-baro, collapse-ohm

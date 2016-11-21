@@ -49,7 +49,7 @@ module hydro_parameters
   integer,parameter::firstindex_fr=8+nener ! for radiative fluxes (if M1)
   integer,parameter::firstindex_extinct=8+nent+nrad ! for extinction
   integer,parameter::firstindex_pscal=8+nent+nrad+nextinct ! for passive scalars
-
+  integer::lastindex_pscal ! last index for passive scalars other than internal energy
   ! Initialize NVAR
 #ifndef NVAR
   integer,parameter::nvar=8+nent+nrad+nextinct+npscal

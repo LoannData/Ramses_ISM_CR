@@ -75,7 +75,8 @@ ifeq ($(COMP),"INTEL")
       F90 = ifort
       FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
    endif
-   FFLAGS += -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds
+   FFLAGS += -O3
+#   FFLAGS += -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds
 endif
 
 # INTEL

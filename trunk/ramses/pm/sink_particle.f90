@@ -535,6 +535,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            e=e-fluid_var(j,inener-1+irad)
         end do
 #endif
+        if(energy_fix)e=fluid_var(j,nvar)
         egas(j)=e
      else
         egas(j)=0.
@@ -785,7 +786,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   !-----------------------------------------------------------------------
 
   integer::i,j,nx_loc,isink,ivar,irad,idim,ind,ht
-  real(dp)::v2,d,e,d_floor,density,volume,eint,trmp
+  real(dp)::v2,d,e,d_floor,density,volume,eint,trmp,ekin
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
 #endif
@@ -874,7 +875,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            e=e-0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
 #endif
            v2=(vv(1)**2+vv(2)**2+vv(3)**2)
-           e=e-0.5d0*d*v2
+           ekin=0.5d0*d*v2
+           e=e-ekin
 #if NENER>0
            do irad=1,nener
               e=e-uold(indp(j,ind),inener-1+irad)
@@ -886,7 +888,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 
            call temperature_eos(d,eint,temp,ht)
 
-           do ivar=imetal,nvar
+           do ivar=imetal,lastindex_pscal
               z(ivar)=uold(indp(j,ind),ivar)/d
            end do
 
@@ -1022,8 +1024,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               uold(indp(j,ind),3)=d*vv(2)
               uold(indp(j,ind),4)=d*vv(3)
               uold(indp(j,ind),5)=e
-              uold(indp(j,ind),nvar)=eint
-              do ivar=imetal,nvar
+              if(energy_fix)uold(indp(j,ind),nvar)=eint
+              do ivar=imetal,lastindex_pscal
                  uold(indp(j,ind),ivar)=d*z(ivar)
               end do
            else
@@ -1031,10 +1033,21 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               unew(indp(j,ind),1)=unew(indp(j,ind),1)-acc_mass/vol_loc-virt_acc_mass/vol_loc+virt_acc_mass/vol_loc*density/d
               unew(indp(j,ind),2:4)=unew(indp(j,ind),2:4)-vv(1:3)*acc_mass/vol_loc-delta_p(1:3)/vol_loc
               ! fix the energy equation to account for the work of the truly accreted material 
-              unew(indp(j,ind),5)=unew(indp(j,ind),5)-uold(indp(j,ind),5)*acc_mass/(d*vol_loc)+delta_e_tot/vol_loc
-              do ivar=imetal,nvar
+!              unew(indp(j,ind),5)=unew(indp(j,ind),5)-uold(indp(j,ind),5)*acc_mass/(d*vol_loc)+delta_e_tot/vol_loc
+
+              unew(indp(j,ind),5)=unew(indp(j,ind),5)-ekin*acc_mass/(d*vol_loc)+delta_e_tot/vol_loc-eint
+
+
+              do ivar=imetal,lastindex_pscal
                  unew(indp(j,ind),ivar)=unew(indp(j,ind),ivar)-uold(indp(j,ind),ivar)*acc_mass/(d*vol_loc)
               end do
+
+              d=unew(indp(j,ind),1)
+              call enerint_eos(d,temp,eint)
+              unew(indp(j,ind),5)=unew(indp(j,ind),5)+eint
+              if(energy_fix)then
+                 unew(indp(j,ind),nvar)=eint
+              endif
 
               ! put the tangential momentum back into the gas
               if(nol_accretion)then
@@ -1880,7 +1893,7 @@ subroutine make_sink_from_clump(ilevel)
               eint=e*d
               call temperature_eos(d,eint,temp,ht)
 
-              do ivar=imetal,nvar
+              do ivar=imetal,lastindex_pscal
                  z(ivar)=uold(ind_cell_new(i),ivar)/d
               end do
               
@@ -1932,6 +1945,7 @@ subroutine make_sink_from_clump(ilevel)
               d=d-delta_d
 !              e=e*d
               call enerint_eos(d,temp,e)
+              if(energy_fix)uold(ind_cell_new(i),nvar)=e
 #ifdef SOLVERmhd
               e=e+0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
 #endif
@@ -1946,7 +1960,7 @@ subroutine make_sink_from_clump(ilevel)
               uold(ind_cell_new(i),3)=d*v
               uold(ind_cell_new(i),4)=d*w
               uold(ind_cell_new(i),5)=e
-              do ivar=imetal,nvar
+              do ivar=imetal,lastindex_pscal
                  uold(ind_cell_new(i),ivar)=d*z(ivar)
               end do
            end do
