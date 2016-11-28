@@ -26,6 +26,7 @@ module pm_parameters
   logical::flux_accretion=.false.
   logical::threshold_accretion=.false.
   logical::bondi_accretion=.false.
+  logical::jeans_accretion=.false. ! Warning: needs accretion_scheme='threshold'
 
   logical::nol_accretion=.false.             ! Leave angular momentum in the gas at accretion
   real(dp)::mass_sink_seed=0.0               ! Initial sink mass. If < 0, use the AGN feedback based recipe

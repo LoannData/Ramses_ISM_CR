@@ -930,7 +930,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  ! User defined density threshold
                  d_floor=d_sink           
                  ! Jeans length related density threshold  
-                 if(d_sink<0.0)then
+                 if(jeans_accretion)then
                     !temp=max(e*(gamma-1.0),smallc**2)
                     call soundspeed_eos(d,eint,c2)
                     c2=c2**2
@@ -2929,7 +2929,7 @@ subroutine read_sink_params()
 
   real(dp)::dx_min,scale,cty
   integer::nx_loc
-  namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,nol_accretion,merging_timescale,&
+  namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,nol_accretion,merging_timescale,jeans_accretion, &
        ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,c_acc,create_sinks,mass_sink_seed,&
        eddington_limit,sink_drag,acc_sink_boost,mass_merger_vel_check_AGN,&
        clump_core,verbose_AGN,T2_AGN,v_AGN,cone_opening,mass_halo_AGN,mass_clump_AGN,feedback_scheme
