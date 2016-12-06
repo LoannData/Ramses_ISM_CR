@@ -79,7 +79,7 @@ subroutine init_part
   real::dummy_real
   character(LEN=12)::ifile_str
   character(LEN=4)::blck_name
-  logical::eob,file_exists
+  logical::eob,file_exists,skip
   TYPE(gadgetheadertype)::header
   ! DICE patch
 
@@ -190,13 +190,11 @@ subroutine init_part
         allocate(xdp(1:npart2))
         read(ilun)xdp
         tp(1:npart2)=xdp
-#ifdef RT
         if(convert_birth_times) then
            do i = 1, npart2 ! Convert birth time to proper for RT postpr.
               call getProperTime(tp(i),tp(i))
            enddo
         endif
-#endif
         if(metal)then
            ! Read metallicity
            read(ilun)xdp
@@ -984,14 +982,38 @@ subroutine init_part
 
               write(*,'(A50)')"__________________________________________________"
               write(*,*)"Found ",npart," particles"
-              write(*,*)"----> ",header%npart(1)," type 0 particles"
-              write(*,*)"----> ",header%npart(2)," type 1 particles"
-              write(*,*)"----> ",header%npart(3)," type 2 particles"
-              write(*,*)"----> ",header%npart(4)," type 3 particles"
-              write(*,*)"----> ",header%npart(5)," type 4 particles"
-              write(*,*)"----> ",header%npart(6)," type 5 particles"
+              skip=.false.
+              do j=1,6
+                 if(ic_skip_type(j).eq.0) skip=.true.
+              enddo
+              if(.not.skip) write(*,*)"----> ",header%npart(1)," type 0 particles"
+              skip=.false.
+              do j=1,6
+                 if(ic_skip_type(j).eq.1) skip=.true.
+              enddo
+              if(.not.skip) write(*,*)"----> ",header%npart(2)," type 1 particles"
+              skip=.false.
+              do j=1,6
+                 if(ic_skip_type(j).eq.2) skip=.true.
+              enddo
+              if(.not.skip) write(*,*)"----> ",header%npart(3)," type 2 particles"
+              skip=.false.
+              do j=1,6
+                 if(ic_skip_type(j).eq.3) skip=.true.
+              enddo
+              if(.not.skip) write(*,*)"----> ",header%npart(4)," type 3 particles"
+              skip=.false.
+              do j=1,6
+                 if(ic_skip_type(j).eq.4) skip=.true.
+              enddo
+              if(.not.skip) write(*,*)"----> ",header%npart(5)," type 4 particles"
+              skip=.false.
+              do j=1,6
+                 if(ic_skip_type(j).eq.5) skip=.true.
+              enddo
+              if(.not.skip) write(*,*)"----> ",header%npart(6)," type 5 particles"
               write(*,'(A50)')"__________________________________________________"
-              if((pos_size.ne.npart).or.(vel_size.ne.npart)) then
+              if((pos_size.ne.npart).or.(vel_size.ne.npart).or.((metal_size.ne.npart).and.(metal_size.ne.ngas+nstar_tot))) then
                 write(*,*) 'POS =',pos_size
                 write(*,*) 'Z   =',metal_size
                 write(*,*) 'VEL =',vel_size
@@ -1014,7 +1036,7 @@ subroutine init_part
             do while(.not.eob)
               xx=0.
               vv=0.
-              ii=0.
+              ii=0
               mm=0.
               tt=0.
               zz=0.
@@ -1045,7 +1067,7 @@ subroutine init_part
                   if(id_blck.ne.-1) then
                     read(1,POS=id_blck+sizeof(dummy_int)*(kpart-1)) ii(i)
                   else
-                    ii(i) = (kpart-1)
+                    ii(i) = kpart
                   endif
                   if(kpart.le.header%npart(1)) then
                     if((u_blck.ne.-1).and.(u_size.eq.header%npart(1))) then
@@ -1072,9 +1094,9 @@ subroutine init_part
                     gadget_scale_l = scale_l/header%boxsize
                     gadget_scale_v = 1e3*SQRT(aexp)/header%boxsize*aexp/100.
                   endif
-                  xx(i,:)   = xx_sp(i,:)*gadget_scale_l/scale_l*ic_scale_pos
-                  vv(i,:)   = vv_sp(i,:)*gadget_scale_v/scale_v*ic_scale_vel
-                  mm(i)     = mm_sp(i)*gadget_scale_m/scale_m*ic_scale_mass
+                  xx(i,:)   = xx_sp(i,:)*(gadget_scale_l/scale_l)*ic_scale_pos
+                  vv(i,:)   = vv_sp(i,:)*(gadget_scale_v/scale_v)*ic_scale_vel
+                  mm(i)     = mm_sp(i)*(gadget_scale_m/scale_m)*ic_scale_mass
                   if(cosmo) then
                     if(type_index .eq. 1) mass_sph = mm(i)
                     if(xx(i,1)<  0.0d0  )xx(i,1)=xx(i,1)+dble(nx)
@@ -1095,7 +1117,7 @@ subroutine init_part
                       if(cosmo) then
                         tt(i) = tt_sp(i)
                       else
-                        tt(i) = tt_sp(i)*gadget_scale_t/(scale_t/aexp**2)*ic_scale_age
+                        tt(i) = tt_sp(i)*(gadget_scale_t/(scale_t/aexp**2))*ic_scale_age
                       endif
                     endif
                   endif
@@ -1103,6 +1125,7 @@ subroutine init_part
                     if(cosmo) then
                       uu(i) = T2_start/scale_T2
                     else
+                      ! Temperature stored in units of K/mu
                       uu(i) = uu_sp(i)*mu_mol*(gadget_scale_v/scale_v)**2*ic_scale_u
                     endif
 
@@ -1135,56 +1158,65 @@ subroutine init_part
                   ! Check the CPU map
                   if(cc(i)==myid)then
 #endif
-                    ipart          = ipart+1
-                    if(ipart.gt.npartmax) then
-                       write(*,*) "Increase npartmax"
-                       call clean_stop
-                    endif
-                    xp(ipart,1:3)  = xx(i,1:3)+boxlen/2.0D0-ic_center(1:3)
-                    vp(ipart,1:3)  = vv(i,1:3)
-                    ! Flag gas particles with idp=1
-                    if((lpart+i).gt.header%npart(1))then
-                      idp(ipart)   = ii(i)+1
-                    else
-                      idp(ipart)   = 1
-                    endif
-                    mp(ipart)      = mm(i)
-                    levelp(ipart)  = levelmin
-                    if(star) then
-                      tp(ipart)    = tt(i)
-                      if(tp(ipart).ne.0d0) tp(ipart)=tp(ipart)-ic_t_restart
-                    endif
-                    if(metal) then
-                      zp(ipart)    = zz(i)
-                    endif
-                    up(ipart)      = uu(i)
-                    ! Add a gas particle outside the zoom region
-                    if(cosmo) then
-                      maskp(ipart)   = 1.0
-                      ! Determine current particle type
-                      if((lpart+i).le.header%npart(1)) type_index = 1
-                      do j=1,6
-                         if((lpart+i).gt.sum(header%npart(1:j)).and.(lpart+i).le.sum(header%npart(1:j+1))) type_index = j+1
-                      enddo
-                      do j=1,6
-                         if(type_index.eq.cosmo_add_gas_index(j)) then
-                            ! Add a gas particle
-                            xp(ipart+1,1:3) = xp(ipart,1:3)
-                            vp(ipart+1,1:3) = vp(ipart,1:3)
-                            idp(ipart+1)    = 1
-                            mp(ipart+1)     = mp(ipart)*(omega_b/omega_m)
-                            levelp(ipart+1) = levelmin
-                            up(ipart+1)     = T2_start/scale_T2
-                            maskp(ipart+1)  = 0.0
-                            if(metal) then
-                               zp(ipart+1)  = z_ave*0.02
-                            endif
-                            ! Remove mass from the DM particle
-                            mp(ipart) = mp(ipart)-mp(ipart+1)
-                            ! Update index
-                            ipart           = ipart+1
+                    ! Determine current particle type
+                    if((lpart+i).le.header%npart(1)) type_index = 1
+                    do j=1,5
+                       if((lpart+i).gt.sum(header%npart(1:j)).and.(lpart+i).le.sum(header%npart(1:j+1))) type_index = j+1
+                    enddo
+                    skip           = .false.
+                    do j=1,6
+                       if(ic_skip_type(j).eq.type_index-1) skip=.true.
+                    enddo
+                    if(.not.skip) then 
+                       if(abs(xx(i,1)-ic_center(1)).ge.boxlen/2d0) cycle
+                       if(abs(xx(i,2)-ic_center(2)).ge.boxlen/2d0) cycle
+                       if(abs(xx(i,3)-ic_center(3)).ge.boxlen/2d0) cycle
+                       ipart          = ipart+1
+                       if(ipart.gt.npartmax) then
+                          write(*,*) "Increase npartmax"
+                          call clean_stop
+                       endif
+                       xp(ipart,1:3)  = xx(i,1:3)+boxlen/2.0D0-ic_center(1:3)
+                       vp(ipart,1:3)  = vv(i,1:3)
+                       ! Flag gas particles with idp=1
+                       if(type_index.gt.1)then
+                         idp(ipart)   = ii(i)+1
+                       else
+                         idp(ipart)   = 1
+                       endif
+                       mp(ipart)      = mm(i)
+                       levelp(ipart)  = levelmin
+                       if(star) then
+                         tp(ipart)    = tt(i)
+                         ! Particle metallicity
+                         if(metal) then
+                           zp(ipart)  = zz(i)
                          endif
-                      end do
+                       endif
+                       up(ipart)      = uu(i)
+                       ! Add a gas particle outside the zoom region
+                       if(cosmo) then
+                         maskp(ipart) = 1.0
+                         do j=1,6
+                            if(type_index.eq.cosmo_add_gas_index(j)) then
+                               ! Add a gas particle
+                               xp(ipart+1,1:3) = xp(ipart,1:3)
+                               vp(ipart+1,1:3) = vp(ipart,1:3)
+                               idp(ipart+1)    = -1
+                               mp(ipart+1)     = mp(ipart)*(omega_b/omega_m)
+                               levelp(ipart+1) = levelmin
+                               up(ipart+1)     = T2_start/scale_T2
+                               maskp(ipart+1)  = 0.0
+                               if(metal) then
+                                  zp(ipart+1)  = z_ave*0.02
+                               endif
+                               ! Remove mass from the DM particle
+                               mp(ipart) = mp(ipart)-mp(ipart+1)
+                               ! Update index
+                               ipart           = ipart+1
+                            endif
+                         end do
+                       endif
                     endif
 #ifndef WITHOUTMPI
                   endif
@@ -1193,7 +1225,7 @@ subroutine init_part
               lpart = lpart+jpart
             enddo
             if(myid==1)then
-               write(*,'(A,F10.3,A)') ' Gas mass in AMR grid -> ',mgas_tot,'D9 Msol'
+               write(*,'(A,E10.3,A)') ' Gas mass in AMR grid -> ',mgas_tot,' unit_m'
                write(*,'(A50)')"__________________________________________________"
                close(1)
             endif
@@ -1206,6 +1238,8 @@ subroutine init_part
 #ifndef WITHOUTMPI
         call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
         npart_cpu(1) = npart_all(1)
+#else
+        npart_all       = npart
 #endif
         if(myid==1)then
            write(*,*) ' npart_tot -> ',sum(npart_all)
@@ -1216,6 +1250,8 @@ subroutine init_part
            npart_cpu(icpu)=npart_cpu(icpu-1)+npart_all(icpu)
         end do
         if(debug)write(*,*)'npart=',npart,'/',npart_cpu(ncpu)
+        ifout = ic_ifout
+        t = ic_t_restart
         ! DICE patch
 
      case ('gadget')

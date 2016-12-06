@@ -22,6 +22,9 @@ subroutine read_hydro_params(nml_ok)
 #if NENER>0
        & ,prad_region &
 #endif
+#if NVAR>NDIM+2+NENER
+       & ,var_region &
+#endif
        & ,d_region,u_region,v_region,w_region,p_region
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &
        & ,niter_riemann,slope_type,difmag &
@@ -37,13 +40,20 @@ subroutine read_hydro_params(nml_ok)
   namelist/boundary_params/nboundary,bound_type &
        & ,ibound_min,ibound_max,jbound_min,jbound_max &
        & ,kbound_min,kbound_max &
+#if NENER>0
+       & ,prad_bound &
+#endif
+#if NVAR>NDIM+2+NENER
+       & ,var_bound &
+#endif
        & ,d_bound,u_bound,v_bound,w_bound,p_bound,no_inflow
   namelist/physics_params/cooling,haardt_madau,metal,isothermal &
        & ,m_star,t_star,n_star,T2_star,g_star,del_star,eps_star,jeans_ncells &
        & ,eta_sn,yield,rbubble,f_ek,ndebris,f_w,mass_gmc,kappa_IR &
        & ,J21,a_spec,z_ave,z_reion,ind_rsink,delayed_cooling,T2max &
        & ,self_shielding,smbh,agn &
-       & ,units_density,units_time,units_length,neq_chem,ir_feedback,ir_eff,t_diss,t_sne
+       & ,units_density,units_time,units_length,neq_chem,ir_feedback,ir_eff,t_diss,t_sne &
+       & ,sf_virial,sf_trelax,sf_tdiss,sf_model,sf_birth_properties
 #ifdef grackle
   namelist/grackle_params/grackle_comoving_coordinates,grackle_with_radiative_cooling,grackle_primordial_chemistry &
        & ,grackle_metal_cooling,grackle_UVbackground,grackle_h2_on_dust,grackle_cmb_temperature_floor &
@@ -280,10 +290,26 @@ subroutine read_hydro_params(nml_ok)
   imetal=nener+ndim+3
   idelay=imetal
   if(metal)idelay=imetal+1
-  ixion=idelay
-  if(delayed_cooling)ixion=idelay+1
+  ivirial=idelay
+  if(delayed_cooling)ivirial=idelay+1
+  ixion=ivirial
+  if(sf_virial)ixion=ivirial+1
   ichem=ixion
   if(aton)ichem=ixion+1
+  if(myid==1.and.hydro) then
+     write(*,*) 'Hydro var indices:'
+#if NENER>0
+     write(*,*) '   inener  = ',inener
+#endif
+     if(metal)           write(*,*) '   imetal  = ',imetal
+     if(delayed_cooling) write(*,*) '   idelay  = ',idelay  
+     if(sf_virial)       write(*,*) '   ivirial = ',ivirial
+     if(aton)            write(*,*) '   ixion   = ',ixion
+#ifdef RT
+     if(rt) write(*,*) '   iIons   = ',ichem
+#endif
+  endif
+
   ! Last variable is ichem
 
 end subroutine read_hydro_params
