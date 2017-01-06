@@ -33,7 +33,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Make new refinements and update boundaries
   !-------------------------------------------
                                call timer('refine','start')
-  if(levelmin.lt.nlevelmax .and..not. static)then
+  if(levelmin.lt.nlevelmax .and.(.not.static.or.(nstep_coarse_old.eq.nstep_coarse.and.restart_remap)))then
      if(ilevel==levelmin.or.icount>1)then
         do i=ilevel,nlevelmax
            if(i>levelmin)then
@@ -89,7 +89,7 @@ recursive subroutine amr_step(ilevel,icount)
   !--------------------------
   ! Load balance
   !--------------------------
-                               call timer('loadbalance','start')
+                               call timer('load balance','start')
   ok_defrag=.false.
   if(levelmin.lt.nlevelmax)then
      if(ilevel==levelmin)then
@@ -196,6 +196,7 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('poisson','start')
      !save old potential for time-extrapolation at level boundaries
      call save_phi_old(ilevel)
+                               call timer('rho','start')
      call rho_fine(ilevel,icount)
   endif
 
@@ -240,7 +241,11 @@ recursive subroutine amr_step(ilevel,icount)
      ! Synchronize remaining particles for gravity
      if(pic)then
                                call timer('particles','start')
-        call synchro_fine(ilevel)
+        if(static_dm.or.static_stars)then
+           call synchro_fine_static(ilevel)
+        else
+           call synchro_fine(ilevel)
+        end if
      end if
 
      if(hydro)then
@@ -332,7 +337,7 @@ recursive subroutine amr_step(ilevel,icount)
   !-----------
   ! Hydro step
   !-----------
-  if(hydro)then
+  if((hydro).and.(.not.static_gas))then
 
      ! Hyperbolic solver
                                call timer('hydro - godunov','start')
@@ -397,7 +402,7 @@ recursive subroutine amr_step(ilevel,icount)
   endif
 #else
                                call timer('cooling','start')
-  if(hydro) then
+  if((hydro).and.(.not.static_gas)) then
     if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
   endif
 #endif
@@ -407,19 +412,23 @@ recursive subroutine amr_step(ilevel,icount)
   !---------------
   if(pic)then
                                call timer('particles','start')
-     call move_fine(ilevel) ! Only remaining particles
+     if(static_dm.or.static_stars)then
+        call move_fine_static(ilevel) ! Only remaining particles
+     else
+        call move_fine(ilevel) ! Only remaining particles
+     end if
   end if
   
   !----------------------------------
   ! Star formation in leaf cells only
   !----------------------------------
                                call timer('feedback','start')
-  if(hydro.and.star)call star_formation(ilevel)
+  if(hydro.and.star.and.(.not.static_gas))call star_formation(ilevel)
 
   !---------------------------------------
   ! Update physical and virtual boundaries
   !---------------------------------------
-  if(hydro)then
+  if((hydro).and.(.not.static_gas))then
                                call timer('hydro - ghostzones','start')
 #ifdef SOLVERmhd
      do ivar=1,nvar+3
@@ -437,7 +446,7 @@ recursive subroutine amr_step(ilevel,icount)
 
 #ifdef SOLVERmhd
   ! Magnetic diffusion step
- if(hydro)then
+  if((hydro).and.(.not.static_gas))then
      if(eta_mag>0d0.and.ilevel==levelmin)then
                                call timer('hydro - diffusion','start')
         call diffusion
@@ -449,7 +458,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Compute refinement map
   !-----------------------
                                call timer('flag','start')
-  if(.not.static) call flag_fine(ilevel,icount)
+  if(.not.static.or.(nstep_coarse_old.eq.nstep_coarse.and.restart_remap)) call flag_fine(ilevel,icount)
 
   !----------------------------
   ! Merge finer level particles
