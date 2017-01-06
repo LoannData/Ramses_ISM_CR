@@ -140,13 +140,7 @@ endif
 #############################################################################
 # Sources directories are searched in this exact order
 BINDIR = .
-#PATHSTRING = $(subst ../,$(BINDIR)/../,$(PATCH):../$(SOLVER):../fld/:../nimhd:../aton:../hydro:../pm:../poisson:../amr)
-#VPATH = $(PATHSTRING)$(B
-ifeq ($(strip $(PATCH)),)
-VPATH = $(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr
-else
-VPATH = $(BINDIR)/$(PATCH):$(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr
-endif
+VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../fld:../nimhd:../aton:../hydro:../pm:../poisson:../amr
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o \
@@ -181,12 +175,23 @@ endif
 #TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
 #          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
 #          add_turb_forcing.o write_pymses.o libfftw3.a
+# Patch objects
+FortranFiles = $(wildcard $(addsuffix /*.f90,$(shell [ -z $(PATCH) ] || find $(PATCH)/* -type d)))
+PATCHOBJ = $(notdir $(patsubst %.f90, %.o, $(FortranFiles)))
+
 # All objects
-AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) # $(TURBOBJ) 
+AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(PATCHOBJ) # $(TURBOBJ)
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
 ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o $(BINDIR)/../aton/atonlib/libaton.a
 #############################################################################
+# test:
+# 	echo $(PATCHOBJ)
+# 	echo $(find $(PATCH)/* -type d)
+# 	echo $(wildcard $(find $(PATCH)/* -type d)/*.f90)
+# 	echo $(wildcard $(shell [ -z $(PATCH) ])/*.f90)
+# 	echo $(wildcard $(shell [ -z $(PATCH) ] )/*.f90)
+# 	echo $(shell [ -z $(PATCH) ] || find $(PATCH)/* -type d)
 all:
 	for file in $(MODOBJ); do unset MAKELEVEL ; $(MAKE) $$file; done
 	$(MAKE) ramses

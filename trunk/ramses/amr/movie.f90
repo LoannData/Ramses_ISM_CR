@@ -5,7 +5,7 @@
 subroutine output_frame()
   use amr_commons
   use pm_commons
-  use hydro_commons
+  use hydro_commons, ONLY:gamma,smallr,smallc,nvar,uold,inener,nener
 #ifdef RT
   use rt_parameters
   use rt_hydro_commons
@@ -25,49 +25,62 @@ subroutine output_frame()
 #else
   character(len=100),dimension(0:NVAR+2) :: moviefiles
 #endif
-  integer::icell,ncache,iskip,ngrid,nlevelmax_frame
+  integer::icell,ncache,iskip,irad,ngrid,nlevelmax_frame
   integer::ilun,nx_loc,ipout,npout,npart_out,ind,ix,iy,iz
   integer::imin,imax,jmin,jmax,ii,jj,kk,ll
   character(LEN=80)::fileloc
   character(LEN=5)::nchar,dummy
   real(dp)::scale,scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::xcen,ycen,zcen,delx,dely,delz
-  real(dp)::xleft_frame,xright_frame,yleft_frame,yright_frame,zleft_frame,zright_frame
-  real(dp)::xleft,xright,yleft,yright,zleft,zright
-  real(dp)::xxleft,xxright,yyleft,yyright,zzleft,zzright
+  real(dp)::xtmp,ytmp,ztmp,smooth,dist_camera,theta_cam,phi_cam,alpha,beta,smooth_theta
+  real(dp)::xleft_frame,xright_frame,yleft_frame,yright_frame,zleft_frame,zright_frame,rr
+  real(dp)::xleft,xright,yleft,yright,zleft,zright,xcentre,ycentre,zcentre
+  real(dp)::xxleft,xxright,yyleft,yyright,zzleft,zzright,xxcentre,yycentre,zzcentre
   real(dp)::xpf,ypf,zpf
-  real(dp)::dx_frame,dy_frame,dx,dx_loc,dx_min
-  real(dp)::dx_cell,dy_cell,dz_cell,dvol
+  real(dp)::dx_frame,dy_frame,dx,dx_loc,dx_min,pers_corr
+  real(dp)::dx_cell,dy_cell,dz_cell,dvol,dx_proj
   real(kind=8)::cell_value
   integer ,dimension(1:nvector)::ind_grid,ind_cell
   logical,dimension(1:nvector)::ok
   real(dp),dimension(1:3)::skip_loc
   real(dp),dimension(1:twotondim,1:3)::xc
   real(dp),dimension(1:nvector,1:ndim)::xx
+  real(dp),dimension(1:nvector,1:ndim)::xx2
   real(kind=8),dimension(:,:,:),allocatable::data_frame,data_frame_all
   real(kind=8),dimension(:,:),allocatable::dens,dens_all,vol,vol_all
   real(kind=4),dimension(:,:),allocatable::data_single
   real(kind=8) :: z1,z2,om0in,omLin,hubin,Lbox
-  real(kind=8) :: observer(3),thetay,thetaz,theta,phi,temp,ekk
-  integer::igrid,jgrid,ipart,jpart,idim,icpu,ilevel,next_part
+  real(kind=8) :: observer(3),thetay,thetaz,theta,phi,temp,e
+  real(kind=8) :: pi=3.14159265359
+  real(dp),dimension(8)::xcube
+  real(dp),dimension(8)::ycube
+  real(dp),dimension(8)::zcube
+  integer::igrid,jgrid,ipart,jpart,idim,icpu,ilevel,next_part,icube,iline
   integer::i,j,ig,ip,npart1
   integer::nalloc1,nalloc2
   integer::proj_ind,l,nh_temp,nw_temp
-
+  real(dp)::minx,maxx,miny,maxy,minz,maxz,xpc,ypc,zpc,d1,d2,d3,d4,l1,l2,l3,l4
   integer,dimension(1:nvector),save::ind_part,ind_grid_part
-  logical::opened
-
+  logical::opened,cube_face
   character(len=1)::temp_string
+  integer,dimension(6,8)::lind = reshape((/1, 2, 3, 4, 1, 3, 2, 4,    &
+                                           5, 6, 7, 8, 5, 7, 6, 8,    &
+                                           1, 5, 2, 6, 1, 2, 5, 6,    &
+                                           3, 7, 4, 8, 3, 4, 7, 8,    &
+                                           1, 3, 5, 7, 1, 5, 3, 7,    &
+                                           2, 4, 6, 8, 2, 6, 4, 8 /)  &
+                                           ,shape(lind),order=(/2,1/))
 
 #ifdef RT
   character(len=100),dimension(1:NGROUPS) :: rt_moviefiles
   real(kind=8),dimension(:,:,:),allocatable::rt_data_frame,rt_data_frame_all
 #endif  
 
-  
-  nh_temp = nh_frame
-  nw_temp = nw_frame
+  nh_temp    = nh_frame
+  nw_temp    = nw_frame
 
+  ! Only one projection available in 2D
+  if((ndim.eq.2).and.(trim(proj_axis).ne.'z')) proj_axis = 'z'
   
  do proj_ind=1,LEN(trim(proj_axis)) 
   opened=.false.
@@ -83,7 +96,6 @@ subroutine output_frame()
   write(temp_string,'(I1)') proj_ind
   moviedir = 'movie'//trim(temp_string)//'/'
   moviecmd = 'mkdir -p '//trim(moviedir)
-  if(myid==1) write(*,*) "Writing frame ", istep_str
   if(.not.withoutmkdir) then 
 #ifdef NOSYSTEM
      if(myid==1)call PXFMKDIR(TRIM(moviedir),LEN(TRIM(moviedir)),O'755',info)  
@@ -178,17 +190,44 @@ subroutine output_frame()
     ycen=ycentre_frame(proj_ind*4-3)+ycentre_frame(proj_ind*4-2)*aexp+ycentre_frame(proj_ind*4-1)*aexp**2+ycentre_frame(proj_ind*4)*aexp**3
     zcen=zcentre_frame(proj_ind*4-3)+zcentre_frame(proj_ind*4-2)*aexp+zcentre_frame(proj_ind*4-1)*aexp**2+zcentre_frame(proj_ind*4)*aexp**3
   endif
-  delx=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltax_frame(proj_ind*2-1)+deltax_frame(proj_ind*2)/aexp) !+deltax_frame(3)*aexp**2+deltax_frame(4)*aexp**3  !Essentially comoving or physical
-  dely=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltay_frame(proj_ind*2-1)+deltay_frame(proj_ind*2)/aexp) !+deltay_frame(3)*aexp**2+deltay_frame(4)*aexp**3
-  delz=min(2*min(xcen,ycen,zcen,boxlen-xcen,boxlen-ycen,boxlen-zcen),deltaz_frame(proj_ind*2-1)+deltaz_frame(proj_ind*2)/aexp) !+deltaz_frame(3)*aexp**2+deltaz_frame(4)*aexp**3
+  delx=deltax_frame(proj_ind*2-1)+deltax_frame(proj_ind*2)/aexp
+  dely=deltay_frame(proj_ind*2-1)+deltay_frame(proj_ind*2)/aexp
+  delz=deltaz_frame(proj_ind*2-1)+deltaz_frame(proj_ind*2)/aexp
+   
+  ! Camera properties
+  if(cosmo) then
+     if(tend_theta_camera(proj_ind).le.0d0) tend_theta_camera(proj_ind) = aendmov
+     if(tend_phi_camera(proj_ind).le.0d0) tend_phi_camera(proj_ind) = aendmov
+     theta_cam  = theta_camera(proj_ind)*pi/180.                                                                                 &
+                +min(max(aexp-tstart_theta_camera(proj_ind),0d0),tend_theta_camera(proj_ind))*dtheta_camera(proj_ind)*pi/180./(aendmov-astartmov)
+     phi_cam    = phi_camera(proj_ind)*pi/180.                                                                                   &
+                +min(max(aexp-tstart_theta_camera(proj_ind),0d0),tend_phi_camera(proj_ind))*dphi_camera(proj_ind)*pi/180./(aendmov-astartmov)
+  else
+     if(tend_theta_camera(proj_ind).le.0d0) tend_theta_camera(proj_ind) = tendmov
+     if(tend_phi_camera(proj_ind).le.0d0) tend_phi_camera(proj_ind) = tendmov
+     theta_cam  = theta_camera(proj_ind)*pi/180.                                                                                 &
+                +min(max(t-tstart_theta_camera(proj_ind),0d0),tend_theta_camera(proj_ind))*dtheta_camera(proj_ind)*pi/180./(tendmov-tstartmov)
+     phi_cam    = phi_camera(proj_ind)*pi/180.                                                                                   &
+                +min(max(t-tstart_phi_camera(proj_ind),0d0),tend_phi_camera(proj_ind))*dphi_camera(proj_ind)*pi/180./(tendmov-tstartmov)
+  endif
+  dist_camera   = boxlen
+  if((focal_camera(proj_ind).le.0D0).or.(focal_camera(proj_ind).gt.dist_camera)) focal_camera(proj_ind) = dist_camera
+#if NDIM>2                 
+  if(myid==1) write(*,'(5A,F8.1,A,F8.1)') "Writing frame ", istep_str,' los=',proj_axis(proj_ind:proj_ind),' theta=',theta_cam*180./pi,' phi=',phi_cam*180./pi
+#else
+  if(myid==1) write(*,'(3A,F8.1)') "Writing frame ", istep_str,' theta=',theta_cam*180./pi
+#endif
+  ! Frame boundaries
+  xleft_frame  = xcen-delx/2.
+  xright_frame = xcen+delx/2.
+  yleft_frame  = ycen-dely/2.
+  yright_frame = ycen+dely/2.
+  zleft_frame  = zcen-delz/2.
+  zright_frame = zcen+delz/2.
 
-  xleft_frame=xcen-delx/2.
-  xright_frame=xcen+delx/2.
-  yleft_frame=ycen-dely/2.
-  yright_frame=ycen+dely/2.
-  zleft_frame=zcen-delz/2.
-  zright_frame=zcen+delz/2.
-  
+  ! No cubic shader for 2D simulations
+  if((ndim.eq.2).and.(shader_frame(proj_ind).eq.'cube')) shader_frame(proj_ind) = 'square'
+
   ! Allocate image
 #ifdef SOLVERmhd
   allocate(data_frame(1:nw_frame,1:nh_frame,0:NVAR+6))
@@ -204,11 +243,7 @@ subroutine output_frame()
   allocate(dens(1:nw_frame,1:nh_frame))
   allocate(vol(1:nw_frame,1:nh_frame))
   data_frame=0d0
-  if(cosmo) then
-    dens=0.0
-  else
-    dens=smallr
-  endif
+  dens=0d0
   vol=0d0
   dx_frame=delx/dble(nw_frame)
   dy_frame=dely/dble(nh_frame)
@@ -233,7 +268,31 @@ subroutine output_frame()
         dx_loc=dx*scale
         dx_min=0.5D0**nlevelmax*scale
         ncache=active(ilevel)%ngrid
-   
+
+        dx_proj = (dx_loc/2.0)*smooth_frame(proj_ind)
+#if NDIM>2                 
+        if((shader_frame(proj_ind).eq.'cube').and.(.not.perspective_camera(proj_ind)))then
+           xcube = (/-dx_proj,-dx_proj,-dx_proj,-dx_proj, dx_proj, dx_proj, dx_proj, dx_proj/)
+           ycube = (/-dx_proj,-dx_proj, dx_proj, dx_proj,-dx_proj,-dx_proj, dx_proj, dx_proj/)
+           zcube = (/-dx_proj, dx_proj,-dx_proj, dx_proj,-dx_proj, dx_proj,-dx_proj, dx_proj/)
+           do icube=1,8
+              xtmp         = cos(theta_cam)*xcube(icube)+sin(theta_cam)*ycube(icube)
+              ytmp         = cos(theta_cam)*ycube(icube)-sin(theta_cam)*xcube(icube)
+              xcube(icube) = xtmp
+              ycube(icube) = ytmp
+              ytmp         = cos(phi_cam)*ycube(icube)+sin(phi_cam)*zcube(icube)
+              ztmp         = cos(phi_cam)*zcube(icube)-sin(phi_cam)*ycube(icube)
+              ycube(icube) = ytmp
+              zcube(icube) = ztmp
+           enddo
+           minx = minval(xcube)
+           maxx = maxval(xcube)
+           miny = minval(ycube)
+           maxy = maxval(ycube)
+           minz = minval(zcube)
+           maxz = maxval(zcube)
+        endif
+#endif
         ! Loop over grids by vector sweeps
         do igrid=1,ncache,nvector
            ngrid=MIN(nvector,ncache-igrid+1)
@@ -259,7 +318,7 @@ subroutine output_frame()
                     xx(i,idim)=(xx(i,idim)-skip_loc(idim))*scale
                  end do
               end do
-              
+
               ! Check if cell is to be considered
               do i=1,ngrid
                  ok(i)=son(ind_cell(i))==0.or.ilevel==nlevelmax_frame
@@ -272,44 +331,130 @@ subroutine output_frame()
    
               do i=1,ngrid
                  if(ok(i))then
-                    ! Check if the cell intersect the domain
 #if NDIM>2                 
+                    ! Centering
+                    xx(i,1) = xx(i,1)-xcen
+                    xx(i,2) = xx(i,2)-ycen
+                    xx(i,3) = xx(i,3)-zcen
+                    ! Rotating
+                    xtmp    = cos(theta_cam)*xx(i,1)+sin(theta_cam)*xx(i,2)
+                    ytmp    = cos(theta_cam)*xx(i,2)-sin(theta_cam)*xx(i,1)
+                    xx(i,1) = xtmp
+                    xx(i,2) = ytmp
+                    ytmp    = cos(phi_cam)*xx(i,2)+sin(phi_cam)*xx(i,3)
+                    ztmp    = cos(phi_cam)*xx(i,3)-sin(phi_cam)*xx(i,2)
+                    xx(i,2) = ytmp
+                    xx(i,3) = ztmp
+                    ! Perspective correction factor
+                    pers_corr = 1.0 
                     if(proj_axis(proj_ind:proj_ind).eq.'x')then
-                      xleft=xx(i,2)-dx_loc/2.
-                      xright=xx(i,2)+dx_loc/2.
-                      yleft=xx(i,3)-dx_loc/2.
-                      yright=xx(i,3)+dx_loc/2.
+                      if(perspective_camera(proj_ind))then
+                         if(shader_frame(proj_ind).eq.'cube')then
+                            alpha  = atan(xx(i,2)/(dist_camera-xx(i,1)))
+                            beta   = atan(xx(i,3)/(dist_camera-xx(i,1)))
+                         endif
+                         pers_corr = focal_camera(proj_ind)/(dist_camera-xx(i,1))
+                         xx(i,2)   = xx(i,2)*pers_corr
+                         xx(i,3)   = xx(i,3)*pers_corr
+                         dx_proj   = (dx_loc/2.0)*pers_corr*smooth_frame(proj_ind)
+                      endif
+                      xcentre = xx(i,2)+ycen
+                      ycentre = xx(i,3)+zcen
+                      zcentre = xx(i,1)+xcen
                     elseif(proj_axis(proj_ind:proj_ind).eq.'y')then
-                      xleft=xx(i,1)-dx_loc/2.
-                      xright=xx(i,1)+dx_loc/2.
-                      yleft=xx(i,3)-dx_loc/2.
-                      yright=xx(i,3)+dx_loc/2.
+                      if(perspective_camera(proj_ind))then
+                         if(shader_frame(proj_ind).eq.'cube')then
+                            alpha  = atan(xx(i,1)/(dist_camera-xx(i,2)))
+                            beta   = atan(xx(i,3)/(dist_camera-xx(i,2)))
+                         endif
+                         pers_corr = focal_camera(proj_ind)/(dist_camera-xx(i,2))
+                         xx(i,1)   = xx(i,1)*pers_corr
+                         xx(i,3)   = xx(i,3)*pers_corr
+                         dx_proj   = (dx_loc/2.0)*pers_corr*smooth_frame(proj_ind)
+                      endif
+                      xcentre = xx(i,1)+xcen
+                      ycentre = xx(i,3)+zcen
+                      zcentre = xx(i,2)+ycen
                     else
-                      xleft=xx(i,1)-dx_loc/2.
-                      xright=xx(i,1)+dx_loc/2.
-                      yleft=xx(i,2)-dx_loc/2.
-                      yright=xx(i,2)+dx_loc/2.
+                      if(perspective_camera(proj_ind))then
+                         if(shader_frame(proj_ind).eq.'cube')then
+                            alpha  = atan(xx(i,1)/(dist_camera-xx(i,3)))
+                            beta   = atan(xx(i,2)/(dist_camera-xx(i,3)))
+                         endif
+                         pers_corr = focal_camera(proj_ind)/(dist_camera-xx(i,3))
+                         xx(i,1)   = xx(i,1)*pers_corr
+                         xx(i,2)   = xx(i,2)*pers_corr
+                         dx_proj   = (dx_loc/2.0)*pers_corr*smooth_frame(proj_ind)
+                      endif
+                      xcentre = xx(i,1)+xcen
+                      ycentre = xx(i,2)+ycen
+                      zcentre = xx(i,3)+zcen
                     endif
-                    
-                    if(proj_axis(proj_ind:proj_ind).eq.'x')then
-                      zleft=xx(i,1)-dx_loc/2.
-                      zright=xx(i,1)+dx_loc/2.
-                    elseif(proj_axis(proj_ind:proj_ind).eq.'y')then
-                      zleft=xx(i,2)-dx_loc/2.
-                      zright=xx(i,2)+dx_loc/2.
-                    else
-                      zleft=xx(i,3)-dx_loc/2.
-                      zright=xx(i,3)+dx_loc/2.
+                    ! Rotating the cube shader
+                    if(shader_frame(proj_ind).eq.'cube'.and.perspective_camera(proj_ind))then
+                       xcube = (/-dx_proj,-dx_proj,-dx_proj,-dx_proj, dx_proj, dx_proj, dx_proj, dx_proj/)
+                       ycube = (/-dx_proj,-dx_proj, dx_proj, dx_proj,-dx_proj,-dx_proj, dx_proj, dx_proj/)
+                       zcube = (/-dx_proj, dx_proj,-dx_proj, dx_proj,-dx_proj, dx_proj,-dx_proj, dx_proj/)
+                       do icube=1,8
+                          xtmp         = cos(theta_cam)*xcube(icube)+sin(theta_cam)*ycube(icube)
+                          ytmp         = cos(theta_cam)*ycube(icube)-sin(theta_cam)*xcube(icube)
+                          xcube(icube) = xtmp
+                          ycube(icube) = ytmp
+                          ytmp         = cos(phi_cam)*ycube(icube)+sin(phi_cam)*zcube(icube)
+                          ztmp         = cos(phi_cam)*zcube(icube)-sin(phi_cam)*ycube(icube)
+                          ycube(icube) = ytmp
+                          zcube(icube) = ztmp
+                          ! Additional coordinate dependent rotation for perspective effect
+                          xtmp         = cos(alpha)*xcube(icube)+sin(alpha)*zcube(icube)
+                          ztmp         = cos(alpha)*zcube(icube)-sin(alpha)*xcube(icube)
+                          xcube(icube) = xtmp
+                          zcube(icube) = ztmp
+                          ytmp         = cos(beta)*ycube(icube)+sin(beta)*zcube(icube)
+                          ztmp         = cos(beta)*zcube(icube)-sin(beta)*ycube(icube)
+                          ycube(icube) = ytmp
+                          zcube(icube) = ztmp
+                          pers_corr    = zcentre/(zcentre-zcube(icube))
+                          xcube(icube) = xcube(icube)*pers_corr
+                          ycube(icube) = ycube(icube)*pers_corr
+                       enddo
+                       minx = minval(xcube)
+                       maxx = maxval(xcube)
+                       miny = minval(ycube)
+                       maxy = maxval(ycube)
+                       minz = minval(zcube)
+                       maxz = maxval(zcube)
                     endif
+                    if(shader_frame(proj_ind).ne.'cube')then
+                       minx = -dx_proj
+                       maxx =  dx_proj
+                       miny = -dx_proj
+                       maxy =  dx_proj
+                       minz = -dx_proj
+                       maxz =  dx_proj
+                    endif
+                    xleft   = xcentre+minx
+                    xright  = xcentre+maxx
+                    yleft   = ycentre+miny
+                    yright  = ycentre+maxy
+                    zleft   = zcentre+minz
+                    zright  = zcentre+maxz
                     if(    xright.lt.xleft_frame.or.xleft.ge.xright_frame.or.&
                          & yright.lt.yleft_frame.or.yleft.ge.yright_frame.or.&
                          & zright.lt.zleft_frame.or.zleft.ge.zright_frame)cycle
 #else
-                    xleft=xx(i,1)-dx_loc/2.
-                    xright=xx(i,1)+dx_loc/2.
-                    yleft=xx(i,2)-dx_loc/2.
-                    yright=xx(i,2)+dx_loc/2.
-   
+                    xx(i,1) = xx(i,1)-xcen
+                    xx(i,2) = xx(i,2)-ycen
+                    ! Rotating
+                    xtmp    = cos(theta_cam)*xx(i,1)+sin(theta_cam)*xx(i,2)
+                    ytmp    = cos(theta_cam)*xx(i,2)-sin(theta_cam)*xx(i,1)
+                    xx(i,1) = xtmp
+                    xx(i,2) = ytmp
+                    xcentre = xx(i,1)+xcen
+                    ycentre = xx(i,2)+ycen
+                    xleft   = xcentre-dx_proj
+                    xright  = xcentre+dx_proj
+                    yleft   = ycentre-dx_proj
+                    yright  = ycentre+dx_proj
                     if(    xright.lt.xleft_frame.or.xleft.ge.xright_frame.or.&
                          & yright.lt.yleft_frame.or.yleft.ge.yright_frame)cycle
 #endif
@@ -326,69 +471,110 @@ subroutine output_frame()
                        jmin=1
                     endif
                     jmax=min(int((yright-yleft_frame)/dy_frame)+1,nh_frame) ! change
-                    
+
                     ! Fill up map with projected mass
-#if NDIM>2                 
-                    dz_cell=min(zright_frame,zright)-max(zleft_frame,zleft) ! change
-#endif
                     do ii=imin,imax
-                       xxleft=xleft_frame+dble(ii-1)*dx_frame
-                       xxright=xxleft+dx_frame
-                       dx_cell=min(xxright,xright)-max(xxleft,xleft)
+                       ! Pixel x-axis position
+                       xxleft      = xleft_frame+dble(ii-1)*dx_frame
+                       xxright     = xxleft+dx_frame
+                       xxcentre    = xxleft+0.5*dx_frame
+                       dx_cell     = min(xxright,xright)-max(xxleft,xleft)
                        do jj=jmin,jmax
-                          yyleft=yleft_frame+dble(jj-1)*dy_frame
-                          yyright=yyleft+dy_frame
-                          dy_cell=min(yyright,yright)-max(yyleft,yleft)
-                          ! Intersection volume
-                          dvol=dx_cell*dy_cell
+                          ! Pixel y-axis position
+                          yyleft   = yleft_frame+dble(jj-1)*dy_frame
+                          yyright  = yyleft+dy_frame
+                          yycentre = yyleft+0.5*dy_frame
+                          dy_cell  = min(yyright,yright)-max(yyleft,yleft)
+                          xpc      = xxcentre-xcentre
+                          ypc      = yycentre-ycentre
+                          xpc      = xpc-sign(0.5*dx_frame,xpc)
+                          ypc      = ypc-sign(0.5*dx_frame,ypc)
 #if NDIM>2                 
-                          dvol=dvol*dz_cell
-#endif
-                          dens(ii,jj)=dens(ii,jj)+dvol*max(uold(ind_cell(i),1),smallr)
-                          vol(ii,jj)=vol(ii,jj)+dvol
-                          
-                          data_frame(ii,jj,1)=data_frame(ii,jj,1)+dvol*max(uold(ind_cell(i),1),smallr)**2
-#ifdef SOLVERmhd
-                          do kk=2,NVAR+3
-#else                       
-                          do kk=2,NVAR
-#endif
-                             if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)+dvol*uold(ind_cell(i),kk)
-                          end do
-   
-#ifdef RT
-                          if(rt) then
-                             do kk=1,NGROUPS
-                                if(rt_movie_vars(kk).eq.1) then
-                                   rt_data_frame(ii,jj,kk) = rt_data_frame(ii,jj,kk) &
-                                        + dvol * rtuold(ind_cell(i), 1+(kk-1)*(ndim+1)) * rt_c_cgs &
-                                               * max(uold(ind_cell(i),1),smallr) ! mass-weighted
-                                endif
-                             end do
+                          if(shader_frame(proj_ind).eq.'cube')then
+                             cube_face = .false.
+                             if(sqrt(xpc**2+ypc**2).gt.dx_proj*sqrt(3.0)) goto 666
+                             ! Filling the 6 cube shader faces
+                             do iline=1,6
+                                l1 = (ycube(lind(iline,2))-ycube(lind(iline,1)))**2+(xcube(lind(iline,2))-xcube(lind(iline,1)))**2
+                                l2 = (ycube(lind(iline,4))-ycube(lind(iline,3)))**2+(xcube(lind(iline,4))-xcube(lind(iline,3)))**2
+                                if(l1.eq.0d0) cycle
+                                if(l2.eq.0d0) cycle
+                                d1 = ((ycube(lind(iline,2))-ycube(lind(iline,1)))*xpc-(xcube(lind(iline,2))-xcube(lind(iline,1)))*ypc+xcube(lind(iline,2))*ycube(lind(iline,1))-ycube(lind(iline,2))*xcube(lind(iline,1)))/l1
+                                d2 = ((ycube(lind(iline,4))-ycube(lind(iline,3)))*xpc-(xcube(lind(iline,4))-xcube(lind(iline,3)))*ypc+xcube(lind(iline,4))*ycube(lind(iline,3))-ycube(lind(iline,4))*xcube(lind(iline,3)))/l2
+                                if(d1.eq.-sign(d1,d2)) cube_face=.true.
+                                if(.not.cube_face) cycle
+                                l3 = (ycube(lind(iline,6))-ycube(lind(iline,5)))**2+(xcube(lind(iline,6))-xcube(lind(iline,5)))**2
+                                l4 = (ycube(lind(iline,8))-ycube(lind(iline,7)))**2+(xcube(lind(iline,8))-xcube(lind(iline,7)))**2
+                                if(l3.eq.0d0) cycle
+                                if(l4.eq.0d0) cycle
+                                d3 = ((ycube(lind(iline,6))-ycube(lind(iline,5)))*xpc-(xcube(lind(iline,6))-xcube(lind(iline,5)))*ypc+xcube(lind(iline,6))*ycube(lind(iline,5))-ycube(lind(iline,6))*xcube(lind(iline,5)))/l3
+                                d4 = ((ycube(lind(iline,8))-ycube(lind(iline,7)))*xpc-(xcube(lind(iline,8))-xcube(lind(iline,7)))*ypc+xcube(lind(iline,8))*ycube(lind(iline,7))-ycube(lind(iline,8))*xcube(lind(iline,7)))/l4
+                                ! Within the projected face?
+                                if(d3.eq.sign(d3,d4)) cube_face=.false.
+                                if(cube_face) exit
+                             enddo
+666                          continue
                           endif
 #endif
-   
-                          
-                          if (movie_vars(0).eq.1)then
-                            !Get temperature
-                            ekk=0.0d0
-                            do idim=1,3
-                               ekk=ekk+0.5*uold(ind_cell(i),idim+1)**2/max(uold(ind_cell(i),1),smallr)
-                            enddo
-                            temp=(gamma-1.0)*(uold(ind_cell(i),5)-ekk) !pressure
-                            temp=max(temp/max(uold(ind_cell(i),1),smallr),smallc**2)*scale_T2 !temperature in K
-   
-                            data_frame(ii,jj,0)=data_frame(ii,jj,0)+dvol*max(uold(ind_cell(i),1),smallr)*temp !mass weighted temperature
-                          end if
-   
+                          if((shader_frame(proj_ind).eq.'cube'          &
+                             .and.(cube_face))                          &
+                             .or.(shader_frame(proj_ind).eq.'sphere'    &
+                             .and.sqrt(xpc**2+ypc**2).le.dx_proj)       &
+                             .or.(shader_frame(proj_ind).eq.'square'    &
+                             .and.(abs(xpc).le.dx_proj)                 &
+                             .and.(abs(ypc).le.dx_proj)))then
+                             ! Intersection volume
+                             dvol        = dx_cell*dy_cell
+                             vol(ii,jj)  = vol(ii,jj)+dvol
+                             dens(ii,jj) = dens(ii,jj)+dvol*uold(ind_cell(i),1)
+                             data_frame(ii,jj,1)=data_frame(ii,jj,1)+dvol*uold(ind_cell(i),1)**2
 #ifdef SOLVERmhd
-                          if (movie_vars(NVAR+4).eq.1)then
-                                  data_frame(ii,jj,NVAR+4)=data_frame(ii,jj,NVAR+4)+ dvol*0.125*(&
-                                      uold(ind_cell(i),6)**2 + uold(ind_cell(i),7)**2 + uold(ind_cell(i),8)**2 &
-                                      + uold(ind_cell(i),NVAR+1)**2 + uold(ind_cell(i),NVAR+2)**2 + uold(ind_cell(i),NVAR+3)**2)
-                          end if
+                             do kk=2,NVAR+3
+#else                       
+                             do kk=2,NVAR
 #endif
-   
+                                if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)+dvol*uold(ind_cell(i),kk)
+                             end do
+#ifdef RT
+                             if(rt) then
+                                do kk=1,NGROUPS
+                                   if(rt_movie_vars(kk).eq.1) then
+                                      rt_data_frame(ii,jj,kk) = rt_data_frame(ii,jj,kk) &
+                                           + dvol * rtuold(ind_cell(i), 1+(kk-1)*(ndim+1)) * rt_c_cgs &
+                                                  * max(uold(ind_cell(i),1),smallr) ! mass-weighted
+                                   endif
+                                end do
+                             endif
+#endif
+                             if (movie_vars(0).eq.1)then
+                               !Get temperature
+                               e=0.0d0
+                               do idim=1,ndim
+                                  e=e+0.5*uold(ind_cell(i),idim+1)**2/max(uold(ind_cell(i),1),smallr)
+                               enddo
+#if NENER>0
+                               do irad=0,nener-1
+                                  e=e+uold(ind_cell(i),inener+irad)
+                               enddo
+#endif
+#ifdef SOLVERmhd
+                               do idim=1,ndim 
+                                  e=e+0.125d0*(uold(ind_cell(i),idim+ndim+2)+uold(ind_cell(i),idim+nvar))**2
+                               enddo
+#endif
+                               temp=(gamma-1.0)*(uold(ind_cell(i),ndim+2)-e) !pressure
+                               temp=max(temp/max(uold(ind_cell(i),1),smallr),smallc**2)*scale_T2 !temperature in K
+                               data_frame(ii,jj,0)=data_frame(ii,jj,0)+dvol*uold(ind_cell(i),1)*temp !mass weighted temperature
+                             end if
+      
+#ifdef SOLVERmhd
+                             if(movie_vars(NVAR+4).eq.1)then
+                                     data_frame(ii,jj,NVAR+4)=data_frame(ii,jj,NVAR+4)+ dvol*0.125*(&
+                                         uold(ind_cell(i),6)**2 + uold(ind_cell(i),7)**2 + uold(ind_cell(i),8)**2 &
+                                         + uold(ind_cell(i),NVAR+1)**2 + uold(ind_cell(i),NVAR+2)**2 + uold(ind_cell(i),NVAR+3)**2)
+                             end if
+#endif
+                          endif
                        end do
                     end do
                  end if
@@ -405,32 +591,52 @@ subroutine output_frame()
 
   ! Loop over particles
   do j=1,npartmax
+
 #if NDIM>2                 
+     xpf  = xp(j,1)-xcen
+     ypf  = xp(j,2)-ycen
+     zpf  = xp(j,3)-zcen
+     ! Projection
+     xtmp = cos(theta_cam)*xpf+sin(theta_cam)*ypf
+     ytmp = cos(theta_cam)*ypf-sin(theta_cam)*xpf
+     xpf  = xtmp
+     ypf  = ytmp
+     ytmp = cos(phi_cam)*ypf+sin(phi_cam)*zpf
+     ztmp = cos(phi_cam)*zpf-sin(phi_cam)*ypf
+
      if(proj_axis(proj_ind:proj_ind).eq.'x')then
-       xpf  = xp(j,2)
-       ypf  = xp(j,3)
+       xpf = ytmp
+       ypf = ztmp
+       zpf = xtmp
      elseif(proj_axis(proj_ind:proj_ind).eq.'y')then
-       xpf  = xp(j,1)
-       ypf  = xp(j,3)
+       xpf = xtmp
+       ypf = ztmp
+       zpf = ytmp
      else
-       xpf  = xp(j,1)
-       ypf  = xp(j,2)
+       xpf = xtmp
+       ypf = ytmp
+       zpf = ztmp
      endif
+     if(perspective_camera(proj_ind))then
+        xpf  = xpf*focal_camera(proj_ind)/(dist_camera-zpf)
+        ypf  = ypf*focal_camera(proj_ind)/(dist_camera-zpf)
+     endif
+     xpf  = xpf+xcen
+     ypf  = ypf+ycen
+     zpf  = zpf+zcen
      
-     if(proj_axis(proj_ind:proj_ind).eq.'x')then
-       zpf  = xp(j,1)
-     elseif(proj_axis(proj_ind:proj_ind).eq.'y')then
-       zpf  = xp(j,2)
-     else
-       zpf  = xp(j,3)
-     endif
      if(    xpf.lt.xleft_frame.or.xpf.ge.xright_frame.or.&
           & ypf.lt.yleft_frame.or.ypf.ge.yright_frame.or.&
           & zpf.lt.zleft_frame.or.zpf.ge.zright_frame)cycle
 #else
-     xpf  = xp(j,1)
-     ypf  = xp(j,2)
-     
+     xpf  = xp(j,1)-xcen
+     ypf  = xp(j,2)-ycen
+     xtmp = cos(theta_cam)*xpf+sin(theta_cam)*xpf
+     ytmp = cos(theta_cam)*ypf-sin(theta_cam)*ypf
+     xpf  = xtmp
+     ypf  = ytmp
+     xpf  = xpf+xcen
+     ypf  = ypf+xcen
      if(    xpf.lt.xleft_frame.or.xpf.ge.xright_frame.or.&
           & ypf.lt.yleft_frame.or.ypf.ge.yright_frame)cycle
 #endif
@@ -527,7 +733,7 @@ subroutine output_frame()
       end do
 #else
       do kk=0,NVAR
-        if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)/dens(ii,jj)
+        if(movie_vars(kk).eq.1) data_frame(ii,jj,kk)=data_frame(ii,jj,kk)/max(dens(ii,jj),smallr)
       end do
 #endif
 #ifdef RT

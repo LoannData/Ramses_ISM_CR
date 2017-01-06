@@ -57,6 +57,9 @@ module amr_parameters
   logical::rt      =.false.   ! Radiative transfer activated
   logical::debug   =.false.   ! Debug mode activated
   logical::static  =.false.   ! Static mode activated
+  logical::static_dm=.false.  ! Static mode for dm only activated
+  logical::static_gas=.false. ! Static mode for gas only activated
+  logical::static_stars=.false.! Static mode for stars only activated
   logical::tracer  =.false.   ! Tracer particles activated
   logical::lightcone=.false.  ! Enable lightcone generation
   logical::clumpfind=.false.  ! Enable clump finder
@@ -114,7 +117,7 @@ module amr_parameters
 
   ! Cosmology and physical parameters
   real(dp)::boxlen_ini        ! Box size in h-1 Mpc
-  real(dp)::omega_b=0.0D0     ! Omega Baryon
+  real(dp)::omega_b=0.045     ! Omega Baryon
   real(dp)::omega_m=1.0D0     ! Omega Matter
   real(dp)::omega_l=0.0D0     ! Omega Lambda
   real(dp)::omega_k=0.0D0     ! Omega Curvature
@@ -154,6 +157,10 @@ module amr_parameters
   real(dp)::kappa_IR=0d0      ! IR dust opacity
   real(dp)::ind_rsink=4.0d0   ! Number of cells defining the radius of the sphere where AGN feedback is active
   real(dp)::ir_eff=0.75       ! efficiency of the IR feedback (only when ir_feedback=.true.)
+  real(dp)::sf_trelax=0.0D0   ! Relaxation time for star formation (cosmo=.false. only)
+  real(dp)::sf_tdiss=0.0D0    ! Dissipation timescale for subgrid turbulence in units of turbulent crossing time
+  integer::sf_model=3         ! Virial star formation model
+  integer::nlevel_collapse=3  ! Number of levels to follow initial dark matter collapse (cosmo=.true. only)
   real(dp)::larson_lifetime=5000! lifetime of first larson core in years
   logical ::iso_jeans=.false. ! activate isothermal sound speed Jeans length refinement criterion
   real(dp)::Tp_jeans = 10.0d0 ! Default temperature to activate iso_jeans
@@ -170,7 +177,10 @@ module amr_parameters
   logical ::smbh=.false.
   logical ::agn=.false.
   logical ::use_proper_time=.false.
+  logical::convert_birth_times=.false. ! Convert stellar birthtimes: conformal -> proper
   logical ::ir_feedback=.false. ! Activate ir feedback from accreting sinks
+  logical ::sf_virial=.false.   ! Activate SF Virial criterion
+  logical ::sf_birth_properties=.false. ! Output birth properties of stars
   logical ::eos =.false.        ! non ideal gas EOS module activated
   logical ::barotrop=.false.    ! barotropic EOS for SF calculations
   logical ::racc_refine=.true.  ! Refine the grid around sink to the maximum level of refinement      
@@ -202,6 +212,7 @@ module amr_parameters
   ! Movie
   integer::imovout=0             ! Increment for output times
   integer::imov=1                ! Initialize
+  real(kind=8)::tstartmov=0.,astartmov=0.
   real(kind=8)::tendmov=0.,aendmov=0.
   real(kind=8),allocatable,dimension(:)::amovout,tmovout
   logical::movie=.false.
@@ -216,7 +227,19 @@ module amr_parameters
   real(kind=8),dimension(1:10)::deltax_frame=0d0
   real(kind=8),dimension(1:10)::deltay_frame=0d0
   real(kind=8),dimension(1:10)::deltaz_frame=0d0
+  real(kind=8),dimension(1:5)::dtheta_camera=0d0
+  real(kind=8),dimension(1:5)::dphi_camera=0d0
+  real(kind=8),dimension(1:5)::theta_camera=0d0
+  real(kind=8),dimension(1:5)::phi_camera=0d0
+  real(kind=8),dimension(1:5)::tstart_theta_camera=0d0
+  real(kind=8),dimension(1:5)::tstart_phi_camera=0d0
+  real(kind=8),dimension(1:5)::tend_theta_camera=0d0
+  real(kind=8),dimension(1:5)::tend_phi_camera=0d0
+  real(kind=8),dimension(1:5)::focal_camera=0d0
+  real(kind=8),dimension(1:5)::smooth_frame=1d0
+  logical,dimension(1:5)::perspective_camera=.false.
   character(LEN=5)::proj_axis='z' ! x->x, y->y, projection along z
+  character(LEN=6),dimension(1:5)::shader_frame='square'
 #ifdef SOLVERmhd
   integer,dimension(0:NVAR+6)::movie_vars=0
   character(len=5),dimension(0:NVAR+6)::movie_vars_txt=''
