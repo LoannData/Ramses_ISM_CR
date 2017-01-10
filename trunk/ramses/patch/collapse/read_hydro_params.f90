@@ -44,6 +44,9 @@ subroutine read_hydro_params(nml_ok)
 #if NGRP>0
        & ,E_region &
 #endif
+#if NVAR>8+NENER
+       & ,var_region &
+#endif
        & ,A_region,B_region,C_region &
        & ,alpha,beta,crit,delta_rho,mass_c,rap,cont &
        & ,ff_sct,ff_rt,ff_act,ff_vct,theta_mag,bb_test &
@@ -72,6 +75,9 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #if NGRP>0
        & ,E_bound &
+#endif
+#if NVAR>8+NENER
+       & ,var_bound &
 #endif
        & ,A_bound,B_bound,C_bound,T_bound ,no_inflow
   namelist/physics_params/cooling,haardt_madau,metal,isothermal,barotrop,eos &
