@@ -185,13 +185,6 @@ AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(PATCHOBJ) # $(TURBOBJ)
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
 ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o $(BINDIR)/../aton/atonlib/libaton.a
 #############################################################################
-# test:
-# 	echo $(PATCHOBJ)
-# 	echo $(find $(PATCH)/* -type d)
-# 	echo $(wildcard $(find $(PATCH)/* -type d)/*.f90)
-# 	echo $(wildcard $(shell [ -z $(PATCH) ])/*.f90)
-# 	echo $(wildcard $(shell [ -z $(PATCH) ] )/*.f90)
-# 	echo $(shell [ -z $(PATCH) ] || find $(PATCH)/* -type d)
 all:
 	for file in $(MODOBJ); do unset MAKELEVEL ; $(MAKE) $$file; done
 	$(MAKE) ramses
