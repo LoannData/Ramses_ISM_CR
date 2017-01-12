@@ -21,7 +21,8 @@ NPSCAL = 0
 
 NENER = $(NENT)+$(NGRP)
 
-PATCH = 
+PATCH =
+GRACKLE = 0
 EXEC = ramses
 
 MPI = 1
@@ -49,9 +50,13 @@ DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR=$(NVAR) -DNE
 ifneq (,$(filter 1,$(USE_FLD) $(USE_M_1)))
 DEFINES += -DUSE_FLD=$(USE_FLD) -DUSE_M_1=$(USE_M_1)
 endif
+ifeq ($(GRACKLE),1)
+DEFINES += -Dgrackle
+endif
 #############################################################################
 # Fortran compiler options and directives
 
+#############################################################################
 # GFORTRAN
 ifeq ($(COMP),"GNU")
    ifeq ($(MPI),1)
@@ -125,8 +130,12 @@ LIBMPI =
 # --- CUDA libraries, for Titane ---
 LIBCUDA = -L/opt/cuda/lib  -lm -lcuda -lcudart
 
-LIBGRACKLE = -lgrackle -lhdf5 -lz
-LIBS = $(LIBMPI)
+ifeq ($(GRACKLE),1)
+# Add include and library install path for grackle and hdf5 here
+LIBS_GRACKLE = -L$(HOME)/local/lib -lgrackle -lhdf5 -lz -lgfortran -ldl
+LIBS_OBJ     = -I$(HOME)/local/include -DCONFIG_BFLOAT_8 -DH5_USE_16_API -fPIC
+endif
+LIBS = $(LIBMPI) $(LIBS_GRACKLE)
 
 # Lapack
 ifeq ($(USE_M_1),1)
@@ -136,17 +145,19 @@ ifneq ($(NGRP),$(filter $(NGRP),0 1))
 LIBS += -llapack
 endif
 endif
-
 #############################################################################
 # Sources directories are searched in this exact order
 BINDIR = .
 VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../fld:../nimhd:../aton:../hydro:../pm:../poisson:../amr
 #############################################################################
 # All objects
-MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o \
-         poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
-         clfind_commons.o gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o \
-         radiation_parameters.o
+MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o 
+ifeq ($(GRACKLE),1)
+MODOBJ += grackle_parameters.o
+endif
+MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
+         clfind_commons.o gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o
+MODOBJ += radiation_parameters.o
 ifeq ($(NIMHD),1)
 MODOBJ +=  variables_X.o
 endif
@@ -206,8 +217,10 @@ write_makefile.o: FORCE
 write_patch.o: FORCE
 	$(BINDIR)/../utils/scripts/cr_write_patch.sh $(PATCH)
 	$(F90) $(FFLAGS) -c write_patch.f90 -o $@
+%.o:%.F
+	$(F90) $(FFLAGS) -c $^ -o $@ $(LIBS_OBJ)
 %.o:%.f90
-	$(F90) $(FFLAGS) -c $^ -o $@
+	$(F90) $(FFLAGS) -c $^ -o $@ $(LIBS_OBJ)
 FORCE:
 #############################################################################
 clean :

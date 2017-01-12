@@ -1,4 +1,8 @@
 module hydro_parameters
+
+#ifdef grackle
+  use grackle_parameters
+#endif
   use amr_parameters
 
   ! Number of independant variables
@@ -201,7 +205,8 @@ module hydro_parameters
   integer::idelay=9
   integer::ixion=9
   integer::ichem=9
-  integer::ivirial=9
+  integer::ivirial1=9
+  integer::ivirial2=9
   integer::inener=9
 
   !Initial conditions parameter for the dense core
