@@ -31,7 +31,7 @@ subroutine read_params
   namelist/output_params/noutput,foutput,fbackup,aout,tout,output_mode &
        & ,tend,delta_tout,aend,delta_aout,gadget_output
   namelist/amr_params/levelmin,levelmax,ngridmax,ngridtot &
-       & ,npartmax,nparttot,nexpand,boxlen
+       & ,npartmax,nparttot,nexpand,boxlen,nlevel_collapse
   namelist/poisson_params/epsilon,gravity_type,gravity_params &
        & ,cg_levelmin,cic_levelmax
   namelist/lightcone_params/thetay_cone,thetaz_cone,zmax_cone
@@ -41,7 +41,7 @@ subroutine read_params
        & ,imovout,imov,tstartmov,astartmov,tendmov,aendmov,proj_axis,movie_vars,movie_vars_txt &
        & ,theta_camera,phi_camera,dtheta_camera,dphi_camera,focal_camera &
        & ,perspective_camera,smooth_frame,shader_frame,tstart_theta_camera,tstart_phi_camera &
-       & ,tend_theta_camera,tend_phi_camera
+       & ,tend_theta_camera,tend_phi_camera,method_frame,varmin_frame,varmax_frame
 
   ! MPI initialization
 #ifndef WITHOUTMPI
