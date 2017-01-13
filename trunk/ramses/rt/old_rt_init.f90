@@ -18,60 +18,22 @@ SUBROUTINE rt_init
 !-------------------------------------------------------------------------
   if(verbose)write(*,*)'Entering init_rt'
   ! Count the number of variables and check if ok:
-!  nvar_count = ichem-1     ! # of non-rt vars: rho u v w p (z) (delay) (x)
+  nvar_count = ichem-1     ! # of non-rt vars: rho u v w p (z) (delay) (x)
   if(rt_isIRtrap) &
-     iIRtrapVar = inener  ! Trapped rad. stored in nonthermal pressure var
-!  iIons=nvar_count+1         !      Starting index of ionisation fractions
-!  nvar_count = nvar_count+3  !                                # hydro vars
+     iIRtrapVar = inener !ndim+3  ! Trapped rad. stored in nonthermal pressure var
+  iIons=nvar_count+1         !      Starting index of ionisation fractions
+  nvar_count = nvar_count+3  !                                # hydro vars
 
-  !simplify a bit... nvar_count is not used
-  iIons = ichem 
-
-if (myid .eq. 1) then 
-#ifndef NVAR
-   write(*,*) 'NVAR  not  defined by precompilation'
-   write(*,*) 'nvar=8+nent+nrad+nextinct+npscal defined in mhd/hydro_parameter'
-#else
-   write(*,*) 'NVAR  defined by precompilation, see Makefile for definition',NVAR
-#endif
-endif
-
-!!note be vary careful with the variables allocation
-!! for now it is assumed that
-!! 1  is density
-!! 2:4 velocity
-!! 5 pressure
-!! 6:8 magnetic field
-!! 9:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
-!! 9+nener9+nener+1:9+nener+nextinct : for extenction (look at definition of firstindex_pscal in mhd/read_hydro_param)
-!! 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine) 
-!! note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
-!! tehn in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
-!! nvar-4:nvar-1 : current (used in godfine1 if IMHD==1) unew(....,nvar-4+idim)
-!! nvar-1:nvar : internal energy used in set_uold if (energy_fix)
-
-!if you want to add your own scalar this has to be done between : 
-!9+nener+nextinct+1+nions+1 and nvar-4
-
-!then do not forgot that within the code the magnetic variable are dupplicated and stored
-!nvar+1:nvar+3
-
-!finally note that ichem, idelay and imetal have not been checked carefully
-
-
-
-!!this part is completely out of date
-!  if(nvar_count .gt. nvar) then 
-!     if(myid==1) then 
-!        write(*,*) 'rt_init(): Something wrong with NVAR.'
-!        write(*,*) 'Should have NVAR=2+ndim+1*metal+1*dcool+1*aton+IRtrap+nIons'
-!        write(*,*) 'ndim ',ndim, ' metal ',metal , ' dcool ',dcool , ' aton ', aton , 'IRtrap ', IRtrap , ' nIons ',nIons
-!        write(*,*) 'Have NVAR=',nvar
-!        write(*,*) 'Should have NVAR=',nvar_count
-!        write(*,*) 'STOPPING!'
-!     endif
-!     call clean_stop
-!  endif
+  if(nvar_count .gt. nvar) then 
+     if(myid==1) then 
+        write(*,*) 'rt_init(): Something wrong with NVAR.'
+        write(*,*) 'Should have NVAR=2+ndim+1*metal+1*dcool+1*aton+IRtrap+nIons'
+        write(*,*) 'Have NVAR=',nvar
+        write(*,*) 'Should have NVAR=',nvar_count
+        write(*,*) 'STOPPING!'
+     endif
+     call clean_stop
+  endif
 
   if(rt_star .or. sedprops_update .ge. 0) &
      call init_SED_table    ! init stellar energy distribution properties
@@ -180,7 +142,8 @@ SUBROUTINE read_rt_params(nml_ok)
        & ,upload_equilibrium_x, X, Y, rt_is_init_xion                    &
        & ,rt_err_grad_n, rt_floor_n, rt_err_grad_xHII, rt_floor_xHII     &
        & ,rt_err_grad_xHI, rt_floor_xHI, rt_refine_aexp                  &
-       & ,is_mu_H2,rt_isIR, is_kIR_T, rt_T_rad, rt_vc, rt_pressBoost     &
+       & ,convert_birth_times, is_mu_H2                                  &
+       & ,rt_isIR, is_kIR_T, rt_T_rad, rt_vc, rt_pressBoost              &
        & ,rt_isoPress, rt_isIRtrap                                       &
        ! RT regions (for initialization)                                 &
        & ,rt_nregion, rt_region_type                                     &
