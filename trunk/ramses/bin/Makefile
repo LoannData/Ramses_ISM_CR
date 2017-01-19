@@ -6,15 +6,15 @@ NVECTOR = 32
 QUADHILBERT = 16
 NPRE = 8
 
-NDIM = 1
+NDIM = 3
 SOLVER = mhd
-NIMHD=0
+NIMHD = 0
 
 NENT = 0
 
-USE_FLD=0
-USE_M_1=0
-NGRP = 0
+USE_FLD = 0
+USE_M_1 = 0
+NGRP    = 0
 
 NEXTINCT = 0
 NPSCAL = 0
@@ -26,7 +26,7 @@ GRACKLE = 0
 EXEC = ramses
 
 MPI = 1
-COMP = "GNU"
+COMP = "INTEL"
 
 ifeq ($(NIMHD),1)
    NPSCAL := $(NPSCAL)+4 # for internal energy + current
