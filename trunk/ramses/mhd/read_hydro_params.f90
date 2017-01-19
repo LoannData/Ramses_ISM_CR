@@ -601,8 +601,17 @@ subroutine read_hydro_params(nml_ok)
   if(energy_fix)lastindex_pscal=nvar-1
   idelay=imetal
   if(metal)idelay=imetal+1
-  ixion=idelay
-  if(delayed_cooling)ixion=idelay+1
+  ivirial1=idelay
+  ivirial2=idelay
+  if(delayed_cooling)then
+     ivirial1=idelay+1
+     ivirial2=idelay+1
+  endif
+  if(sf_virial)then
+     if(sf_compressive) ivirial2=ivirial1+1
+  endif
+  ixion=ivirial2
+  if(delayed_cooling)ixion=ivirial2+1
   ichem=ixion
   if(aton)ichem=ixion+1
 
