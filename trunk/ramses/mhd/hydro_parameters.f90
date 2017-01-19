@@ -114,7 +114,5 @@ module hydro_parameters
   integer::ixion=9
   integer::ichem=9
   integer::inener=9
-  integer::ivirial1=6
-  integer::ivirial2=6
 
 end module hydro_parameters
