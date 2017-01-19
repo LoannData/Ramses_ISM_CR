@@ -332,6 +332,14 @@ subroutine read_hydro_params(nml_ok)
   imetal=9+nener
   idelay=imetal
   if(metal)idelay=imetal+1
+  if(delayed_cooling)then
+     ivirial1=idelay
+     ivirial2=idelay
+  endif
+  if(sf_virial)then
+     if(sf_compressive) ivirial2=ivirial1+1
+  endif
+  ixion=ivirial2
   ixion=idelay
   if(delayed_cooling)ixion=idelay+1
   ichem=ixion
