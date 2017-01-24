@@ -5,7 +5,7 @@
 subroutine output_frame()
   use amr_commons
   use pm_commons
-  use hydro_commons, ONLY:gamma,smallr,smallc,nvar,uold,inener,nener
+  use hydro_commons
 #ifdef RT
   use rt_parameters
   use rt_hydro_commons

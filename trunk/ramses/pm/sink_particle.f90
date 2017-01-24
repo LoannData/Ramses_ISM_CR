@@ -4001,6 +4001,10 @@ subroutine radiative_feedback_sink(ilevel)
 
   ! Mesh spacing in that level
   nx_loc=(icoarse_max-icoarse_min+1)
+  skip_loc=(/0.0d0,0.0d0,0.0d0/)
+  if(ndim>0)skip_loc(1)=dble(icoarse_min)
+  if(ndim>1)skip_loc(2)=dble(jcoarse_min)
+  if(ndim>2)skip_loc(3)=dble(kcoarse_min)
   scale=boxlen/dble(nx_loc)
   
   ! Computing local volume (important for averaging hydro quantities) 
