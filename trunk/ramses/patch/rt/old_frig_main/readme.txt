@@ -1,0 +1,97 @@
+cooling : 
+take care two solve_cooling : 2 versions, one for RT and one without. 
+
+Valeska's stuff moved in module_cooling_frig
+
+cooling : the polytrope to limit the temperature floor must be handle with care. 
+n_star a,d T_star must be checked carefully
+
+units : scale_T2 is =1 in the new version
+
+
+%%already in feedback_module
+%%average.f90 : developed by Olivier. Used in feedback
+%%%=> move it in feedback_module 
+
+velocity_fine and its call from courant_fine and amr_step : not imported for now. May be put them onto the patch.
+
+
+powerlaw.f90 : developped by Olivier to decide mass of massive stars
+=> moved  in stellar_particle
+
+
+#not useful
+#lookuptable.f90 : Sam's stuff to interpolate tables
+#=> moved
+
+rt_parameters.f90 
+=> moved
+
+write_cooling : Sam's stuff to debug cooling. Not necessary for now.
+=> not moved yet
+
+
+pm_commons.f90:
+=> moved from ../../../pm
+report the changed (except acc_rate and acc_lum)
+
+
+init_stellar stellar_particle output_stellar : Olivier's stuff to follow massive stars and tehir feedback
+=> moved
+=> check all variables have been initialed (Sam had problems)      PENDING
+output_stellar must be added in output_amr                    
+read_stellar_param must be added in read_param               
+make_stellar must be added to amr_step                       
+
+
+init_part : moved from ../../../pm 
+then added : call init_stellar , use feedback_module
+
+
+feedback_module : imported
+read_feedback_params must be added in  read_param  
+make_sn_stellar must be added in amr_step	    
+
+
+sink_RT_feedback : moved
+add its call in amr_step                            
+note there is now a radiative_feedback_sink in sink_particle
+
+
+ 
+init_sink : 
+copy the ../../../pm file
+and report the changes                              ok some functionalities to be reactivated
+
+
+output_sink : 
+copy the ../../../pm file
+and report the changes                              ok some functionalities to be reactivated
+
+ 
+sink_particle : 
+copy the ../../../pm file
+and report the changes                              PENDING
+
+
+
+poisson_parameter.f90 : only useful to get trelax not done for now
+
+
+newdt_fine.dt : used for the wind
+copied from pm and changes reported
+
+
+hydro_flags : does not seem to be required, do it later
+=> not moved yet
+
+
+cloud_module :check variable compatibilities        PENDING
+and determine whether should be used
+
+
+
+problem during compilation : 
+
+year in feedback_module also exist in hydro_parameter
+year (feedback_module) => year2
