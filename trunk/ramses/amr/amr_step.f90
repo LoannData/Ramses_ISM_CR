@@ -4,6 +4,7 @@ recursive subroutine amr_step(ilevel,icount)
   use hydro_commons
   use poisson_commons
 
+  use cloud_module, only: rt_feedback
   use feedback_module
 
 #ifdef RT

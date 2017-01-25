@@ -4,6 +4,7 @@ subroutine init_sink
   use hydro_parameters
   use clfind_commons
   use units_commons
+  use cloud_module
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'

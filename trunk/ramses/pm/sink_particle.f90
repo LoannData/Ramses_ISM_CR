@@ -1089,6 +1089,7 @@ subroutine compute_accretion_rate(write_sinks)
   use pm_commons
   use amr_commons
   use hydro_commons
+  use cloud_module
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'

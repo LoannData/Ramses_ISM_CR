@@ -7,6 +7,7 @@ subroutine read_hydro_params(nml_ok)
   use const
   use hydro_parameters
   use units_commons
+  use cloud_module
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'

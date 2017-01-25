@@ -146,6 +146,7 @@ subroutine output_sink(filename)
   use hydro_commons
   use pm_commons
   use units_commons
+  use cloud_module
   implicit none
   character(LEN=80)::filename
 
@@ -211,6 +212,7 @@ subroutine output_sink_csv(filename)
   use pm_commons
   use hydro_commons
   use units_commons
+  use cloud_module
   implicit none
   character(LEN=80)::filename,fileloc
 

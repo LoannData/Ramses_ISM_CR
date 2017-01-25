@@ -5,9 +5,9 @@ subroutine read_hydro_params(nml_ok)
   use pm_commons
   use cooling_module,ONLY:kB,mH,clight
   use const
-  use hydro_parameters
   use units_commons
   use mod_opacities
+  use cloud_module
 #if NIMHD==1
   use variables_X,ONLY:nvarchimie,nchimie,tchimie,&
       &nminchimie,tminchimie,dnchimie,dtchimie
@@ -48,7 +48,7 @@ subroutine read_hydro_params(nml_ok)
        & ,var_region &
 #endif
        & ,A_region,B_region,C_region &
-       & ,alpha,beta,crit,delta_rho,mass_c,rap,cont &
+       & ,alpha_dense_core,beta_dense_core,crit,delta_rho,mass_c,rap,cont &
        & ,ff_sct,ff_rt,ff_act,ff_vct,theta_mag,bb_test &
        & ,contrast,Mach,uniform_bmag
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &

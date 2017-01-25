@@ -1,18 +1,44 @@
 module cloud_module
   use amr_parameters
-
-
-  !Initial conditions parameter for the dense core
-!  real(dp)::mass_c=0d0   !cloud mass in solar mass
-!  real(dp)::rap=1.      !axis ratio
-!  real(dp)::cont=1.     !density contras
-!  real(dp)::ff_sct=1.   !freefall time / sound crossing time
-!  real(dp)::ff_rt=1.    !freefall time / rotation time
-!  real(dp)::ff_act=1.   !freefall time / Alfven crossing time
-!  real(dp)::ff_vct=1.   !freefall time / Vrms crossing time
-!  real(dp)::thet_mag=0. !angle between magnetic field and rotation axis
+  use hydro_parameters,only:Msun
+  
   real(dp)::bl_fac=1.   !multiply calculated boxlen by this factor
 
+  !Initial conditions parameters for the dense core
+  logical ::bb_test=.false. ! Activate Boss & Bodenheimer inital conditions instead of 1/R^2 density profile
+  logical ::uniform_bmag=.false. ! Activate uniform magnetic field initial conditions for BE-like initial density profile
+  real(dp)::mass_c=1.         !cloud mass in solar mass
+  real(dp)::contrast=100.d0   !density contrast
+  real(dp)::rap=1.            !axis ratio
+  real(dp)::cont=1.           !density contrast
+  real(dp)::ff_sct=1.         !freefall time / sound crossing time
+  real(dp)::ff_rt=1.          !freefall time / rotation time
+  real(dp)::ff_act=1.         !freefall time / Alfven crossing time
+  real(dp)::ff_vct=1.         !freefall time / Vrms crossing time
+  real(dp)::theta_mag=0.      !angle between magnetic field and rotation axis
+
+  real(dp):: C2_vis=0.0d0 !Von Neumann & Richtmeyer artificial viscosity coefficient 3 en principe
+  real(dp):: alpha_dense_core=0.5d0
+  real(dp):: beta_dense_core=0.0d0
+  real(dp):: crit=0.0d0
+  real(dp):: delta_rho=0.0d0
+  real(dp):: Mach=0.0d0
+
+  ! PMS evolution related stuff
+  logical :: rt_feedback=.false.       ! take into account RT feedback
+  logical :: PMS_evol=.false.          ! Take into account PMS evolution subgrid model
+  logical :: Hosokawa_track=.false.    ! Take into account PMS evolution subgrid model
+  real(dp):: dt_lsink_update=50        ! frequency of the sink luminosity update with PMS evolution (in yr)
+  real(dp):: epsilonlib=0.0            ! Fraction of energy absorbed by the prostostars at the accretion shock
+  real(dp):: mprotostar=0.0009546*Msun ! initial mass of the protostar (1 Mjup)
+  real(dp):: rstar_init=2.5            ! Initial radius of the protostar in Rsun
+  integer :: modell=0
+  integer :: modrestart=0              ! name of model you want to restart from, this is an input
+  real(dp):: facc_star_lum=0.75d0      ! fraction of the accretion luminosity radiated by the sinks
+  real(dp):: facc_star=0.5d0           ! fraction of the sink accreted mass actually accreted by the star
+  integer::nmdot_PMS,nm_PMS,ndata_PMS
+  integer ,allocatable,dimension(:)::nb_ligne_PMS
+  real(dp),allocatable,dimension(:,:,:)::data_PMS
 
 end module cloud_module
 
