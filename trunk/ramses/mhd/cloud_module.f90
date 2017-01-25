@@ -10,7 +10,6 @@ module cloud_module
   real(dp)::mass_c=1.         !cloud mass in solar mass
   real(dp)::contrast=100.d0   !density contrast
   real(dp)::rap=1.            !axis ratio
-  real(dp)::cont=1.           !density contrast
   real(dp)::ff_sct=1.         !freefall time / sound crossing time
   real(dp)::ff_rt=1.          !freefall time / rotation time
   real(dp)::ff_act=1.         !freefall time / Alfven crossing time
@@ -58,9 +57,8 @@ subroutine read_cloud_params(nml_ok)
   !--------------------------------------------------
   ! Namelist definitions
   !--------------------------------------------------
-  namelist/cloud_params/bl_fac
-!  namelist/cloud_params/mass_c,rap,cont,ff_sct,ff_rt,ff_act,ff_vct,thet_mag &
-!       & ,bl_fac
+  namelist/cloud_params/mass_c,rap,contrast,ff_sct,ff_rt,ff_act,ff_vct,theta_mag &
+       & ,bl_fac
 
   ! Read namelist file
   rewind(1)
