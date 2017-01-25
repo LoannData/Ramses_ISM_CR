@@ -184,7 +184,7 @@ MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o po
          poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
          clfind_commons.o gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o \
          radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
-         rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o
+         rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o feedback_module.o cloud_module.o
 ifeq ($(NIMHD),1)
 MODOBJ +=  variables_X.o
 endif
@@ -195,7 +195,7 @@ AMROBJ = read_params.o init_amr.o init_time.o init_refine.o adaptive_loop.o amr_
 # Particle-Mesh objects
 PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o newdt_fine.o particle_tree.o \
         add_list.o remove_list.o star_formation.o sink_particle.o feedback.o clump_finder.o clump_merger.o \
-        flag_formation_sites.o init_sink.o output_sink.o
+        flag_formation_sites.o init_sink.o output_sink.o  stellar_particle.o init_stellar.o output_stellar.o
 # Poisson solver objects
 POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o multigrid_coarse.o multigrid_fine_commons.o \
              multigrid_fine_fine.o multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o output_poisson.o
@@ -209,7 +209,7 @@ HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_f
 RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o rt_output_hydro.o rt_godunov_fine.o \
         rt_interpol_hydro.o rt_godunov_utils.o rt_condinit.o rt_hydro_flag.o rt_hydro_boundary.o rt_boundana.o \
         rt_read_hydro_params.o rt_units.o
-PATCHOBJ = cooling_module_frig.o ##sink_RT_feedback.o \
+PATCHOBJ = cooling_module_frig.o sink_RT_feedback.o ## \
         velocity_fine_frig.o write_cool.o output_clumps.o
 ifeq ($(NIMHD),1)
 HYDROOBJ += uplmde_sts_ohm.o uplmde_sts_ohm_dtu.o

@@ -265,7 +265,7 @@ subroutine read_params
   call read_hydro_params(nml_ok)
 
   !cloud and feedback parameter 
-  call read_cloud_params(nml_ok)
+!  call read_cloud_params(nml_ok)
   call read_feedback_params(nml_ok)
 
 #ifdef RT
