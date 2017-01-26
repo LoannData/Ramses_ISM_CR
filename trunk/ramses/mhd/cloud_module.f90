@@ -8,7 +8,8 @@ module cloud_module
   logical ::bb_test=.false. ! Activate Boss & Bodenheimer inital conditions instead of 1/R^2 density profile
   logical ::uniform_bmag=.false. ! Activate uniform magnetic field initial conditions for BE-like initial density profile
   real(dp)::mass_c=1.         !cloud mass in solar mass
-  real(dp)::contrast=100.d0   !density contrast
+  real(dp)::contrast=100.d0   !density contrast (used when bb_test=.true.)
+  real(dp)::cont=1.           !density contrast (used when bb_test=.false.)
   real(dp)::rap=1.            !axis ratio
   real(dp)::ff_sct=1.         !freefall time / sound crossing time
   real(dp)::ff_rt=1.          !freefall time / rotation time
@@ -57,8 +58,10 @@ subroutine read_cloud_params(nml_ok)
   !--------------------------------------------------
   ! Namelist definitions
   !--------------------------------------------------
-  namelist/cloud_params/mass_c,rap,contrast,ff_sct,ff_rt,ff_act,ff_vct,theta_mag &
-       & ,bl_fac
+  namelist/cloud_params/bl_fac
+!  namelist/cloud_params/alpha_dense_core,beta_dense_core,crit,delta_rho &
+!       & ,mass_c,rap,cont,ff_sct,ff_rt,ff_act,ff_vct,theta_mag,bb_test &
+!       & ,contrast,Mach,uniform_bmag
 
   ! Read namelist file
   rewind(1)
