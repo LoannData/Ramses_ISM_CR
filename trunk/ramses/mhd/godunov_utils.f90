@@ -574,8 +574,8 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptotl = Ptotl + qleft(8+irad)
   end do
   do irad = 1,ngrp
-     eradl(irad) = qleft(firstindex_er+irad)
-     etotl = etotl + eradl(irad)
+     eradl(nent+irad) = qleft(firstindex_er+irad)
+     etotl = etotl + eradl(nent+irad)
      Ptotl = Ptotl + qleft(firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
   end do
 #endif
@@ -596,8 +596,8 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptotr = Ptotr + qright(8+irad)
   end do
   do irad = 1,ngrp
-     eradr(irad) = qright(firstindex_er+irad)
-     etotr = etotr + eradr(irad)
+     eradr(nent+irad) = qright(firstindex_er+irad)
+     etotr = etotr + eradr(nent+irad)
      Ptotr = Ptotr + qright(firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
   end do
 #endif
