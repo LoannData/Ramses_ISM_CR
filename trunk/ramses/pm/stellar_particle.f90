@@ -229,10 +229,11 @@ subroutine create_stellar(ncreate, nbuf, xnew, id_new, print_table)
     real(dp), dimension(1:ncreate):: mnew, tnew, ltnew
     real(dp), dimension(1:ncreate, 1:ndim):: xnew_loc, xnew2
     integer, dimension(1:ncreate):: id_new_loc, id_new2
-
+    integer, dimension(1:ncpu)::displ
+    
 #ifndef WITHOUTMPI
     integer:: info, icpu, idim, isplit, nsplit
-    integer, dimension(1:ncpu):: narr, displ
+    integer, dimension(1:ncpu):: narr
 #endif
 
     integer:: istellar
