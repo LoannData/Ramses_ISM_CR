@@ -173,6 +173,9 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
   real(dp)::dens,tempe,emag,etherm,factG
   real(dp)::iso_etherm,iso_cs,iso_cs2,rho_star,rho_iso,tempe2
 
+  rho_iso  = 1.0e-08_dp
+  rho_star = 1.0e-05_dp
+  
   pi = twopi / 2.
   factG=1.0d0
   if(cosmo)factG=3d0/8d0/pi*omega_m*aexp
@@ -204,7 +207,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
      tempe=tempe**2
      ! prevent numerical crash due to negative temperature
      tempe = max(tempe,smallc**2)
-
+     tempe2 = tempe
      if(iso_jeans .and. (dens*scale_d .lt. rho_star)) then
         ! Isothermal spound speed based jeans criterion (quite expensive....)
         call enerint_eos(dens,Tp_jeans,iso_etherm)
