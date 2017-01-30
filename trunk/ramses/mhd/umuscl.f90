@@ -4535,11 +4535,17 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   rRL=qRL(l,1); pRL=qRL(l,2); uRL=qRL(l,3); vRL=qRL(l,4); ARL=qRL(l,6); BRL=qRL(l,7) ; CRL=qRL(l,8) 
                   rRR=qRR(l,1); pRR=qRR(l,2); uRR=qRR(l,3); vRR=qRR(l,4); ARR=qRR(l,6); BRR=qRR(l,7) ; CRR=qRR(l,8) 
 #if NENER>0
-                  do irad = 1,nener
+                  do irad = 1,nent
                      pLL = pLL + qLL(l,8+irad)
                      pLR = pLR + qLR(l,8+irad)
                      pRL = pRL + qRL(l,8+irad)
                      pRR = pRR + qRR(l,8+irad)
+                  end do
+                  do irad = 1,ngrp
+                     pLL = pLL + qLL(l,firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
+                     pLR = pLR + qLR(l,firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
+                     pRL = pRL + qRL(l,firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
+                     pRR = pRR + qRR(l,firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
                   end do
 #endif
 
@@ -5078,7 +5084,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
            do l = 1, ngrid
               etot = uin(l,i,j,k,5) - emag(l) -erad(l)
               eint = etot/q(l,i,j,k,1)-eken(l)
-              eint = eint*uin(l,i,j,k,1)   ! volumic
+              eint = eint*q(l,i,j,k,1)   ! volumic
               if(energy_fix)eint=uin(l,i,j,k,nvar)
               call pressure_eos(uin(l,i,j,k,1),eint,pp_eos)
               q(l,i,j,k,5)=MAX(pp_eos,smallp)
