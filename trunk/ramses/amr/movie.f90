@@ -5,7 +5,7 @@
 subroutine output_frame()
   use amr_commons
   use pm_commons
-  use hydro_commons, ONLY:gamma,smallr,smallc,nvar,uold,inener,nener
+  use hydro_commons
 #ifdef RT
   use rt_parameters
   use rt_hydro_commons
@@ -32,7 +32,7 @@ subroutine output_frame()
   character(LEN=5)::nchar,dummy
   real(dp)::scale,scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::xcen,ycen,zcen,delx,dely,delz
-  real(dp)::xtmp,ytmp,ztmp,smooth,dist_camera,theta_cam,phi_cam,alpha1,beta1,smooth_theta
+  real(dp)::xtmp,ytmp,ztmp,smooth,dist_camera,theta_cam,phi_cam,alpha,beta,smooth_theta
   real(dp)::xleft_frame,xright_frame,yleft_frame,yright_frame,zleft_frame,zright_frame,rr
   real(dp)::xleft,xright,yleft,yright,zleft,zright,xcentre,ycentre,zcentre
   real(dp)::xxleft,xxright,yyleft,yyright,zzleft,zzright,xxcentre,yycentre,zzcentre
@@ -390,8 +390,8 @@ subroutine output_frame()
                     if(proj_axis(proj_ind:proj_ind).eq.'x')then
                       if(perspective_camera(proj_ind))then
                          if(shader_frame(proj_ind).eq.'cube')then
-                            alpha1  = atan(xx(i,2)/(dist_camera-xx(i,1)))
-                            beta1   = atan(xx(i,3)/(dist_camera-xx(i,1)))
+                            alpha  = atan(xx(i,2)/(dist_camera-xx(i,1)))
+                            beta   = atan(xx(i,3)/(dist_camera-xx(i,1)))
                          endif
                          pers_corr = focal_camera(proj_ind)/(dist_camera-xx(i,1))
                          xx(i,2)   = xx(i,2)*pers_corr
@@ -404,8 +404,8 @@ subroutine output_frame()
                     elseif(proj_axis(proj_ind:proj_ind).eq.'y')then
                       if(perspective_camera(proj_ind))then
                          if(shader_frame(proj_ind).eq.'cube')then
-                            alpha1  = atan(xx(i,1)/(dist_camera-xx(i,2)))
-                            beta1   = atan(xx(i,3)/(dist_camera-xx(i,2)))
+                            alpha  = atan(xx(i,1)/(dist_camera-xx(i,2)))
+                            beta   = atan(xx(i,3)/(dist_camera-xx(i,2)))
                          endif
                          pers_corr = focal_camera(proj_ind)/(dist_camera-xx(i,2))
                          xx(i,1)   = xx(i,1)*pers_corr
@@ -418,8 +418,8 @@ subroutine output_frame()
                     else
                       if(perspective_camera(proj_ind))then
                          if(shader_frame(proj_ind).eq.'cube')then
-                            alpha1  = atan(xx(i,1)/(dist_camera-xx(i,3)))
-                            beta1   = atan(xx(i,2)/(dist_camera-xx(i,3)))
+                            alpha  = atan(xx(i,1)/(dist_camera-xx(i,3)))
+                            beta   = atan(xx(i,2)/(dist_camera-xx(i,3)))
                          endif
                          pers_corr = focal_camera(proj_ind)/(dist_camera-xx(i,3))
                          xx(i,1)   = xx(i,1)*pers_corr
@@ -445,12 +445,12 @@ subroutine output_frame()
                           ycube(icube) = ytmp
                           zcube(icube) = ztmp
                           ! Additional coordinate dependent rotation for perspective effect
-                          xtmp         = cos(alpha1)*xcube(icube)+sin(alpha1)*zcube(icube)
-                          ztmp         = cos(alpha1)*zcube(icube)-sin(alpha1)*xcube(icube)
+                          xtmp         = cos(alpha)*xcube(icube)+sin(alpha)*zcube(icube)
+                          ztmp         = cos(alpha)*zcube(icube)-sin(alpha)*xcube(icube)
                           xcube(icube) = xtmp
                           zcube(icube) = ztmp
-                          ytmp         = cos(beta1)*ycube(icube)+sin(beta1)*zcube(icube)
-                          ztmp         = cos(beta1)*zcube(icube)-sin(beta1)*ycube(icube)
+                          ytmp         = cos(beta)*ycube(icube)+sin(beta)*zcube(icube)
+                          ztmp         = cos(beta)*zcube(icube)-sin(beta)*ycube(icube)
                           ycube(icube) = ytmp
                           zcube(icube) = ztmp
                           pers_corr    = zcentre/(zcentre-zcube(icube))

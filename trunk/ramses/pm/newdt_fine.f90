@@ -3,6 +3,9 @@ subroutine newdt_fine(ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons, ONLY: gravity_type
+
+use feedback_module
+
 #ifdef RT
   use rt_parameters, ONLY: rt_advect, rt_nsubcycle
 #endif
@@ -25,7 +28,7 @@ subroutine newdt_fine(ilevel)
   integer,dimension(1:nvector),save::ind_part
   real(kind=8)::dt_loc,dt_all,ekin_loc,ekin_all,dt_acc_min
   real(dp)::tff,fourpi,threepi2
-  real(dp)::aton_time_step,dt_aton,dt_rt
+  real(dp)::aton_time_step,dt_aton,dt_rt,dt_fb
   real(dp)::dx_min,dx,scale,dt_fact,limiting_dt_fact
   logical::highest_level
 #if NIMHD==1
@@ -198,6 +201,21 @@ subroutine newdt_fine(ilevel)
   end if
 
   if(hydro)call courant_fine(ilevel)
+
+
+
+  !Sam's change for feedback
+  ! Fixed feedback source module
+  ! Sets the current timestep to hit the start time of the source
+  ! MUST BE RUN LAST
+  if (FB_on)then
+     dt_fb = dtnew(ilevel)
+     call courant_fb_fixed(dt_fb)
+     dtnew(ilevel) = MIN(dtnew(ilevel), dt_fb)
+  endif
+
+
+
   
 111 format('   Entering newdt_fine for level ',I2)
 

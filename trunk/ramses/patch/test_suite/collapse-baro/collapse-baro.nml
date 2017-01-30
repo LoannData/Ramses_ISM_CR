@@ -24,8 +24,8 @@ nexpand=30*4
 &INIT_PARAMS
 bb_test=.true.
 mass_c=1. !in solar mass
-alpha=0.1
-beta=0.01d0
+alpha_dense_core=0.1
+beta_dense_core=0.01d0
 crit=0.1
 delta_rho=0.1d0
 theta_mag=0.0

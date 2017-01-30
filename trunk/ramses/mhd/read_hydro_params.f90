@@ -5,8 +5,8 @@ subroutine read_hydro_params(nml_ok)
   use pm_commons
   use cooling_module,ONLY:kB,mH,clight
   use const
-  use hydro_parameters
   use units_commons
+  use cloud_module
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -203,6 +203,14 @@ subroutine read_hydro_params(nml_ok)
      write(*,*)'Wrong choice for nambipolar : choose one kind not both'
      call clean_stop
   end if
+
+  if( (nambipolar.eq.1) .or. (nambipolar2.eq.1) .or. &
+      (nmagdiffu .eq.1) .or. (nmagdiffu2 .eq.1) .or. &
+      (nhall.eq.1) )then
+     use_nonideal_mhd = .true.
+  else
+     use_nonideal_mhd = .false.
+  endif
 
   if(myid==1) then
      write(*,*)'!!!!!!!!!!!!!!!  Non Ideal MHD   !!!!!!!!!!!!!!!!'

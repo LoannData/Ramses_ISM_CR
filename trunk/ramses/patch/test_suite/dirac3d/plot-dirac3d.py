@@ -57,4 +57,4 @@ ylabel('Distance z (cm)')
 title('Log(er)')
 colorbar()
 
-savefig('dirac.pdf',bbox_inches='tight')
+savefig('dirac3d.pdf',bbox_inches='tight')

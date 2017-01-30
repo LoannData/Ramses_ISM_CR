@@ -574,8 +574,8 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptotl = Ptotl + qleft(8+irad)
   end do
   do irad = 1,ngrp
-     eradl(irad) = qleft(firstindex_er+irad)
-     etotl = etotl + eradl(irad)
+     eradl(nent+irad) = qleft(firstindex_er+irad)
+     etotl = etotl + eradl(nent+irad)
      Ptotl = Ptotl + qleft(firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
   end do
 #endif
@@ -596,8 +596,8 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptotr = Ptotr + qright(8+irad)
   end do
   do irad = 1,ngrp
-     eradr(irad) = qright(firstindex_er+irad)
-     etotr = etotr + eradr(irad)
+     eradr(nent+irad) = qright(firstindex_er+irad)
+     etotr = etotr + eradr(nent+irad)
      Ptotr = Ptotr + qright(firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
   end do
 #endif
@@ -654,10 +654,10 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   er    =rr*(SR-ur)*(SR-ur   )-A**2
 #if NENER>0
   do irad = 1,nener
-     eradstarr(irad)=eradr(irad)*(SL-ul)/(SL-ustar)
+     eradstarr(irad)=eradr(irad)*(SR-ur)/(SR-ustar)
   end do
 #endif
-  eintstarr=eintr*(SL-ul)/(SL-ustar)
+  eintstarr=eintr*(SR-ur)/(SR-ustar)
   if(abs(estar)<1e-4*A**2)then
      vstarr=vr
      Bstarr=Br

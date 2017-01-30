@@ -2,6 +2,17 @@ module pm_commons
   use amr_parameters
   use pm_parameters
   use random
+
+
+
+  !introduced by PH 09/2013 to compute the feedback from the sink
+  real(kind=8),allocatable,dimension(:)::dmfsink,dmfsink_new,dmfsink_all
+
+
+  !introduced by PH 07/2016 to record the feedback from the sink
+  real(kind=8),allocatable,dimension(:)::Eioni
+
+
   ! Sink particle related arrays
   real(dp),allocatable,dimension(:)::msink,c2sink,oksink_new,oksink_all
   real(dp),allocatable,dimension(:)::tsink,tsink_new,tsink_all
@@ -28,6 +39,9 @@ module pm_commons
   integer,allocatable,dimension(:)::idsink,idsink_new,idsink_old,idsink_all
   logical,allocatable,dimension(:,:)::level_sink,level_sink_new
   logical,allocatable,dimension(:)::ok_blast_agn,ok_blast_agn_all,direct_force_sink
+
+  logical,allocatable,dimension(:)::ok_jet
+
   logical,allocatable,dimension(:)::new_born,new_born_all,new_born_new
   integer,allocatable,dimension(:)::idsink_sort
   integer::ncloud_sink,ncloud_sink_massive

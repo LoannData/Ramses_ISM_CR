@@ -3,6 +3,10 @@ recursive subroutine amr_step(ilevel,icount)
   use pm_commons
   use hydro_commons
   use poisson_commons
+
+  use cloud_module, only: rt_feedback
+  use feedback_module
+
 #ifdef RT
   use rt_hydro_commons
   use SED_module
@@ -191,7 +195,28 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('feedback','start')
      if(hydro.and.star.and.eta_sn>0.and.f_w>0)call kinetic_feedback
 
+
+     !----------------------------------------------------
+     ! Feedback on sink particles
+     !----------------------------------------------------
+     if(stellar) then
+        if(make_stellar_glob) then
+           call make_stellar_from_sinks_glob
+        else
+           call make_stellar_from_sinks
+        endif
+     endif
+     if (sn_feedback_sink) then
+        call make_sn_stellar
+     endif
+     !----------------------------------------------------
+     ! Feedback on fixed sources (winds, supernovae)
+     !----------------------------------------------------
+     if (FB_on) then
+        call feedback_fixed(ilevel)
+     endif
   endif
+
 
   !--------------------
   ! Poisson source term
@@ -284,6 +309,9 @@ recursive subroutine amr_step(ilevel,icount)
   ! Update photon packages according to star particles
                                call timer('radiative transfer','start')
   if(rt .and. rt_star) call update_star_RT_feedback(ilevel)
+
+  ! Now update photon packages on sink particles
+  if(rt .and. rt_sink) call update_sink_RT_feedback(ilevel)
 #endif
 
 #if USE_FLD==1
@@ -711,6 +739,7 @@ subroutine rt_step(ilevel)
      if (i_substep > 1) call rt_set_unew(ilevel)
 
      if(rt_star) call star_RT_feedback(ilevel,dtnew(ilevel))
+     if(rt_sink) call sink_RT_feedback(ilevel,dtnew(ilevel))
 
      ! Hyperbolic solver
      if(rt_advect) call rt_godunov_fine(ilevel,dtnew(ilevel))

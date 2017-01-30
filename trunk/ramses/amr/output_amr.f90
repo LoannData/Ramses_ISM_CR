@@ -7,6 +7,9 @@ subroutine dump_all
   use pm_commons
   use hydro_commons
   use cooling_module
+
+  use feedback_module
+
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -150,6 +153,14 @@ subroutine dump_all
            filename=TRIM(filedir)//'sink_'//TRIM(nchar)//'.out'
            call backup_sink(filename)
         end if
+
+        if(stellar)then
+           filename=TRIM(filedir)//'stellar_'//TRIM(nchar)//'.out'
+           call backup_stellar(filename)
+           filename=TRIM(filedir)//'stellar_'//TRIM(nchar)//'.csv'
+           call output_stellar_csv(filename)
+        end if
+
 #ifndef WITHOUTMPI
         if(synchro_when_io) call MPI_BARRIER(MPI_COMM_WORLD,info)
 #endif

@@ -43,17 +43,17 @@ endif
 !! 5 pressure
 !! 6:8 magnetic field
 !! 9:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
-!! 9+nener9+nener+1:9+nener+nextinct : for extenction (look at definition of firstindex_pscal in mhd/read_hydro_param)
+!! 9+nener9+nener+1:9+nener+nextinct : for extinction (look at definition of firstindex_pscal in mhd/read_hydro_param)
 !! 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine) 
 !! note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
-!! tehn in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
+!! then in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
 !! nvar-4:nvar-1 : current (used in godfine1 if IMHD==1) unew(....,nvar-4+idim)
 !! nvar-1:nvar : internal energy used in set_uold if (energy_fix)
 
 !if you want to add your own scalar this has to be done between : 
 !9+nener+nextinct+1+nions+1 and nvar-4
 
-!then do not forgot that within the code the magnetic variable are dupplicated and stored
+!then do not forget that within the code the magnetic variables are duplicated and stored
 !nvar+1:nvar+3
 
 !finally note that ichem, idelay and imetal have not been checked carefully
@@ -196,7 +196,7 @@ SUBROUTINE read_rt_params(nml_ok)
        & ,rt_n_source, rt_u_source, rt_v_source, rt_w_source             &
        ! RT boundary (for boundary conditions)                           &
        & ,rt_n_bound,rt_u_bound,rt_v_bound,rt_w_bound                    &
-       & ,rt_movie_vars
+       & ,rt_movie_vars, rt_sink
 
 
   ! Set default initialisation of ionisation states:

@@ -4420,7 +4420,8 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
   ! local variables
   INTEGER ::i, j, k, n, l, idim, xdim, m, irad
   REAL(dp),DIMENSION(1:nvector,1:nvar)::qLL,qRL,qLR,qRR
-  REAL(dp),DIMENSION(1:nvar)::qleft,qright,fmean_x,fmean_y,qtmp
+  REAL(dp),DIMENSION(1:nvar)::qleft,qright,qtmp
+  REAL(dp),DIMENSION(1:nvar+1)::fmean_x,fmean_y
   REAL(dp) :: ELL,ERL,ELR,ERR,SL,SR,SB,ST,SAL,SAR,SAT,SAB
   REAL(dp) :: zero_flux,E
   REAL(dp) :: cLLx,cRLx,cLRx,cRRx,cLLy,cRLy,cLRy,cRRy

@@ -235,6 +235,12 @@ testpatch[${itest}]="../patch/collapse";
 ndim[${itest}]=3;
 flags[${itest}]="NGRP=1 USE_FLD=1 NIMHD=1";
 
+itest=$((itest + 1)); # Test 16
+testname[${itest}]="rt-dirac";
+testpatch[${itest}]="../patch/test_suite/rt-dirac";
+ndim[${itest}]=3;
+flags[${itest}]="NIONS=3 NGROUPS=3";
+
 ntestsfull=${#testname[@]};
 
 # Count number of tests

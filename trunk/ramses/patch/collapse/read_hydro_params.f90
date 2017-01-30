@@ -5,9 +5,9 @@ subroutine read_hydro_params(nml_ok)
   use pm_commons
   use cooling_module,ONLY:kB,mH,clight
   use const
-  use hydro_parameters
   use units_commons
   use mod_opacities
+  use cloud_module
 #if NIMHD==1
   use variables_X,ONLY:nvarchimie,nchimie,tchimie,&
       &nminchimie,tminchimie,dnchimie,dtchimie
@@ -48,7 +48,7 @@ subroutine read_hydro_params(nml_ok)
        & ,var_region &
 #endif
        & ,A_region,B_region,C_region &
-       & ,alpha,beta,crit,delta_rho,mass_c,rap,cont &
+       & ,alpha_dense_core,beta_dense_core,crit,delta_rho,mass_c,rap,cont &
        & ,ff_sct,ff_rt,ff_act,ff_vct,theta_mag,bb_test &
        & ,contrast,Mach,uniform_bmag
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &
@@ -83,7 +83,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/physics_params/cooling,haardt_madau,metal,isothermal,barotrop,eos &
        & ,m_star,t_star,n_star,T2_star,g_star,del_star,eps_star,jeans_ncells &
        & ,eta_sn,yield,rbubble,f_ek,ndebris,f_w,mass_gmc,kappa_IR &
-       & ,J21,a_spec,z_ave,z_reion,eta_mag,delayed_cooling &
+       & ,J21,a_spec,z_ave,z_reion,eta_mag,delayed_cooling,T2max &
        & ,self_shielding,smbh,agn,B_ave,t_diss &
 !       & ,rsink_max,msink_max,merge_stars &
        & ,units_density,units_time,units_length,neq_chem,ir_feedback,ir_eff &
@@ -228,7 +228,7 @@ subroutine read_hydro_params(nml_ok)
   else
      use_nonideal_mhd = .false.
   endif
-  
+
   if(myid==1) then
      write(*,*)'!!!!!!!!!!!!!!!  Non Ideal MHD   !!!!!!!!!!!!!!!!'
      write(*,*)'Non ideal MHD parameters'
@@ -632,8 +632,17 @@ subroutine read_hydro_params(nml_ok)
   if(energy_fix)lastindex_pscal=nvar-1
   idelay=imetal
   if(metal)idelay=imetal+1
-  ixion=idelay
-  if(delayed_cooling)ixion=idelay+1
+  ivirial1=idelay
+  ivirial2=idelay
+  if(delayed_cooling)then
+     ivirial1=idelay+1
+     ivirial2=idelay+1
+  endif
+  if(sf_virial)then
+     if(sf_compressive) ivirial2=ivirial1+1
+  endif
+  ixion=ivirial2
+  if(delayed_cooling)ixion=ivirial2+1
   ichem=ixion
   if(aton)ichem=ixion+1
 

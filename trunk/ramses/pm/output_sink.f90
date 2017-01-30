@@ -50,6 +50,17 @@ subroutine backup_sink(filename)
      do i=1,nsink
         xdp(i)=tsink(i)
      end do
+
+
+     !to be reintroduced
+     !!ADDED by PH 09/2013
+!     do i=1,nsink
+!        xdp(i)=dmfsink(i)
+!     end do
+!     write(ilun)xdp ! Write sink mass
+
+
+
      write(ilun)xdp ! Write sink birth epoch
      do idim=1,ndim
         do i=1,nsink
@@ -77,6 +88,14 @@ subroutine backup_sink(filename)
         xdp(i)=acc_rate(i)
      end do
      write(ilun)xdp ! Write sink accretion rate
+
+
+     !PH to be reintroduced
+!     do i=1,nsink
+!        xdp(i)=Eioni(i)
+!     end do
+!     write(ilun)xdp ! Write sink accumulated ionising photons
+
      do i=1,nsink
         xdp(i)=Teff_sink(i)
      end do
@@ -127,6 +146,7 @@ subroutine output_sink(filename)
   use hydro_commons
   use pm_commons
   use units_commons
+  use cloud_module
   implicit none
   character(LEN=80)::filename
 
@@ -192,6 +212,7 @@ subroutine output_sink_csv(filename)
   use pm_commons
   use hydro_commons
   use units_commons
+  use cloud_module
   implicit none
   character(LEN=80)::filename,fileloc
 

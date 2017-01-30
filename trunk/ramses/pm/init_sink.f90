@@ -4,6 +4,7 @@ subroutine init_sink
   use hydro_parameters
   use clfind_commons
   use units_commons
+  use cloud_module
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -30,6 +31,17 @@ subroutine init_sink
   allocate(weightp(1:npartmax,1:twotondim))
   weightp=0.0
   allocate(msink(1:nsinkmax))
+
+
+  !introduced by PH 09/2013 to compute feedback around sink
+  allocate(dmfsink(1:nsinkmax))
+  dmfsink=0.0
+
+  !introduced by PH 07/2016 to record feedback around sink
+  allocate(Eioni(1:nsinkmax))
+
+
+
   allocate(tsink(1:nsinkmax))
   allocate(idsink(1:nsinkmax))
   idsink=0 ! Important: need to set idsink to zero
@@ -65,8 +77,17 @@ subroutine init_sink
   allocate(msink_new(1:nsinkmax))
   allocate(mseed(1:nsinkmax))
   allocate(mseed_new(1:nsinkmax))
+
+
+  !introduced by PH 09/2013 to compute feedback around sink
+  allocate(dmfsink_new(1:nsinkmax))
+
   allocate(mseed_all(1:nsinkmax))
   allocate(msink_all(1:nsinkmax))
+
+  !introduced by PH 09/2013 to compute feedback around sink
+  allocate(dmfsink_all(1:nsinkmax))
+
   allocate(tsink_new(1:nsinkmax))
   allocate(tsink_all(1:nsinkmax))
   allocate(idsink_new(1:nsinkmax))
@@ -165,6 +186,12 @@ subroutine init_sink
         allocate(xdp(1:nsink))
         read(ilun)xdp ! Read sink mass
         msink(1:nsink)=xdp
+
+        !to be re-introduced
+        !!ADDED by PH 09/2013
+!        read(ilun)xdp ! Read sink mass
+!        dmfsink(1:nsink)=xdp
+
         read(ilun)xdp ! Read sink birth epoch
         tsink(1:nsink)=xdp
         do idim=1,ndim
@@ -187,6 +214,12 @@ subroutine init_sink
         Teff_sink(1:nsink)=xdp
         read(ilun)xdp ! Read sink stellar radius
         rsink_star(1:nsink)=xdp
+
+!        to be re-introduced
+!        read(ilun)xdp ! Read sink emitted ionising photons
+!        Eioni(1:nsink)=xdp
+
+
         deallocate(xdp)
         allocate(isp(1:nsink))
         read(ilun)isp ! Read sink index 

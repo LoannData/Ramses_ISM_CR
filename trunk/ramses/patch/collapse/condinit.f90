@@ -9,7 +9,8 @@ subroutine condinit(x,u,dx,nn)
   use radiation_parameters
   use cooling_module,ONLY:kB,mH  
   use units_commons
-
+  use cloud_module
+  
   implicit none
 
   integer ::nn                              ! Number of cells
@@ -65,13 +66,13 @@ subroutine condinit(x,u,dx,nn)
 
   if(bb_test)then
      ! cloud radius equal to unity
-     r0=(alpha*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor))/scale_l
+     r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor))/scale_l
      ! cloud density equal to unity
      d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
      ! threshold for ambipolar fluxes
      !rho_threshold = d0/10.d0
      ! cloud rotation
-     omega0 = sqrt(beta*4.*pi*d0)
+     omega0 = sqrt(beta_dense_core*4.*pi*d0)
 
      rot_M(1,1:3) = (/cos(theta_mag_radians),0.0d0,-sin(theta_mag_radians)/)
      rot_M(2,1:3) = (/0.0d0,1.0d0,0.0d0/)
@@ -144,8 +145,8 @@ subroutine condinit(x,u,dx,nn)
         end if
 
         if(myid==1)then
-           print*,'alpha=',alpha
-           print*,'beta=',beta
+           print*,'alpha_dense_core=',alpha_dense_core
+           print*,'beta_dense_core=',beta_dense_core
            print*,'Mass=',mass_c*scale_m/Msun,' Msun'
            print*,'d0=',d0*scale_d
            print*,'Turbulent Mach=',Mach
@@ -810,7 +811,8 @@ subroutine calc_boxlen
   use radiation_parameters
   use cooling_module,ONLY:kB,mH
   use units_commons
- 
+  use cloud_module
+  
   implicit none
   !================================================================
   !this routine calculate boxlen
@@ -834,7 +836,7 @@ subroutine calc_boxlen
 
     
     if(bb_test)then
-       r_0 = (alpha*2.*6.67d-8*mass_c*mu_gas*mH/(5.*kB*Tr_floor))/scale_l* scale_m 
+       r_0 = (alpha_dense_core*2.*6.67d-8*mass_c*mu_gas*mH/(5.*kB*Tr_floor))/scale_l* scale_m 
        boxlen = r_0 * 4.
        
        if (myid == 1) then 
@@ -898,7 +900,8 @@ function compute_db()
   use radiation_parameters
   use cooling_module,ONLY:kB,mH
   use units_commons
-
+  use cloud_module
+  
   implicit none
 
   integer::i
@@ -914,7 +917,7 @@ function compute_db()
   if(bb_test)then
      
      pi=2.0d0*asin(1.0d0)
-     r0=(alpha*2.*6.67d-8*mass_c2*scale_m*mu_gas*mH/(5.*kB*Tr_floor))/scale_l
+     r0=(alpha_dense_core*2.*6.67d-8*mass_c2*scale_m*mu_gas*mH/(5.*kB*Tr_floor))/scale_l
      d0 = 3.0d0*mass_c2/(4.0d0*pi*r0**3.)
      compute_db=d0/contrast
      

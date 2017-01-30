@@ -5,6 +5,8 @@ subroutine init_part
   use clfind_commons
   use units_commons
 
+  use feedback_module
+
 #ifdef RT
   use rt_parameters,only: convert_birth_times
 #endif
@@ -835,6 +837,10 @@ subroutine init_part
   end if
 
   if(sink)call init_sink
+
+
+  if(stellar)call init_stellar
+
 
 end subroutine init_part
 #define TIME_START(cs) call SYSTEM_CLOCK(COUNT=cs)
