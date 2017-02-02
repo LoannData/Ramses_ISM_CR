@@ -4379,6 +4379,9 @@ subroutine cmpflxm(qm,im1,im2,jm1,jm2,km1,km2, &
               ! Internal energy flux
               tmp(l,i,j,k,2) = fgdnv(nvar+1)
 
+#if NIMHD==1
+              flx(l,i,j,k,nvar-3:nvar-1)=zero
+#endif
            end do
         end do
      end do
