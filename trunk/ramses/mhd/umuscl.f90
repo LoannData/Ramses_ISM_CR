@@ -318,7 +318,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 #if NIMHD==1
   ! modif nimhd
   ! Energy flux from ohmic term dB/dt=rot(-eta*J)
-  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1)) then
+  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. (.not.radiative_nimhdheating)) then
   
      ivar=5
      do k=klo,khi
@@ -385,7 +385,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 #if NIMHD==1
   ! modif nimhd
   ! Energy flux from ohmic term dB/dt=rot(-eta*J)
-  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1)) then
+  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. (.not.radiative_nimhdheating)) then
   
      ivar=5
      do k=kf1,kf2
