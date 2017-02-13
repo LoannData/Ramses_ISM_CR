@@ -760,6 +760,9 @@ subroutine grow_sink(ilevel,on_creation)
        delta_mass(isink)=delta_mass(isink)+delta_mass_all(isink)
      end if
 
+     ! introduced by PH 09/2013 to compute the feedback from sink
+     dmfsink(isink)=dmfsink(isink)+msink_all(isink)
+
   end do
   
 #endif
@@ -908,7 +911,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            weight=weightp(ind_part(j),ind)
            density=rho_gas(isink)
            volume=volume_gas(isink)
-           if (volume==0. .or. density==0.)print*,'something might be going wrong here...',weight,volume,density,ilevel
+           !!PH 5/2/2017 when threshold_accretion is used "weight" can be 0
+           if (volume==0. .or. density==0. .and. .not. threshold_accretion )print*,'something might be going wrong here...',weight,volume,density,ilevel,xsink(isink,1),xsink(isink,2),xsink(isink,3),isink
 
            if (on_creation)then
               if (new_born(isink))then
@@ -1756,6 +1760,7 @@ subroutine make_sink_from_clump(ilevel)
   ! Set new sink variables to zero
   msink_new=0d0; mseed_new=0d0; tsink_new=0d0; delta_mass_new=0d0; xsink_new=0d0; vsink_new=0d0
   oksink_new=0d0; idsink_new=0; new_born_new=.false.
+  dmfsink_new=0d0
 
 #if NDIM==3
 
