@@ -177,10 +177,13 @@ subroutine init_sink
      endif
 #endif
 
+
      open(unit=ilun,file=fileloc,form='unformatted')
      rewind(ilun)
      read(ilun)nsink
      read(ilun)nindsink
+
+
 
      if(nsink>0)then
         allocate(xdp(1:nsink))
@@ -189,8 +192,8 @@ subroutine init_sink
 
         !to be re-introduced
         !!ADDED by PH 09/2013
-!        read(ilun)xdp ! Read sink mass
-!        dmfsink(1:nsink)=xdp
+        read(ilun)xdp ! Read sink mass
+        dmfsink(1:nsink)=xdp
 
         read(ilun)xdp ! Read sink birth epoch
         tsink(1:nsink)=xdp
@@ -256,6 +259,8 @@ subroutine init_sink
   end if
 
   if (nrestart>0)then
+
+
      nsinkold=nsink  
      if(TRIM(initfile(levelmin)).NE.' ')then
         filename=TRIM(initfile(levelmin))//'/ic_sink_restart'
@@ -263,7 +268,6 @@ subroutine init_sink
         filename='ic_sink_restart'
      end if
      INQUIRE(FILE=filename, EXIST=ic_sink)
-     if (myid==1)write(*,*)'Looking for file ic_sink_restart: ',filename
      if (.not. ic_sink)then
         filename='ic_sink_restart'
         INQUIRE(FILE=filename, EXIST=ic_sink)
@@ -278,7 +282,6 @@ subroutine init_sink
         filename='ic_sink'
      end if
      INQUIRE(FILE=filename, EXIST=ic_sink)
-     if (myid==1)write(*,*)'Looking for file ic_sink: ',filename
      if (.not. ic_sink)then
         filename='ic_sink'
         INQUIRE(FILE=filename, EXIST=ic_sink)
@@ -297,6 +300,7 @@ subroutine init_sink
      endif
 #endif
      
+
      open(10,file=filename,form='formatted')                                                             
      eof=.false.                                                                                         
      do                                                                                                  

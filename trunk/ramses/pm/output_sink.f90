@@ -47,20 +47,17 @@ subroutine backup_sink(filename)
         xdp(i)=msink(i)
      end do
      write(ilun)xdp ! Write sink mass
-     do i=1,nsink
-        xdp(i)=tsink(i)
-     end do
-
 
      !to be reintroduced
      !!ADDED by PH 09/2013
-!     do i=1,nsink
-!        xdp(i)=dmfsink(i)
-!     end do
-!     write(ilun)xdp ! Write sink mass
+     do i=1,nsink
+        xdp(i)=dmfsink(i)
+     end do
+     write(ilun)xdp ! Write sink mass
 
-
-
+     do i=1,nsink
+        xdp(i)=tsink(i)
+     end do
      write(ilun)xdp ! Write sink birth epoch
      do idim=1,ndim
         do i=1,nsink
@@ -241,9 +238,10 @@ subroutine output_sink_csv(filename)
      star_mass=facc_star*msink(isink)
      l_abs=max((lsink(isink,1)**2+lsink(isink,2)**2+lsink(isink,3)**2)**0.5,1.d-50)
      rot_period=32*pi*star_mass*(dx_min)**2/(5*l_abs+tiny(0.d0))
-     write(ilun,'(I10,16(A1,ES20.10))')&
+     write(ilun,'(I10,17(A1,ES20.10))')&
           idsink(isink),',', &
           msink(isink)*scale_m/Msun,',',&
+          dmfsink(isink)*scale_m/Msun,',',&
           xsink(isink,1),',',xsink(isink,2),',',xsink(isink,3),',',&
           vsink(isink,1),',',vsink(isink,2),',',vsink(isink,3),',',&
           rot_period*scale_t/year,',',&

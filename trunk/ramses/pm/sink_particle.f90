@@ -760,6 +760,9 @@ subroutine grow_sink(ilevel,on_creation)
        delta_mass(isink)=delta_mass(isink)+delta_mass_all(isink)
      end if
 
+     ! introduced by PH 09/2013 to compute the feedback from sink
+     dmfsink(isink)=dmfsink(isink)+msink_all(isink)
+
   end do
   
 #endif
@@ -908,7 +911,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            weight=weightp(ind_part(j),ind)
            density=rho_gas(isink)
            volume=volume_gas(isink)
-           if (volume==0. .or. density==0.)print*,'something might be going wrong here...',weight,volume,density,ilevel
+           !!PH 5/2/2017 when threshold_accretion is used "weight" can be 0
+           if (volume==0. .or. density==0. .and. .not. threshold_accretion )print*,'something might be going wrong here...',weight,volume,density,ilevel,xsink(isink,1),xsink(isink,2),xsink(isink,3),isink
 
            if (on_creation)then
               if (new_born(isink))then
@@ -1757,6 +1761,7 @@ subroutine make_sink_from_clump(ilevel)
   ! Set new sink variables to zero
   msink_new=0d0; mseed_new=0d0; tsink_new=0d0; delta_mass_new=0d0; xsink_new=0d0; vsink_new=0d0
   oksink_new=0d0; idsink_new=0; new_born_new=.false.
+  dmfsink_new=0d0
 
 #if NDIM==3
 
@@ -1930,6 +1935,9 @@ subroutine make_sink_from_clump(ilevel)
               msink_new(index_sink)=delta_d*vol_loc                    
               delta_mass_new(index_sink)=msink_new(index_sink)
 
+              ! introduced by PH 09/2013 to compute the feedback from sink
+              dmfsink_new(index_sink)=msink_new(index_sink)
+
               ! Global index of the new sink
               oksink_new(index_sink)=1d0
               idsink_new(index_sink)=index_sink_tot
@@ -1977,6 +1985,10 @@ subroutine make_sink_from_clump(ilevel)
   call MPI_ALLREDUCE(idsink_new,idsink_all,nsinkmax,MPI_INTEGER         ,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(msink_new ,msink_all ,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(mseed_new ,mseed_all ,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+
+  !introduced by PH 09/2013 to compute the feedback from sink
+  call MPI_ALLREDUCE(dmfsink_new, dmfsink_all, nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+
   call MPI_ALLREDUCE(tsink_new ,tsink_all ,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(xsink_new ,xsink_all ,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(vsink_new ,vsink_all ,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
@@ -1987,6 +1999,11 @@ subroutine make_sink_from_clump(ilevel)
   idsink_all=idsink_new
   msink_all=msink_new
   mseed_all=mseed_new
+
+  !introduced by PH 09/2013 to compute the feedback from sink
+  dmfsink_all=dmfsink_new
+
+
   tsink_all=tsink_new
   xsink_all=xsink_new
   vsink_all=vsink_new
@@ -1998,6 +2015,10 @@ subroutine make_sink_from_clump(ilevel)
         idsink(isink)=idsink_all(isink)
         msink(isink)=msink_all(isink)
         mseed(isink)=mseed_all(isink)
+
+        !introduced by PH 09/2013 to follow the feedback from the sinks
+        dmfsink(isink)=dmfsink_all(isink)
+
         tsink(isink)=tsink_all(isink)
         xsink(isink,1:ndim)=xsink_all(isink,1:ndim)
         vsink(isink,1:ndim)=vsink_all(isink,1:ndim)
@@ -2486,6 +2507,10 @@ subroutine merge_star_sink
            lsink(j,1:3)=lsink(j+1,1:3)
            msink(j)=msink(j+1)
            mseed(j)=mseed(j+1)
+
+           !introduced by PH 09/2013 to follow the feedback from the sinks
+           dmfsink(j)=dmfsink(j+1)
+
            new_born(j)=new_born(j+1)
            tsink(j)=tsink(j+1)
            idsink(j)=idsink(j+1)
@@ -2499,6 +2524,11 @@ subroutine merge_star_sink
         lsink(nsink+1,1:3)=0.
         msink(nsink+1)=0.
         mseed(nsink+1)=0.
+
+        !introduced by PH 09/2013 to follow the feedback from the sinks
+        dmfsink(nsink+1)=0.
+
+
         new_born(nsink+1)=.false.
         tsink(nsink+1)=0.
         idsink(nsink+1)=0
@@ -2585,6 +2615,9 @@ subroutine merge_smbh_sink
               vsink(isink,1:3)=(vsink(isink,1:3)*msink(isink)+vsink(jsink,1:3)*msink(jsink))/mnew
               lsink(isink,1:3)=lsink(isink,1:3)+lsink(jsink,1:3)+lcom(1:3)
               msink(isink)=mnew
+
+              !introduced by PH 09/2013 to follow the feedback from the sinks
+              dmfsink(isink)=dmfsink(isink)+dmfsink(jsink)
 
               acc_rate(isink)=acc_rate(isink)+acc_rate(jsink)
               delta_mass(isink)=delta_mass(isink)+delta_mass(jsink)

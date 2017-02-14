@@ -37,6 +37,9 @@ recursive subroutine amr_step(ilevel,icount)
 
   if(verbose)write(*,999)icount,ilevel
 
+
+  call boundary_frig(ilevel)
+
   !-------------------------------------------
   ! Make new refinements and update boundaries
   !-------------------------------------------
@@ -564,6 +567,7 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 #endif
 
+
 #if USE_FLD==1  
   ! Radiation diffusion step
   if(FLD)then
@@ -571,6 +575,10 @@ recursive subroutine amr_step(ilevel,icount)
      call diffusion_cg(ilevel,icount)
   end if
 #endif
+
+
+  call boundary_frig(ilevel)
+
   
   ! Update boundaries 
                                call timer('hydro - ghostzones','start')
