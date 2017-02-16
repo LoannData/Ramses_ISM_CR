@@ -595,7 +595,7 @@ subroutine init_opacities
            close(79)
         end if
      else
-        if(myid==1)write(*,*),'Reading opacity table from previous run'
+        if(myid==1)write(*,*) 'Reading opacity table from previous run'
 
         open (80,file='multigroup_opacity.bin',form='unformatted')
         read (80) nx_opmesh,ny_opmesh,nz_opmesh,dx_opmesh,dy_opmesh,dz_opmesh,dmin_opmesh,dmax_opmesh,tmin_opmesh,tmax_opmesh,trmin_opmesh,trmax_opmesh

@@ -389,6 +389,10 @@ subroutine read_hydro_params(nml_ok)
   is_radiative_energy(2:ngrp+1) = .true.
 #endif
 
+  ! Compute the size of the box early,
+  ! to avoid problems in the initial build of the amr grid
+  call calc_boxlen
+
   !--------------------------------------------------
   ! Make sure virtual boundaries are expanded to 
   ! account for staggered mesh representation
