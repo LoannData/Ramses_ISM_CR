@@ -4331,7 +4331,7 @@ subroutine cmpflxm(qm,im1,im2,jm1,jm2,km1,km2, &
               CASE (2)
                  if( ( (qright(4)**2+qright(6)**2+qright(8)**2)/qright(2) .gt. switch_solv .or. &
                       & (qleft(4)**2+qleft(6)**2+qleft(8)**2)/qleft(2) .gt. switch_solv  ) .or. &
-                      & ( qleft(1)/qright(1) .gt. switch_solv) .or. (qleft(1)/qright(1) .lt. 1.0d0/switch_solv) )  then
+                      & ( qleft(1)/qright(1) .gt. switch_solv_dens) .or. (qleft(1)/qright(1) .lt. 1.0d0/switch_solv_dens) )  then
                     CALL lax_friedrich(qleft,qright,fgdnv,zero_flux) 
                  else
                     CALL hll(qleft,qright,fgdnv)
