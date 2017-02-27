@@ -9,9 +9,6 @@ subroutine init_flow
 
   integer::ilevel,ivar
 
-  !calculate the value of boxlen
-  !call calc_boxlen ! comment this because it is called in read_hydro_params
-  
   if(verbose)write(*,*)'Entering init_flow'
   do ilevel=nlevelmax,1,-1
      if(ilevel>=levelmin)call init_flow_fine(ilevel)
