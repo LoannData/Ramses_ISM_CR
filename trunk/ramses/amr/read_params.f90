@@ -33,7 +33,8 @@ subroutine read_params
        & ,nrestart,ncontrol,nstepmax,nsubcycle,nremap,ordering &
        & ,bisec_tol,static,geom,overload,cost_weighting,aton,nrestart_quad,restart_remap &
        & ,static_dm,static_gas,static_stars,convert_birth_times,use_proper_time &
-       & ,FLD,tracer,extinction,DTU,radiative_nimhdheating,stellar
+       & ,FLD,tracer,extinction,DTU,radiative_nimhdheating,stellar &
+       & ,x_load_balance,y_load_balance,z_load_balance
   namelist/output_params/noutput,foutput,fbackup,aout,tout,output_mode &
        & ,tend,delta_tout,aend,delta_aout,gadget_output
   namelist/amr_params/levelmin,levelmax,ngridmax,ngridtot &

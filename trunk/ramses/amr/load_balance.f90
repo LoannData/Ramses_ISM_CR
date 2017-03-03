@@ -705,7 +705,7 @@ subroutine cmp_ordering(x,order,nn)
   integer,dimension(1:nvector),save::ix,iy,iz
   integer::i,ncode,bit_length,nx_loc
   integer::temp,info
-  real(kind=8)::scale,bscale,xx,yy,zz,xc,yc,zc
+  real(kind=8)::scale,bscale,xx,yy,zz,xc,yc,zc,atan3
 
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
@@ -720,23 +720,20 @@ subroutine cmp_ordering(x,order,nn)
 #if NDIM>1
   if(ordering=='angular')then
      ! Angular domain decomposition
-     xc=boxlen/2.
-     yc=boxlen/2.
-     zc=boxlen/2.
+!      xc=boxlen/2.
+!      yc=boxlen/2.
+!      zc=boxlen/2.
+     xc=boxlen*x_load_balance
+     yc=boxlen*y_load_balance
+     zc=boxlen*z_load_balance
      do i=1,nn
-        xx=x(i,1)-xc+1d-10
+        xx=x(i,1)-xc
         yy=x(i,2)-yc
-#if NDIM>2
-        zz=x(i,3)
-#endif
-        if(xx>0.)then
-           order(i)=atan(yy/xx)+acos(-1.)/2.
-        else
-           order(i)=atan(yy/xx)+acos(-1.)*3./2.
-        endif
-#if NDIM>2
-        if(zz.gt.zc)order(i)=order(i)+2.*acos(-1.)
-#endif
+        order(i)=atan3(yy,xx)
+! #if NDIM>2
+!         zz=x(i,3)
+!         if(zz.gt.zc)order(i)=order(i)+2.d0*acos(-1.d0)
+! #endif
      end do
   end if
 #endif
@@ -806,9 +803,9 @@ subroutine cmp_minmaxorder(x,order_min,order_max,dx,nn)
   integer,dimension(1:nvector),save::ix,iy,iz
   integer::i,ncode,bit_length,nxny,nx_loc
 
-  real(dp)::theta1,theta2,theta3,theta4,dxx,dxmin  
-  real(kind=8)::scale,bscaleloc,bscale,xx,yy,zz,xc,yc,zc
-  real(qdp)::dkey,oneqdp=1.0
+  real(dp)::theta1,theta2,theta3,theta4,dxx,dxmin,xshift=0.125d0,atan3
+  real(dp)::scale,bscaleloc,bscale,xx,yy,zz,xc,yc,zc,xx1,xx2,yy1,yy2,xx3,yy3
+  real(qdp)::dkey,oneqdp=1.0_qdp
 
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
@@ -827,62 +824,62 @@ subroutine cmp_minmaxorder(x,order_min,order_max,dx,nn)
   if(ordering=='angular')then
      ! Angular domain decomposition
      dxx=0.5d0*dx
-     xc=boxlen/2.
-     yc=boxlen/2.
-     zc=boxlen/2.
+!      xc=boxlen/2.
+!      yc=boxlen/2.
+!      zc=boxlen/2.
+     xc=boxlen*x_load_balance
+     yc=boxlen*y_load_balance
+     zc=boxlen*z_load_balance
      do i=1,nn
-        if(dx==boxlen)then
-           order_min(i)=0.
-           order_max(i)=4.*acos(-1.)
+
+        xx=x(i,1)-xc
+        yy=x(i,2)-yc
+        xx1=x(i,1)-dxx
+        xx2=x(i,1)+dxx
+        yy1=x(i,2)-dxx
+        yy2=x(i,2)+dxx
+
+        xx1 = xx1 + sign(xshift*dxmin,xx)
+        xx2 = xx2 + sign(xshift*dxmin,xx)
+        yy1 = yy1 + sign(xshift*dxmin,yy)
+        yy2 = yy2 + sign(xshift*dxmin,yy)
+
+        xx3 = abs(xx2-xc) + abs(xx1-xc)
+        yy3 = abs(yy2-yc) + abs(yy1-yc)
+        
+        if((xx3.le.dx).and.(yy3.le.dx))then
+           order_min(i)=0.0d0
+           order_max(i)=2.0d0*acos(-1.0d0)
         else
-           ! x- y-
-           yy=x(i,2)-yc-dxx
-           xx=x(i,1)-xc-dxx
-           if(xx.ge.0.)then
-              xx=xx+1d-10
-              theta1=atan(yy/xx)+acos(-1.)/2.
+
+           xx1=x(i,1)-xc-dxx
+           xx2=x(i,1)-xc+dxx
+           yy1=x(i,2)-yc-dxx
+           yy2=x(i,2)-yc+dxx
+
+           xx1 = xx1 + sign(xshift*dxmin,xx)
+           xx2 = xx2 + sign(xshift*dxmin,xx)
+           yy1 = yy1 + sign(xshift*dxmin,yy)
+           yy2 = yy2 + sign(xshift*dxmin,yy)
+
+           if((yy1*yy2 .lt. 0.0d0) .and. (xx .gt. 0.0d0))then
+               order_min(i)=atan3(yy1,xx1)
+               order_max(i)=atan3(yy2,xx1)
            else
-              xx=xx-1d-10
-              theta1=atan(yy/xx)+acos(-1.)*3./2.
+               ! x- y-
+              theta1=atan3(yy1,xx1)
+              ! x+ y-
+              theta2=atan3(yy1,xx2)           
+              ! x+ y+
+              theta3=atan3(yy2,xx2)
+              ! x- y+
+              theta4=atan3(yy2,xx1)
+              order_min(i)=min(theta1,theta2,theta3,theta4)
+              order_max(i)=max(theta1,theta2,theta3,theta4)
            endif
-           ! x+ y-
-           xx=x(i,1)-xc+dxx
-           if(xx.gt.0.)then
-              xx=xx+1d-10
-              theta2=atan(yy/xx)+acos(-1.)/2.
-           else
-              xx=xx-1d-10
-              theta2=atan(yy/xx)+acos(-1.)*3./2.
-           endif
-           
-           ! x+ y+
-           yy=x(i,2)-yc+dxx
-           if(xx.gt.0.)then
-              xx=xx+1d-10
-              theta3=atan(yy/xx)+acos(-1.)/2.
-           else
-              xx=xx-1d-10
-              theta3=atan(yy/xx)+acos(-1.)*3./2.
-           endif
-           ! x- y+
-           xx=x(i,1)-xc-dxx
-           if(xx.ge.0.)then
-              xx=xx+1d-10
-              theta4=atan(yy/xx)+acos(-1.)/2.
-           else
-              xx=xx-1d-10
-              theta4=atan(yy/xx)+acos(-1.)*3./2.
-           endif
-           order_min(i)=min(theta1,theta2,theta3,theta4)
-           order_max(i)=max(theta1,theta2,theta3,theta4)
-#if NDIM>2
-           zz=x(i,3)
-           if(zz.gt.zc)then
-              order_min(i)=order_min(i)+2.*acos(-1.)
-              order_max(i)=order_max(i)+2.*acos(-1.)
-           endif
-#endif
+
         endif
+
      end do
   end if
 #endif
@@ -1462,3 +1459,18 @@ end subroutine defrag
 !#########################################################################
 !#########################################################################
 !#########################################################################
+function atan3(y,x)
+
+  use amr_parameters, only : dp
+
+  implicit none
+  
+  real(dp), intent(in) :: y,x
+  real(dp) :: atan3,pi
+  
+  pi = acos(-1.0_dp)
+  
+  atan3 = atan2(y,x)
+  if(atan3 .lt. 0.0_dp) atan3 = 2.0_dp*pi + atan3
+  
+end function atan3

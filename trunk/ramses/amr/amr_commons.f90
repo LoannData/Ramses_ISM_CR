@@ -141,5 +141,10 @@ module amr_commons
   real(dp)::units_time=1.0d0     ! [seconds]
   real(dp)::units_length=1.0d0   ! [cm]
 
+  ! Define center for angular load balancing
+  real(dp)::x_load_balance=0.5d0
+  real(dp)::y_load_balance=0.5d0
+  real(dp)::z_load_balance=0.5d0
+
 end module amr_commons
 
