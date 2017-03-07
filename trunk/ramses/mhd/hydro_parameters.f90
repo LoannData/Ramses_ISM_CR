@@ -256,6 +256,7 @@ module hydro_parameters
   real(dp):: rho_threshold=1.d-10     ! safeguard for the ambipolar flux in high density contrast cases (in code units)
   integer :: use_x1d=0               ! use abundances
   integer :: use_x2d=0               ! use abundances
+  integer :: use_x3d=0               ! use abundance table with rho, T, Xi
   integer :: use_res=0             ! use resistivities
 
 ! magnetic diffusion coefficient see function etaohmdiss in umsucl

@@ -173,7 +173,7 @@ subroutine init_opacities
   if(opacity_type == 'multigroup')then
 
      if(nrestart .eq. 0)then
-        opfilename = 'dust_gas_opacity_table.bin'
+        opfilename = 'VaytetEtAl2013AandA557A90_opacities.bin'
 
         if(myid==1)then
            write(*,*)
