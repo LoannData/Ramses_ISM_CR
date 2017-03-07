@@ -179,23 +179,25 @@ subroutine output_sink(filename)
   !======================
   write(ilun,*)'Number of sink = ',nsink
 
-  write(ilun,'(" ======================================================================================================================================================================================= ")')
-  write(ilun,'("  Id     M[Msol]    x           y           z           vx       vy       vz     rot_period[y] lx/|l|  ly/|l|  lz/|l| acc_rate[Msol/y] acc_lum[Lsol]  age[y]  int_lum[Lsol]     Teff [K] ")')
-  write(ilun,'(" ======================================================================================================================================================================================= ")')  
-  
+  write(ilun,'(" ================================================================================================================================================================================================== ")')
+  write(ilun,'("  Id     M[Msol]    dmf[Msol]      x           y           z        vx       vy       vz     rot_period[y] lx/|l|  ly/|l|  lz/|l| acc_rate[Msol/y] acc_lum[Lsol]  age[y]  int_lum[Lsol]   Teff[K] ")')
+  write(ilun,'(" ================================================================================================================================================================================================== ")')
+
   do isink=1,nsink
      star_mass=facc_star*msink(isink)
      l_abs=max((lsink(isink,1)**2+lsink(isink,2)**2+lsink(isink,3)**2)**0.5,1.d-50)
      rot_period=32*pi*star_mass*(dx_min)**2/(5*l_abs+tiny(0.d0))
-     write(ilun,'(I5,2X,F9.5,3(2X,F10.7),3(2X,F7.4),2X,E13.3,3(2X,F6.3),5(2X,E11.3))')&
+     write(ilun,'(I5,2(2X,F9.5),3(2X,F10.7),3(2X,F7.4),2X,E13.3,3(2X,F6.3),5(2X,E11.3))')&
           idsink(isink),msink(isink)*scale_m/Msun, &
+          dmfsink(isink)*scale_m/Msun,&
           xsink(isink,1:ndim),vsink(isink,1:ndim),&
           rot_period*scale_t/year,lsink(isink,1)/l_abs,lsink(isink,2)/l_abs,lsink(isink,3)/l_abs,&
           acc_rate(isink)*scale_m/Msun/(scale_t)*year,acc_lum(isink)/scale_t**2*scale_l**3*scale_d*scale_l**2/scale_t/Lsun,&
           (t-tsink(isink))*scale_t/year,&
           int_lum(isink)*scale_d*scale_l**3*scale_v**2/scale_t/Lsun,Teff_sink(isink)
   end do
-  write(ilun,'(" ====================================================================================================================================================================================== ")')
+  write(ilun,'(" ================================================================================================================================================================================================== ")')
+
   close(ilun)
 
 end subroutine output_sink
