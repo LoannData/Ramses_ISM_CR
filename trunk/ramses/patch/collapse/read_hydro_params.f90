@@ -10,7 +10,9 @@ subroutine read_hydro_params(nml_ok)
   use cloud_module
 #if NIMHD==1
   use variables_X,ONLY:nvarchimie,nchimie,tchimie,&
-      &nminchimie,tminchimie,dnchimie,dtchimie
+      &nminchimie,tminchimie,dnchimie,dtchimie,&
+      &xichimie,ximinchimie,dxichimie,&
+      nislin,tislin,xiislin
 #endif
   implicit none
 #ifndef WITHOUTMPI
@@ -102,7 +104,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/nonidealmhd_params/nambipolar,gammaAD &
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
        & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm &
-       & ,rho_threshold,use_x1d,use_x2d,use_res
+       & ,rho_threshold,use_x1d,use_x2d,use_x3d,use_res
   namelist/pseudovisco_params/nvisco,visco
   ! fin modif nimhd
 
@@ -693,29 +695,50 @@ subroutine read_hydro_params(nml_ok)
         read(42,*) nchimie, tchimie, nvarchimie
         read(42,*)
         read(42,*)
-        allocate(resistivite_chimie_x(-1:nvarchimie,nchimie,tchimie))
+        allocate(resistivite_chimie_x(-1:nvarchimie,nchimie,tchimie,1))
         do i=1,tchimie
            do j=1,nchimie
-              read(42,*)resistivite_chimie_x(0:nvarchimie,j,i),dummy,dummy,dummy,dummy,resistivite_chimie_x(-1,j,i)
+              read(42,*)resistivite_chimie_x(0:nvarchimie,j,i,1),dummy,dummy,dummy,dummy,resistivite_chimie_x(-1,j,i,1)
 !              print *, resistivite_chimie_x(:,j,i)
            end do
            read(42,*)
         end do
         close(42)
-        rho_threshold=max(rho_threshold,resistivite_chimie_x(0,1,1)*(mu_gas*mH)/scale_d) ! input in part/cc, output in code units
-        nminchimie=(resistivite_chimie_x(0,1,1))
-        dnchimie=(log10(resistivite_chimie_x(0,nchimie,1))-log10(resistivite_chimie_x(0,1,1)))/&
+        rho_threshold=max(rho_threshold,resistivite_chimie_x(0,1,1,1)*(mu_gas*mH)/scale_d) ! input in part/cc, output in code units
+        nminchimie=(resistivite_chimie_x(0,1,1,1))
+        dnchimie=(log10(resistivite_chimie_x(0,nchimie,1,1))-log10(resistivite_chimie_x(0,1,1,1)))/&
                  &(nchimie-1)
 !                 print*, dnchimie,15.d0/50.d0
-        tminchimie=(resistivite_chimie_x(-1,1,1))
-        dtchimie=(log10(resistivite_chimie_x(-1,1,tchimie))-log10(resistivite_chimie_x(-1,1,1)))/&
+        tminchimie=(resistivite_chimie_x(-1,1,1,1))
+        dtchimie=(log10(resistivite_chimie_x(-1,1,tchimie,1))-log10(resistivite_chimie_x(-1,1,1,1)))/&
                  &(tchimie-1)
 !                 print*, dtchimie,3.d0/50.d0
-        close(333)
+!         close(333)
         call rq
         call nimhd_3dtable
-     else if(((use_x2d .ne. 1) .and. (use_res .ne. 1)) .or. &
-            &((use_x2d .eq. 0) .and. (use_res .eq. 0)) )then
+     else if(use_x3d==1)then
+
+        open(42,file='marchand2016_table.dat',form='unformatted')
+        read(42) nchimie, tchimie, xichimie, nvarchimie
+        allocate(resistivite_chimie_x(-2:nvarchimie+4,nchimie,tchimie,xichimie))
+        read(42) resistivite_chimie_x
+        close(42)
+
+        rho_threshold=max(rho_threshold,resistivite_chimie_x(-2,1,1,1)*(mu_gas*mH)/scale_d) ! input in part/cc, output in code units
+        nminchimie=(resistivite_chimie_x(-2,1,1,1))
+        dnchimie=(log10(resistivite_chimie_x(-2,nchimie,1,1))-log10(resistivite_chimie_x(-2,1,1,1)))/&
+                 &(nchimie-1)
+!                 print*, dnchimie,15.d0/50.d0
+        tminchimie=(resistivite_chimie_x(-1,1,1,1))
+        dtchimie=(log10(resistivite_chimie_x(-1,1,tchimie,1))-log10(resistivite_chimie_x(-1,1,1,1)))/&
+                 &(tchimie-1)
+!                 print*, dtchimie,3.d0/50.d0
+        ximinchimie=(resistivite_chimie_x(0,1,1,1))
+        dxichimie=(log10(resistivite_chimie_x(0,1,1,xichimie))-log10(resistivite_chimie_x(0,1,1,1)))/&
+                 &(xichimie-1)
+        call rq_3d
+        call nimhd_4dtable
+     else
         print*, 'must choose an input for abundances or resistivities'
         stop
      endif

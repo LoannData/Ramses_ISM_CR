@@ -200,31 +200,31 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 
   ! Compute 3D traced-states in all three directions
 #if NDIM==1
-#if NIMHD==1
-  ! modif nimhd
-  call trace1d(qin   ,dq    ,qm,qp                ,dx      ,dt,ngrid,jcentersquare)
-  ! fin modif nimhd
-#else
+! #if NIMHD==1
+!   ! modif nimhd
+!   call trace1d(qin   ,dq    ,qm,qp                ,dx      ,dt,ngrid,jcentersquare)
+!   ! fin modif nimhd
+! #else
   call trace1d(qin   ,dq    ,qm,qp                ,dx      ,dt,ngrid)
-#endif
+! #endif
 #endif
 #if NDIM==2
-#if NIMHD==1
-  ! modif nimhd
-  call trace2d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy   ,dt,ngrid,jcentersquare)
-  ! fin modif nimhd
-#else
+! #if NIMHD==1
+!   ! modif nimhd
+!   call trace2d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy   ,dt,ngrid,jcentersquare)
+!   ! fin modif nimhd
+! #else
   call trace2d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy   ,dt,ngrid)
-#endif
+! #endif
 #endif
 #if NDIM==3
-#if NIMHD==1
-  ! modif nimhd
-  call trace3d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid,jcentersquare)
-  ! fin modif nimhd
-#else
+! #if NIMHD==1
+!   ! modif nimhd
+!   call trace3d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid,jcentersquare)
+!   ! fin modif nimhd
+! #else
   call trace3d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
-#endif
+! #endif
 #endif
 
   ! Solve for 1D flux in X direction
@@ -2435,7 +2435,7 @@ real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::jface
 real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jemf
 
 
-real(dp)::computdx,computdy,computdz,tcell,rhocell,bcell
+real(dp)::computdx,computdy,computdz,tcell,rhocell,bcell,ionisrate
 real(dp)::crossprodx,crossprody,crossprodz, Cv
 
 real(dp)::etaohmdiss,etaod2,tcellx,tcelly,tcellz,bsquarex,bsquarey,bsquarez,etaohmdissbricolo,dtlim
@@ -2506,13 +2506,13 @@ do k=min(1,ku1+1),max(1,ku2-1)
 !!$                  tcellx=10.
 !!$                  tcellz=10.
                endif
-               
+              ionisrate=default_ionisrate 
 !               etaod2x=etaohmdiss(rhox,bsquarex,tcellx)
 !               etaod2y=etaohmdiss(rhoy,bsquarey,tcelly)
 !               etaod2z=etaohmdiss(rhoz,bsquarez,tcellz)
-              etaod2x=etaohmdissbricolo(rhox,bsquarex,tcellx,dtlim,dx)
-              etaod2y=etaohmdissbricolo(rhoy,bsquarey,tcelly,dtlim,dx)
-              etaod2z=etaohmdissbricolo(rhoz,bsquarez,tcellz,dtlim,dx)
+              etaod2x=etaohmdissbricolo(rhox,bsquarex,tcellx,dtlim,dx,ionisrate)
+              etaod2y=etaohmdissbricolo(rhoy,bsquarey,tcelly,dtlim,dx,ionisrate)
+              etaod2z=etaohmdissbricolo(rhoz,bsquarez,tcellz,dtlim,dx,ionisrate)
               
 ! WARNING dB/dt=-curl(eta*J)
               emfohmdiss(l,i,j,k,nxx)=-etaod2x*jemf(l,i,j,k,1)
@@ -2548,17 +2548,25 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     bsqf=bmagij(l,i,j,k,1,h)**2+bmagij(l,i,j,k,2,h)**2+bmagij(l,i,j,k,3,h)**2
                     
                  ! Compute gas temperature in cgs
-                    if(eos ) then 
-                       call temperature_eos(rhof,epsf,tcellf,ht)
-                    elseif(barotrop)then
+!                     if(eos ) then 
+!                        call temperature_eos(rhof,epsf,tcellf,ht)
+!                     elseif(barotrop)then
+!                        tcellf=barotrop1D(rhof*scale_d)
+!                     elseif(ntestDADM.eq.1)then
+!                        tcellf=1.0d0
+!                     else
+!                        write(*,*) 'Temperature EOS needs updating!'
+!                     endif
+
+                    if(barotrop)then
                        tcellf=barotrop1D(rhof*scale_d)
                     elseif(ntestDADM.eq.1)then
                        tcellf=1.0d0
-                    else
-                       write(*,*) 'Temperature EOS needs updating!'
+                    else 
+                       call temperature_eos(rhof,epsf,tcellf,ht)
                     endif
                     
-                    etaod2=etaohmdiss(rhof,bsqf,tcellf)
+                    etaod2=etaohmdiss(rhof,bsqf,tcellf,ionisrate)
                     fluxohm(l,i,j,k,h)=etaod2*fluxmd(l,i,j,k,h)
                     
                     !               rhof=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1))
@@ -2632,8 +2640,7 @@ do k=min(1,ku1+1),max(1,ku2-1)
 !                    if(nmagdiffu2.eq.1)call temperature_eos(rhocell,u(l,i,j,k,3),tcell,ht)
                     end if
                     
-                    !neil jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdiss(rhocell,bcell,tcell)*dt
-                    jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdissbricolo(rhocell,bcell,tcell,dtlim,dx)*dt
+                    jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdiss(rhocell,bcell,tcell,dtlim,dx,ionisrate)*dt
                     
                  end if
               end do
@@ -2678,8 +2685,8 @@ SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,floren
   real(dp)::rhofx,rhofy,rhofz
   real(dp)::bsquarex,bsquarey,bsquarez,bsquare
   real(dp)::bsquarexx,bsquareyy,bsquarezz
-  real(dp)::betaad2,betaadbricolo
-  real(dp)::rhox,rhoy,rhoz,rhocell,bcell,bcellold,tcell
+  real(dp)::betaad2,betaadbricolo,betaad
+  real(dp)::rhox,rhoy,rhoz,rhocell,bcell,bcellold,tcell,ionisrate
   real(dp)::dtlim,Cv,eps
   real(dp)::crossprodx,crossprody,crossprodz
 
@@ -2785,8 +2792,8 @@ jcenter=0.0d0
 !!$              rhox= u(l,i,j,k,3)
 !!$              rhoy= u(l,i,j,k,3)
 !!$              rhoz= u(l,i,j,k,3)
-
-              betaad2=betaadbricolo(rhocell,rhox,dtlim,bcell,bcellold,dx,ntest,tcell)
+              ionisrate=default_ionisrate
+              betaad2=betaadbricolo(rhocell,rhox,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !              betaad2=betaadbricolo(rhocell,rhox,dtlim,bcellold,bcellold,dx,ntest,tcell)
 
               emfambdiff(l,i,j,k,1)=emfambdiff(l,i,j,k,1)*betaad2 
@@ -2814,7 +2821,7 @@ jcenter=0.0d0
 !             betaad2=betaadbricolo(rhoy,dtlim,bsquare,dx,ntest)
 ! comparison with hydro+idealMHD 
 
-             betaad2=betaadbricolo(rhocell,rhoy,dtlim,bcell,bcellold,dx,ntest,tcell)
+             betaad2=betaadbricolo(rhocell,rhoy,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !             betaad2=betaadbricolo(rhocell,rhoy,dtlim,bcellold,bcellold,dx,ntest,tcell)
 
              emfambdiff(l,i,j,k,2)=emfambdiff(l,i,j,k,2)*betaad2            
@@ -2838,7 +2845,7 @@ jcenter=0.0d0
               end if
               if(nambipolar2 .eq. 0) rhocell = rhocellmin(l,i,j,k)
              
-             betaad2=betaadbricolo(rhocell,rhoz,dtlim,bcell,bcellold,dx,ntest,tcell)
+             betaad2=betaadbricolo(rhocell,rhoz,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !             betaad2=betaadbricolo(rhocell,rhoz,dtlim,bcellold,bcellold,dx,ntest,tcell)
 
              emfambdiff(l,i,j,k,3)=emfambdiff(l,i,j,k,3)*betaad2
@@ -2857,7 +2864,7 @@ jcenter=0.0d0
 
               rhocell = rhocellmin(l,i,j,k)
               rhofx=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1))
-              betaad2=betaadbricolo(rhocell,rhofx,dtlim,bcell,bcell,dx,ntest,tcell)
+              betaad2=betaadbricolo(rhocell,rhofx,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
               fluxambdiff(l,i,j,k,1)=-betaad2*fluxad(l,i,j,k,1)
 
               v2x=bmagij(l,i,j,k,1,2)
@@ -2871,7 +2878,7 @@ jcenter=0.0d0
                  bcell=v2x*v2x+v2y*v2y+v2z*v2z
               end if
 
-              betaad2=betaadbricolo(rhocell,rhofy,dtlim,bcell,bcell,dx,ntest,tcell)
+              betaad2=betaadbricolo(rhocell,rhofy,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
               fluxambdiff(l,i,j,k,2)=-betaad2*fluxad(l,i,j,k,2)
 
               v2x=bmagij(l,i,j,k,1,3)
@@ -2885,7 +2892,7 @@ jcenter=0.0d0
                  bcell=v2x*v2x+v2y*v2y+v2z*v2z
               end if
 
-              betaad2=betaadbricolo(rhocell,rhofz,dtlim,bcell,bcell,dx,ntest,tcell)
+              betaad2=betaadbricolo(rhocell,rhofz,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
               fluxambdiff(l,i,j,k,3)=-betaad2*fluxad(l,i,j,k,3)
 
               v2x=u(l,i,j,k,6)
@@ -2905,7 +2912,7 @@ jcenter=0.0d0
               call crossprod(jcenter,u(:,:,:,:,6:8),jxb,l,i,j,k)
 
               jxbsquare(l,i,j,k)=(jxb(l,i,j,k,1)*jxb(l,i,j,k,1)+jxb(l,i,j,k,2)*jxb(l,i,j,k,2)+jxb(l,i,j,k,3)*jxb(l,i,j,k,3))*&
-              & betaadbricolo(u(l,i,j,k,1),u(l,i,j,k,1),dtlim,bcell,bcellold,dx,ntest,tcell)*dtlim
+              & betaad(u(l,i,j,k,1),u(l,i,j,k,1),dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)*dtlim
               
 
 
@@ -3033,15 +3040,16 @@ end SUBROUTINE computehall
 !###########################################################
 !###########################################################
 #if NDIM==1
-#if NIMHD==1
-! modif nimhd
-SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid,jcentersquare)
-! fin modif nimhd
-#else
+! #if NIMHD==1
+! ! modif nimhd
+! SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid,jcentersquare)
+! ! fin modif nimhd
+! #else
 SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
-#endif
+! #endif
   USE amr_parameters
   USE hydro_parameters
+  USE hydro_commons,only:default_ionisrate
   use radiation_parameters,only:small_er
   use units_commons
   USE const
@@ -3054,13 +3062,13 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:ndim)::dq 
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:ndim)::qm 
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:ndim)::qp 
-#if NIMHD==1
-  ! modif nimhd
-  REAL(dp):: etaohmdiss,bcell,tcell,barotrop1D
-  REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::jcentersquare
-  integer::ht
-  ! fin modif nimhd
-#endif
+! #if NIMHD==1
+!   ! modif nimhd
+!   REAL(dp):: etaohmdiss,bcell,tcell,barotrop1D
+!   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::jcentersquare
+!   integer::ht
+!   ! fin modif nimhd
+! #endif
 
   ! declare local variables
   INTEGER ::i, j, k, l, n, irad
@@ -3144,19 +3152,20 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
               end do
 #endif
 
-#if NIMHD==1
-              ! modif nimhd
-              if(magohm.eq.0 )then
-                 if(ntestDADM.eq.1) then
-                    tcell=1.0d0
-                 else
-                    call temperature_eos(q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
-                 endif
-                 bcell = A*A + B*B + C*C
-                 sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell)*jcentersquare(l,i,j,k)
-              endif     
-              ! fin modif nimhd
-#endif
+! #if NIMHD==1
+!               ! modif nimhd
+!               ionisrate=default_ionisrate
+!               if(magohm.eq.0 )then
+!                  if(ntestDADM.eq.1) then
+!                     tcell=1.0d0
+!                  else
+!                     call temperature_eos(q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
+!                  endif
+!                  bcell = A*A + B*B + C*C
+!                  sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell,ionisrate)*jcentersquare(l,i,j,k)
+!               endif     
+!               ! fin modif nimhd
+! #endif
 
               ! Cell-centered predicted states
               r = r + sr0*dtdx
@@ -3238,13 +3247,13 @@ END SUBROUTINE trace1d
 !###########################################################
 !###########################################################
 #if NDIM==2
-#if NIMHD==1
-! modif nimhd
-SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid,jcentersquare)
-! fin modif nimhd
-#else
+! #if NIMHD==1
+! ! modif nimhd
+! SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid,jcentersquare)
+! ! fin modif nimhd
+! #else
 SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
-#endif
+! #endif
   USE amr_parameters
   USE hydro_parameters
   USE const
@@ -3267,12 +3276,12 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qRB
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qLT
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qLB
-#if NIMHD==1
-  ! modif nimhd
-  REAL(dp)::etaohmdiss,bcell,tcell,barotrop1D
-  REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::jcentersquare
-  ! fin modif nimhd
-#endif
+! #if NIMHD==1
+!   ! modif nimhd
+!   REAL(dp)::etaohmdiss,bcell,tcell,barotrop1D
+!   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::jcentersquare
+!   ! fin modif nimhd
+! #endif
 
   ! Declare local variables
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::Ez
@@ -3416,19 +3425,19 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               end do
 #endif
 
-#if NIMHD==1
-              ! modif nimhd
-              if(magohm.eq.0 )then
-                 if(ntestDADM.eq.1) then
-                    tcell=1.0d0
-                 else
-                    call temperature_eos(q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
-                 endif
-                 bcell = A*A + B*B + C*C
-                 sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell)*jcentersquare(l,i,j,k)*dt
-              endif
-              ! fin modif nimhd
-#endif
+! #if NIMHD==1
+!               ! modif nimhd
+!               if(magohm.eq.0 )then
+!                  if(ntestDADM.eq.1) then
+!                     tcell=1.0d0
+!                  else
+!                     call temperature_eos(q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
+!                  endif
+!                  bcell = A*A + B*B + C*C
+!                  sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell)*jcentersquare(l,i,j,k)*dt
+!               endif
+!               ! fin modif nimhd
+! #endif
               
               ! Cell-centered predicted states
               r = r + sr0
@@ -3626,13 +3635,13 @@ END SUBROUTINE trace2d
 !###########################################################
 !###########################################################
 #if NDIM==3
-#if NIMHD==1
-! modif nimhd
-SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid,jcentersquare)
-! fin modif nimhd
-#else
+! #if NIMHD==1
+! ! modif nimhd
+! SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid,jcentersquare)
+! ! fin modif nimhd
+! #else
 SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
-#endif
+! #endif
   USE amr_parameters
   USE hydro_parameters
   USE const
@@ -3654,13 +3663,13 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qRB
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qLT
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qLB
-#if NIMHD==1
-  ! modif nimhd
-  REAL(dp)::etaohmdiss,bcell,tcell,barotrop1D
-  REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::jcentersquare
-  integer::ht
-  ! fin modif nimhd
-#endif
+! #if NIMHD==1
+!   ! modif nimhd
+!   REAL(dp)::etaohmdiss,bcell,tcell,barotrop1D
+!   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::jcentersquare
+!   integer::ht
+!   ! fin modif nimhd
+! #endif
 
   ! Declare local variables
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::Ex
@@ -3864,19 +3873,19 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               end do
 #endif
 
-#if NIMHD==1
-              ! modif nimhd
-              if(magohm.eq.0 )then
-                 if(ntestDADM.eq.1) then
-                    tcell=1.0d0
-                 else
-                    call temperature_eos(q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
-                 endif
-                 bcell = A*A + B*B + C*C
-                 sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell)*jcentersquare(l,i,j,k)*dt
-              endif
-              ! fin modif nimhd
-#endif
+! #if NIMHD==1
+!               ! modif nimhd
+!               if(magohm.eq.0 )then
+!                  if(ntestDADM.eq.1) then
+!                     tcell=1.0d0
+!                  else
+!                     call temperature_eos(q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
+!                  endif
+!                  bcell = A*A + B*B + C*C
+!                  sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell)*jcentersquare(l,i,j,k)*dt
+!               endif
+!               ! fin modif nimhd
+! #endif
               
               ! Cell-centered predicted states
               r = r + sr0
@@ -5880,7 +5889,7 @@ end function computdzbis
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-double precision function gammaadbis(rhon,BBcell,BBcellold,temper)
+double precision function gammaadbis(rhon,BBcell,BBcellold,temper,ionisrate)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -5891,7 +5900,7 @@ use units_commons
 
 implicit none  
 real(dp)::rhon,rhoH,n_H_max,BBcell,temper,BBcellold
-real(dp)::eta_AD_chimie
+real(dp)::eta_AD_chimie,ionisrate
 
 ! function which computes the coefficient gamma which
 ! appears in ambipolar diffusion dB/dt=1/(gamma*rhoi*rhon)curl*(j*B)*B)+...
@@ -5908,9 +5917,9 @@ n_H_max = 2.5d+17
 rhoH=rhon*2.0d0*H2_fraction*scale_d/(mu_gas*mH) ! convert in H/cc
 
 if(rhoH < n_H_max)then
-   gammaadbis=eta_AD_chimie(rhoH,BBcell,BBcellold,temper)
+   gammaadbis=eta_AD_chimie(rhoH,BBcell,BBcellold,temper,ionisrate)
 else
-   gammaadbis=eta_AD_chimie(n_H_max,BBcell,BBcellold,temper)
+   gammaadbis=eta_AD_chimie(n_H_max,BBcell,BBcellold,temper,ionisrate)
 endif
 
 gammaadbis=gammaadbis*scale_t*scale_d ! in code units
@@ -5943,14 +5952,14 @@ k_dp = real(kk,dp)
 b_dp = real(ib,dp)
 
 
-x(1:3)=(1.d0-(ll-j_dp))*(1.d0-(ii-k_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(1:3,j,kk,ib))+&
-           &((ll-j_dp))*(1.d0-(ii-k_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(1:3,j+1,kk,ib))+&
-           &(1.d0-(ll-j_dp))*((ii-k_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(1:3,j,kk+1,ib))+&
-                &((ll-j_dp))*((ii-k_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(1:3,j+1,kk+1,ib))+&
-              (1.d0-(ll-j_dp))*(1.d0-(ii-k_dp))*(lb-b_dp)*(resistivite_chimie(1:3,j,kk,ib+1))+&
-                  &((ll-j_dp))*(1.d0-(ii-k_dp))*(lb-b_dp)*(resistivite_chimie(1:3,j+1,kk,ib+1))+&
-                  &(1.d0-(ll-j_dp))*((ii-k_dp))*(lb-b_dp)*(resistivite_chimie(1:3,j,kk+1,ib+1))+&
-                       &((ll-j_dp))*((ii-k_dp))*(lb-b_dp)*(resistivite_chimie(1:3,j+1,kk+1,ib+1))
+x(1:3)=(1.d0-(ll-j_dp))*(1.d0-(ii-k_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(1:3,j,kk,ib,1))+&
+           &((ll-j_dp))*(1.d0-(ii-k_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(1:3,j+1,kk,ib,1))+&
+           &(1.d0-(ll-j_dp))*((ii-k_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(1:3,j,kk+1,ib,1))+&
+                &((ll-j_dp))*((ii-k_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(1:3,j+1,kk+1,ib,1))+&
+              (1.d0-(ll-j_dp))*(1.d0-(ii-k_dp))*(lb-b_dp)*(resistivite_chimie(1:3,j,kk,ib+1,1))+&
+                  &((ll-j_dp))*(1.d0-(ii-k_dp))*(lb-b_dp)*(resistivite_chimie(1:3,j+1,kk,ib+1,1))+&
+                  &(1.d0-(ll-j_dp))*((ii-k_dp))*(lb-b_dp)*(resistivite_chimie(1:3,j,kk+1,ib+1,1))+&
+                       &((ll-j_dp))*((ii-k_dp))*(lb-b_dp)*(resistivite_chimie(1:3,j+1,kk+1,ib+1,1))
               
 sigP= 10.0d0**x(1)
 sigO= 10.0d0**x(2)
@@ -5959,9 +5968,9 @@ sigO= 10.0d0**x(2)
 ! point. If there is a sign inversion, we set it to zero.
 ! If you are using Hall resisitvities, this could be improved by using a linear
 ! interpolation instead of log.
-sigH=(10.0d0**x(3))*resistivite_chimie(0,j,kk,ib)
-sigav = sum(resistivite_chimie(0,j:j+1,kk:kk+1,ib:ib+1)) / 8.0d0
-if(sigav .ne. resistivite_chimie(0,j,kk,ib))then
+sigH=(10.0d0**x(3))*resistivite_chimie(0,j,kk,ib,1)
+sigav = sum(resistivite_chimie(0,j:j+1,kk:kk+1,ib:ib+1,1)) / 8.0d0
+if(sigav .ne. resistivite_chimie(0,j,kk,ib,1))then
    sigH = 0.0_dp
    !if(myid==1) write(*,*)'Sign inversion in Hall resistivity'
 endif
@@ -5972,17 +5981,81 @@ end subroutine sig_x2d
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-double precision function eta_AD_chimie(rhon,BBcell,BBcellold,temper)
+subroutine sig_x3d(ll,ii,xx,j,k,xi,lb,ib,sigO,sigH,sigP,bsquare)
+use amr_parameters,    only : dp
+use hydro_commons ,    only : resistivite_chimie_x
+use variables_X
+use amr_commons, only : myid
+implicit none
+
+integer, intent(in)             :: j,k,xi,ib
+real(dp)                        :: B,nH,temper,sigav
+real(dp)                        :: j_dp,k_dp,xi_dp,b_dp
+real(dp), dimension(0:3)        :: x
+real(dp), intent(in)            :: ll,ii,xx,lb,bsquare
+real(dp), intent(out)           :: sigO,sigH,sigP
+integer                         :: i,kk
+
+j_dp = real(j,dp)
+kk=min(k,tchimie-1)
+k_dp = real(kk,dp)
+xi_dp=real(xi,dp)
+b_dp = real(ib,dp)
+
+
+
+x(0:3)=(1.d0-(ll-j_dp))*(1.d0-(ii-k_dp))*(1.d0-(xx-xi_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(0:3,j,kk,xi,ib))+&
+           &((ll-j_dp))*(1.d0-(ii-k_dp))*(1.d0-(xx-xi_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(0:3,j+1,kk,xi,ib))+&
+           &(1.d0-(ll-j_dp))*((ii-k_dp))*(1.d0-(xx-xi_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(0:3,j,kk+1,xi,ib))+&
+                &((ll-j_dp))*((ii-k_dp))*(1.d0-(xx-xi_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(0:3,j+1,kk+1,xi,ib))+&
+           &(1.d0-(ll-j_dp))*(1.d0-(ii-k_dp))*((xx-xi_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(0:3,j,kk,xi+1,ib))+&
+                &((ll-j_dp))*(1.d0-(ii-k_dp))*((xx-xi_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(0:3,j+1,kk,xi+1,ib))+&
+                &(1.d0-(ll-j_dp))*((ii-k_dp))*((xx-xi_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(0:3,j,kk+1,xi+1,ib))+&
+                     &((ll-j_dp))*((ii-k_dp))*((xx-xi_dp))*(1.d0-(lb-b_dp))*(resistivite_chimie(0:3,j+1,kk+1,xi+1,ib))+&
+            (1.d0-(ll-j_dp))*(1.d0-(ii-k_dp))*(1.d0-(xx-xi_dp))*((lb-b_dp))*(resistivite_chimie(0:3,j,kk,xi,ib+1))+&
+                &((ll-j_dp))*(1.d0-(ii-k_dp))*(1.d0-(xx-xi_dp))*((lb-b_dp))*(resistivite_chimie(0:3,j+1,kk,xi,ib+1))+&
+                &(1.d0-(ll-j_dp))*((ii-k_dp))*(1.d0-(xx-xi_dp))*((lb-b_dp))*(resistivite_chimie(0:3,j,kk+1,xi,ib+1))+&
+                     &((ll-j_dp))*((ii-k_dp))*(1.d0-(xx-xi_dp))*((lb-b_dp))*(resistivite_chimie(0:3,j+1,kk+1,xi,ib+1))+&
+                &(1.d0-(ll-j_dp))*(1.d0-(ii-k_dp))*((xx-xi_dp))*((lb-b_dp))*(resistivite_chimie(0:3,j,kk,xi+1,ib+1))+&
+                     &((ll-j_dp))*(1.d0-(ii-k_dp))*((xx-xi_dp))*((lb-b_dp))*(resistivite_chimie(0:3,j+1,kk,xi+1,ib+1))+&
+                     &(1.d0-(ll-j_dp))*((ii-k_dp))*((xx-xi_dp))*((lb-b_dp))*(resistivite_chimie(0:3,j,kk+1,xi+1,ib+1))+&
+                          &((ll-j_dp))*((ii-k_dp))*((xx-xi_dp))*((lb-b_dp))*(resistivite_chimie(0:3,j+1,kk+1,xi+1,ib+1))
+
+              
+sigP= 10.0d0**x(1)
+sigO= 10.0d0**x(2)
+
+! modification since x(3) can be negative we simply use the sign of the leftmost
+! point. If there is a sign inversion, we set it to zero.
+! If you are using Hall resisitvities, this could be improved by using a linear
+! interpolation instead of log.
+sigH=(10.0d0**x(3))*sign(1d0,x(0))
+sigav = sum(resistivite_chimie(0,j:j+1,kk:kk+1,xi:xi+1,ib:ib+1)) / 16.0d0
+if(sigav .ne. resistivite_chimie(0,j,kk,xi,ib))then
+   sigH = 0.0_dp
+   !if(myid==1) write(*,*)'Sign inversion in Hall resistivity'
+endif
+
+return
+
+end subroutine sig_x3d
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+double precision function eta_AD_chimie(rhon,BBcell,BBcellold,temper,ionisrate)
 use hydro_commons
 use units_commons
 use cooling_module ,only : clight
-use variables_x,ONLY:dtchimie,dnchimie,nminchimie,tminchimie,&
-                    &dbchimie,bminchimie,pi
+use variables_x,ONLY:dtchimie,dnchimie,nminchimie,tminchimie,ximinchimie,&
+                    &dbchimie,bminchimie,pi,nchimie,tchimie,xichimie,dxichimie,&
+                    &bchimie
 implicit none
 
 real(dp)     :: sigO,sigH,sigP,densionbis,BBcgs, bbcell,BBcellold
-real(dp)::inp,ll,rhon,ii,temper,lb,j_dp
-integer :: j,i,ib
+real(dp)::inp,ll,rhon,ii,temper,lb,j_dp,xx
+integer :: i,j,k,ib
+logical :: notfound
+real(dp)::ionisrate
 
 !inp=rhon
 !ll=(1.d0+(log10(inp)-log10(300.d0))/(15.d0/50.d0))
@@ -6001,6 +6074,8 @@ if(use_res==1)then
 !   print*, rhon,temper,eta_AD_chimie
 !   print*, eta_AD_chimie, inp,(1.43d-7*sqrt(inp))**2
 !   stop
+   ! Ad-hoc modification to ensure that the ambipolar resistivity falls to zero when the density exceeds 5.0e13
+   !eta_AD_chimie = eta_AD_chimie * (1.0d0-tanh(rhon/5.0d13))
 else if(use_x2d==1)then
    inp=rhon
    ll=(1.d0+(log10(inp)-log10(nminchimie))/dnchimie)
@@ -6030,6 +6105,9 @@ else if(use_x2d==1)then
 
    eta_AD_chimie=BBcgs**2/(eta_AD_chimie*densionbis(inp)*inp*scale_d*scale_d*clight**2)  ! need B in G, output is gammaad in cgs
 
+   ! Ad-hoc modification to ensure that the ambipolar resistivity falls to zero when the density exceeds 5.0e13
+   !eta_AD_chimie = eta_AD_chimie * (1.0d0-tanh(rhon/5.0d13))
+
 !print*,eta_ad_chimie
 !   print*, rhon,temper,eta_AD_chimie
 !   print*,   eta_AD_chimie,inp*xmolaire*H2_fraction,BBcgs,inp,densionbis(inp),scale_d
@@ -6037,6 +6115,28 @@ else if(use_x2d==1)then
 !   print *,  eta_AD_chimie,inp,ll,j,sigO,sigH,sigP,BBcell,scale_d,densionbis(inp),clight
 !   print *, 'biiiiii'
 ! print*,eta_AD_chimie, ll,j,ii,i,lb,ib,rhon,temper,bbcgs
+
+else if(use_x3d==1)then
+   ll=(1.d0+(log10(rhon)-log10(nminchimie))/dnchimie)
+   j=floor(ll)
+   ii=(1.d0+(log10(temper)-log10(tminchimie))/dtchimie)
+!    ii=max(ii,1.0d0)
+   i=floor(ii)   
+   xx=(1.d0+(log10(ionisrate)-log10(ximinchimie))/dxichimie)
+   k=floor(xx)
+
+   BBcgs=sqrt(BBcellold*(4.d0*pi*scale_d*(scale_v)**2))
+   lb=(1.d0+(log10(BBcgs)-log10(bminchimie))/dbchimie)
+   ib=floor(lb)
+
+   call sig_x3d(ll,ii,xx,j,i,k,lb,ib,sigO,sigH,sigP,BBcgs) 
+   inp=rhon/2.d0/H2_fraction     ! inp is neutrals.cc, to fit densionbis
+   eta_AD_chimie=(sigO/(sigO**2+sigH**2)-1.d0/sigP)   ! resistivity in s
+
+   BBcgs=sqrt(BBcell*(4.d0*pi*scale_d*(scale_v)**2))
+
+   eta_AD_chimie=BBcgs**2/(eta_AD_chimie*densionbis(inp)*inp*scale_d*scale_d*clight**2)  ! need B in G, output is gammaad in cgs
+
 
 endif
 ! stop
@@ -6052,18 +6152,19 @@ end function eta_AD_chimie
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-double precision function eta_ohm_chimie(rhon,BBcell,temper)
+double precision function eta_ohm_chimie(rhon,BBcell,temper,ionisrate)
 use hydro_commons
 use units_commons
 use cooling_module, only : clight
-use variables_x,ONLY:dtchimie,dnchimie,nminchimie,tminchimie,&
-                    &dbchimie,bminchimie,pi
+use variables_x,ONLY:dtchimie,dnchimie,nminchimie,tminchimie,ximinchimie,&
+                    &dbchimie,bminchimie,pi,nchimie,tchimie,xichimie,dxichimie,&
+                    &bchimie
 implicit none
 
 real(dp) :: inp,ll,ii,lb,rhon,BBcell
 real(dp) :: temper,sigO,sigH,sigP,BBcgs
-real(dp) :: j_dp
-integer  :: j,i,ib
+real(dp) :: j_dp,ionisrate,xx
+integer  :: j,i,ib,k
 
 if(use_res==1)then
    inp=rhon
@@ -6072,6 +6173,7 @@ if(use_res==1)then
    j_dp=real(j,dp)
    eta_ohm_chimie=(ll-j_dp)*log10(resistivite_chimie_res(7,j+1))+(1.d0-(ll-j_dp))*log10(resistivite_chimie_res(7,j))
    eta_ohm_chimie=10.0d0**eta_ohm_chimie
+   eta_ohm_chimie = max(eta_ohm_chimie * (1.0d0-tanh(rhon/1.0d15)), 1.d-36)
 else if(use_x2d==1)then
    inp=rhon
    ll=(1.d0+(log10(inp)-log10(nminchimie))/dnchimie)
@@ -6086,12 +6188,25 @@ else if(use_x2d==1)then
    ib=floor(lb)
    call sig_x2d(ll,ii,j,i,lb,ib,sigO,sigH,sigP,BBcgs)
    eta_ohm_chimie = (1.d0 / sigP) * clight * clight / (4.0_dp*pi)
+   eta_ohm_chimie = max(eta_ohm_chimie * (1.0d0-tanh(rhon/1.0d15)), 1.d-36)
+else if(use_x3d==1)then
+   ll=(1.d0+(log10(rhon)-log10(nminchimie))/dnchimie)
+   j=floor(ll)
+   ii=(1.d0+(log10(temper)-log10(tminchimie))/dtchimie)
+   i=floor(ii)   
+   xx=(1.d0+(log10(ionisrate)-log10(ximinchimie))/dxichimie)
+   k=floor(xx)
+   BBcgs=sqrt(BBcell*(4.d0*pi*scale_d*(scale_v)**2))
+   lb=(1.d0+(log10(BBcgs)-log10(bminchimie))/dbchimie)
+   ib=floor(lb)
+   call sig_x3d(ll,ii,xx,j,i,k,lb,ib,sigO,sigH,sigP,BBcgs)
+   eta_ohm_chimie = (1.d0 / sigP) * clight * clight / (4.0_dp*pi)
 endif
 
 ! Ad-hoc modification to ensure that the ohmic resistivity falls to zero when the density exceeds 1.0e15
 ! when alkali metals are ionized.
 !eta_ohm_chimie = eta_ohm_chimie * (1.0d0-tanh(rhon/1.0d15))
-eta_ohm_chimie = max(eta_ohm_chimie * (1.0d0-tanh(rhon/1.0d15)), 1.d-36)
+! eta_ohm_chimie = max(eta_ohm_chimie * (1.0d0-tanh(rhon/1.0d15)), 1.d-36)
 
 end function eta_ohm_chimie
 
@@ -6490,7 +6605,7 @@ end function muvisco
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-double precision function etaohmdiss(rhon,BBcell,temper)
+double precision function etaohmdiss(rhon,BBcell,temper,ionisrate)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -6503,7 +6618,7 @@ implicit none
 real(dp) ::rhon,xpressure,rhoH,rhotemp,BBcell
 real(dp)::gammaadbis,densionbis
 real(dp)::xionisation,temper,scale_p,xpcgs,rhocgs,xnbcgs,n_H_max
-real(dp)::eta_ohm_chimie
+real(dp)::eta_ohm_chimie,ionisrate
 
 if(ntestDADM.eq.0) then
 
@@ -6544,9 +6659,9 @@ if(ntestDADM.eq.0) then
    rhotemp = MAX(rhoH,rho_threshold)
 
    if(rhotemp < n_H_max)then
-      etaohmdiss=eta_ohm_chimie(rhotemp,BBcell,temper)
+      etaohmdiss=eta_ohm_chimie(rhotemp,BBcell,temper,ionisrate)
    else
-      etaohmdiss=eta_ohm_chimie(n_H_max,BBcell,temper)
+      etaohmdiss=eta_ohm_chimie(n_H_max,BBcell,temper,ionisrate)
    endif
    
    etaohmdiss=etaohmdiss*scale_t/(scale_l)**2
@@ -6571,7 +6686,7 @@ end function etaohmdiss
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-double precision function etaohmdissbricolo(rhon,BBcell,temper,dtlim,dx)
+double precision function etaohmdissbricolo(rhon,BBcell,temper,dtlim,dx,ionisrate)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -6582,7 +6697,7 @@ use units_commons
 
 implicit none 
 real(dp) ::rhon,xpressure,rhoH,rhotemp,BBcell
-real(dp)::gammaadbis,densionbis
+real(dp)::gammaadbis,densionbis,ionisrate
 real(dp)::xionisation,temper,scale_p,xpcgs,rhocgs,xnbcgs,n_H_max
 real(dp)::eta_ohm_chimie,dx,dtlim,xx,dtt
 
@@ -6625,9 +6740,9 @@ if(ntestDADM.eq.0) then
    rhotemp = MAX(rhoH,rho_threshold)
 
    if(rhotemp < n_H_max)then
-      etaohmdissbricolo=eta_ohm_chimie(rhotemp,BBcell,temper)
+      etaohmdissbricolo=eta_ohm_chimie(rhotemp,BBcell,temper,ionisrate)
    else
-      etaohmdissbricolo=eta_ohm_chimie(n_H_max,BBcell,temper)
+      etaohmdissbricolo=eta_ohm_chimie(n_H_max,BBcell,temper,ionisrate)
    endif
 
    etaohmdissbricolo=etaohmdissbricolo*scale_t/(scale_l)**2
@@ -6672,7 +6787,7 @@ end function etaohmdissbricolo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-double precision function betaad(rhon,bsquare,temper)
+double precision function betaad(rhon,bsquare,temper,ionisrate)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -6680,7 +6795,7 @@ use hydro_parameters
 
 implicit none 
 real(dp) ::rhon,rhotemp,bsquare,temper
-real(dp)::gammaadbis,densionbis
+real(dp)::gammaadbis,densionbis,ionisrate
 
 real(dp)::xx
 
@@ -6700,7 +6815,7 @@ if(ntestDADM.eq.0) then
    rhotemp = MAX(rhon,rho_threshold)
 
    !xx=gammaadbis(rhotemp,bsquare,temper)*densionbis(rhon)*rhon
-   xx=gammaadbis(rhotemp,bsquare,bsquare,temper)*densionbis(rhotemp)*rhotemp
+   xx=gammaadbis(rhotemp,bsquare,bsquare,temper,ionisrate)*densionbis(rhotemp)*rhotemp
 
    !xx=gammaadbis(rhotemp)*densionbis(rhotemp)*rhotemp
    !write(*,*)'gammaadbis',gammaadbis(rhon),densionbis(rhon),rhon
@@ -6709,7 +6824,7 @@ if(ntestDADM.eq.0) then
    else
       betaad=1.d39
       if(rhotemp < 1.0d+14)then
-         write(*,*)'WARNING gammaadbis(rhotemp,bsquare,temper)*densionbis(rhon)*rhon equal 0',gammaadbis(rhotemp,bsquare,bsquare,temper),densionbis(rhotemp),rhotemp
+         write(*,*)'WARNING gammaadbis(rhotemp,bsquare,temper,ionisrate)*densionbis(rhon)*rhon equal 0',gammaadbis(rhotemp,bsquare,bsquare,temper,ionisrate),densionbis(rhotemp),rhotemp
       endif
    endif
 
@@ -6733,7 +6848,7 @@ end function betaad
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-double precision function betaadbricolo(rhocelln,rhon,dtlim,bsquare,bsquareold,dx,ntest,temper)
+double precision function betaadbricolo(rhocelln,rhon,dtlim,bsquare,bsquareold,dx,ntest,temper,ionisrate)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -6747,7 +6862,7 @@ implicit none
 
 integer :: ntest
 real(dp) ::rhocelln,rhon,betaadbricolotemp,dtlim,bsquare,bsquareold,dx,temper
-real(dp)::gammaadbis,densionbis,rhotemp,rhotemp_cell
+real(dp)::gammaadbis,densionbis,rhotemp,rhotemp_cell,ionisrate
 
 real(dp)::xx,dtt,bbcgs
 
@@ -6775,20 +6890,20 @@ if(ntestDADM.eq.0) then
 
 !    xx=gammaadbis(rhotemp_cell,bsquare,temper)*densionbis(rhocelln)*rhocelln  ! dans la cellule
 
-   xx=gammaadbis(rhotemp_cell,bsquare,bsquareold,temper)*densionbis(rhotemp_cell)*rhotemp_cell  ! dans la cellule
+   xx=gammaadbis(rhotemp_cell,bsquare,bsquareold,temper,ionisrate)*densionbis(rhotemp_cell)*rhotemp_cell  ! dans la cellule
 
    if(xx.ne.0.d0) then
       betaadbricolo=1.d0/xx 
    else
       betaadbricolo=1.d39
       if(rhotemp < 1.0d+14)then
-         write(*,*)'WARNING gammaadbis(rhocelln,bsquare,bsquareold,temper)*densionbis(rhocelln)*rhocelln in the cell equals 0',gammaadbis(rhotemp_cell,bsquare,bsquareold,temper),densionbis(rhocelln),rhocelln,bsquare,bsquareold,temper
+         write(*,*)'WARNING gammaadbis(rhocelln,bsquare,bsquareold,temper,ionisrate)*densionbis(rhocelln)*rhocelln in the cell equals 0',gammaadbis(rhotemp_cell,bsquare,bsquareold,temper,ionisrate),densionbis(rhocelln),rhocelln,bsquare,bsquareold,temper
       endif
    endif
 
    !xx=gammaadbis(rhotemp,bsquare,bsquareold,temper)*densionbis(rhon)*rhon   ! a l'interface : cote ou coin selon les cas. A utiliser si l'on est pas dans un cas seuille
 
-   xx=gammaadbis(rhotemp,bsquare,bsquareold,temper)*densionbis(rhotemp)*rhotemp  
+   xx=gammaadbis(rhotemp,bsquare,bsquareold,temper,ionisrate)*densionbis(rhotemp)*rhotemp  
 
  ! a l'interface : cote ou coin selon les cas. A utiliser si l'on est pas dans un cas seuille
 
@@ -6797,7 +6912,7 @@ if(ntestDADM.eq.0) then
    else
       betaadbricolotemp=1.d39
       if(rhotemp < 1.0d+14)then
-         write(*,*)'WARNING gammaadbis(rhon,bsquare,bsquareold,temper)*densionbis(rhon)*rhon at the interface equals 0',gammaadbis(rhotemp,bsquare,bsquareold,temper),densionbis(rhon),rhon
+         write(*,*)'WARNING gammaadbis(rhon,bsquare,bsquareold,temper,ionisrate)*densionbis(rhon)*rhon at the interface equals 0',gammaadbis(rhotemp,bsquare,bsquareold,temper,ionisrate),densionbis(rhon),rhon
       endif
    endif
 

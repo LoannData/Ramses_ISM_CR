@@ -12,6 +12,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   use amr_parameters
   use hydro_parameters
   use const
+  use hydro_commons,ONLY:default_ionisrate
   implicit none
   integer::ncell,ht
   real(dp)::dx,dt
@@ -26,7 +27,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   ! fin modif nimhd
   real(dp),dimension(1:nvector,1:nvar+3)::uu
   real(dp),dimension(1:nvector,1:ndim)::gg
-  real(dp),dimension(1:nvector),save::a2,B2,rho,ctot,tcell
+  real(dp),dimension(1:nvector),save::a2,B2,rho,ctot,tcell,ionisrate
   
   real(dp)::dtcell,smallp,cf,cc,bc,bn,crad
   integer::k,idim, irad
@@ -41,6 +42,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      ! modif nimhd
      rhoad(k)=rho(k)
      call temperature_eos(rho(k),uu(k,nvar),tcell(k),ht)
+     ionisrate(k) = default_ionisrate
      ! fin modif nimhd
 #endif
   end do
@@ -148,7 +150,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   else
      dtohmdiss=1.d35
      do k = 1,ncell
-        xx=etaohmdiss(rhoad(k),B2(k),tcell(k))
+        xx=etaohmdiss(rhoad(k),B2(k),tcell(k),ionisrate(k))
         if(xx.gt.0.d0) then
            dtohmdissb=coefohm*dx*dx/xx
         else
@@ -164,7 +166,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   else
      dtambdiff=1.d36
      do k = 1,ncell
-        xx=B2(k)*betaad(rhoad(k),B2(k),tcell(k)) 
+        xx=B2(k)*betaad(rhoad(k),B2(k),tcell(k),ionisrate(k)) 
         if (xx.gt.0.d0) then
            !! WARNING RHOAD mandatory because rho(k) is not density cf lines above
            dtambdiffb=coefad*dx*dx/xx
