@@ -82,6 +82,9 @@ endif
      write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+3+ivar,ivar
   end do
 #endif
+  ! Temperature
+  ivar=firstindex_pscal+3+npscal+1
+  write(ilun,'("variable #",I2,": temperature")')ivar
 
   close(ilun)
 
@@ -201,12 +204,8 @@ subroutine backup_hydro(filename)
                     e=e-uold(ind_grid(i)+iskip,8+irad)
                  end do
 #endif
-                 if(.not.eos)then
-                    xdp(i)=(gamma-1d0)*e
-                 else
-                    call pressure_eos(d,e,p)
-                    xdp(i)=p
-                 endif
+                 call pressure_eos(d,e,p)
+                 xdp(i)=p
               end do
               write(ilun)xdp
 
@@ -243,31 +242,29 @@ subroutine backup_hydro(filename)
               end do
 #endif
               
-              if(eos) then
-                 ! Write temperature
-                 do i=1,ncache
-                    d=max(uold(ind_grid(i)+iskip,1),smallr)
-                    if(energy_fix) then
-                       e=uold(ind_grid(i)+iskip,nvar)
-                    else
-                       u=uold(ind_grid(i)+iskip,2)/d
-                       v=uold(ind_grid(i)+iskip,3)/d
-                       w=uold(ind_grid(i)+iskip,4)/d
-                       A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
-                       B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
-                       C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
-                       e=uold(ind_grid(i)+iskip,5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
+              ! Write temperature
+              do i=1,ncache
+                 d=max(uold(ind_grid(i)+iskip,1),smallr)
+                 if(energy_fix) then
+                    e=uold(ind_grid(i)+iskip,nvar)
+                 else
+                    u=uold(ind_grid(i)+iskip,2)/d
+                    v=uold(ind_grid(i)+iskip,3)/d
+                    w=uold(ind_grid(i)+iskip,4)/d
+                    A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
+                    B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
+                    C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
+                    e=uold(ind_grid(i)+iskip,5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
 #if NENER>0
-                       do irad=1,nener
-                          e=e-uold(ind_grid(i)+iskip,8+irad)
-                       end do
+                    do irad=1,nener
+                       e=e-uold(ind_grid(i)+iskip,8+irad)
+                    end do
 #endif
-                    endif
-                    call temperature_eos(d,e,cmp_temp,ht)
-                    xdp(i)=cmp_temp
-                 end do
-                 write(ilun)xdp
-              endif
+                 endif
+                 call temperature_eos(d,e,cmp_temp,ht)
+                 xdp(i)=cmp_temp
+              end do
+              write(ilun)xdp
 
            end do
            deallocate(ind_grid, xdp)

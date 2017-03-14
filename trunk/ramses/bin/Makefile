@@ -40,10 +40,9 @@ ifeq ($(NIMHD),1)
 else
    NPSCAL := $(NPSCAL)+$(NIONS)+1 # for internal energy
 endif
-ifeq ($(USE_FLD),1)
-   NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
-else
-   NVAR=8+$(NENER)+$(NDIM)*$(NGRP)+$(NEXTINCT)+$(NPSCAL)
+NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
+ifeq ($(USE_M_1),1)
+   NVAR=$(NVAR)+$(NDIM)*$(NGRP)
 endif
 
 
