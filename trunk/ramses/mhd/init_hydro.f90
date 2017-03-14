@@ -95,10 +95,11 @@ subroutine init_hydro
      read(ilun)nlevelmax2
      read(ilun)nboundary2
      read(ilun)gamma2
-     if( (eos .and. nvar2.ne.nvar+3+1) .or. (.not.eos .and. nvar2.ne.nvar+3) )then
+!      if( (eos .and. nvar2.ne.nvar+3+1) .or. (.not.eos .and. nvar2.ne.nvar+3) )then
+     if(nvar2.ne.nvar+4)then
         write(*,*)'File hydro.tmp is not compatible'
         write(*,*)'Found   =',nvar2
-        write(*,*)'Expected=',nvar+3
+        write(*,*)'Expected=',nvar+4
         call clean_stop
      end if
      do ilevel=1,nlevelmax2
