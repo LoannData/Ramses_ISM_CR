@@ -19,7 +19,7 @@ subroutine file_descriptor_hydro(filename)
   open(unit=ilun,file=fileloc,form='formatted')
 
   ! Write run parameters
-  write(ilun,'("nvar        =",I11)')nvar+3
+  write(ilun,'("nvar        =",I11)')nvar+4
   ivar=1
   write(ilun,'("variable #",I2,": density")')ivar
   ivar=2
