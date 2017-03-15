@@ -330,11 +330,11 @@ subroutine init_amr
      read(ilun)einit,mass_tot_0,rho_tot
      read(ilun)omega_m,omega_l,omega_k,omega_b,h0,aexp_ini,boxlen_ini
      read(ilun)aexp,hexp,aexp_old,epot_tot_int,epot_tot_old
-     if(cosmo)then
+!!$     if(cosmo)then
         read(ilun)mass_sph
-     else
-        read(ilun)mass_sph2
-     endif
+!!$     else
+!!$        read(ilun)mass_sph2
+!!$     endif
      if(myid==1)write(*,*)'Restarting at t=',t,' nstep_coarse=',nstep_coarse
      trestart = t
 
