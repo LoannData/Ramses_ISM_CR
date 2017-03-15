@@ -484,7 +484,7 @@ for ((i=0;i<$ntests;i++)); do
       echo "Compiling source";
       echo "Compiling source" >> ${THISTESTLOG};
       MAKESTRING="make EXEC=${EXECNAME} PATCH=${testpatch[n]} MPI=${MPI} NDIM=${ndim[n]} ${flags[n]}";
-      if ${MPI} ; then
+      if [ ${MPI} -eq 1 ]; then
          MAKESTRING="${MAKESTRING} -j ${NCPU}";
       fi
       if $VERBOSE ; then
