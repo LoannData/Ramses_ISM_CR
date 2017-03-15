@@ -2640,7 +2640,7 @@ do k=min(1,ku1+1),max(1,ku2-1)
 !                    if(nmagdiffu2.eq.1)call temperature_eos(rhocell,u(l,i,j,k,3),tcell,ht)
                     end if
                     
-                    jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdiss(rhocell,bcell,tcell,dtlim,dx,ionisrate)*dt
+                    jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdiss(rhocell,bcell,tcell,ionisrate)*dt
                     
                  end if
               end do
@@ -2912,8 +2912,7 @@ jcenter=0.0d0
               call crossprod(jcenter,u(:,:,:,:,6:8),jxb,l,i,j,k)
 
               jxbsquare(l,i,j,k)=(jxb(l,i,j,k,1)*jxb(l,i,j,k,1)+jxb(l,i,j,k,2)*jxb(l,i,j,k,2)+jxb(l,i,j,k,3)*jxb(l,i,j,k,3))*&
-              & betaad(u(l,i,j,k,1),u(l,i,j,k,1),dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)*dtlim
-              
+              & betaad(u(l,i,j,k,1),bcell,tcell,ionisrate)*dtlim
 
 
 

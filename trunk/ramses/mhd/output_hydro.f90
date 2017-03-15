@@ -126,11 +126,12 @@ subroutine backup_hydro(filename)
 #endif
   open(unit=ilun,file=fileloc,form='unformatted')
   write(ilun)ncpu
-  if(eos) then 
-     write(ilun)nvar+3+1
-  else
-     write(ilun)nvar+3
-  endif
+!   if(eos) then 
+!      write(ilun)nvar+3+1
+!   else
+!      write(ilun)nvar+3
+!   endif
+  write(ilun)nvar+4
   write(ilun)ndim
   write(ilun)nlevelmax
   write(ilun)nboundary
