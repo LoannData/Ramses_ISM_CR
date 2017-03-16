@@ -2217,7 +2217,6 @@ subroutine cmp_energy(Etype)
   use radiation_parameters
   use const
   use units_commons
-  use hydro_parameters,only:nvar
   use rt_hydro_commons
   use rt_cooling_module
 

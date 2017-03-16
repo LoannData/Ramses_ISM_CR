@@ -737,7 +737,7 @@ function planck_ana(dens,Tp,Tr,igroup)
   ! Third linear interpolation along z
   planck_ana = c0*(1.0_dp-dz) + c1*dz
   
-  planck_ana = 0.d0 !dens*10.0_dp**(planck_ana)
+  planck_ana = dens*10.0_dp**(planck_ana)
 
 end function planck_ana
 
