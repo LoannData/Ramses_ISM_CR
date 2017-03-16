@@ -7,6 +7,7 @@ SUBROUTINE rt_init
 !-------------------------------------------------------------------------
   use amr_commons
   use hydro_commons
+  use cloud_module,only:rt_protostar_m1
   use rt_hydro_commons
   use rt_flux_module
   use rt_cooling_module,only:rt_isIRtrap,iIRtrapVar
@@ -91,6 +92,7 @@ endif
   if(rt .and. .not.rt_otsa) rt_advect=.true.                              
   if(rt .and. rt_nsource .gt. 0) rt_advect=.true.                         
   if(rt .and. rt_nregion .gt. 0) rt_advect=.true.
+  if(rt .and. rt_protostar_m1) rt_advect=.true.
   ! UV propagation is checked in set_model
   ! Star feedback is checked in amr_step
 
@@ -202,10 +204,12 @@ SUBROUTINE read_rt_params(nml_ok)
   ! Set default initialisation of ionisation states:
   ! -Off if restarting, but can set to true (for postprocessing)
   ! -On otherwise, but can set to false (for specificic initialisation)
-  if(nrestart .gt. 0) then
-     rt_is_init_xion=.false.
-  else
-     rt_is_init_xion=.true.
+  if(neq_chem .or. rt) then
+     if(nrestart .gt. 0) then
+        rt_is_init_xion=.false.
+     else
+        rt_is_init_xion=.true.
+     endif
   endif
 
   ! Read namelist file

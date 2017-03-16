@@ -4,7 +4,7 @@ recursive subroutine amr_step(ilevel,icount)
   use hydro_commons
   use poisson_commons
 
-  use cloud_module, only: rt_feedback
+  use cloud_module, only: rt_feedback,rt_protostar_m1
   use feedback_module
 
 #ifdef RT
@@ -523,7 +523,7 @@ recursive subroutine amr_step(ilevel,icount)
 #if USE_FLD==1
   ! Compute radiative feedback if radiative transfer with FLD on
   if(FLD)then
-     if(rt_feedback .and. sink .and. nsink .gt. 0)call radiative_feedback_sink(ilevel)
+     if(rt_feedback .and. sink .and. nsink .gt. 0 .and. .not.rt_protostar_m1)call radiative_feedback_sink(ilevel)
   end if
 #endif
 
@@ -708,6 +708,7 @@ end subroutine amr_step
 subroutine rt_step(ilevel)
   use amr_parameters, only: dp
   use amr_commons,    only: levelmin, t, dtnew, myid
+  use cloud_module, only: rt_protostar_m1
   use rt_parameters, only: rt_isDiffuseUVsrc
   use rt_cooling_module, only: update_UVrates
   use rt_hydro_commons
@@ -748,6 +749,7 @@ subroutine rt_step(ilevel)
 
      if(rt_star) call star_RT_feedback(ilevel,dtnew(ilevel))
      if(rt_sink) call sink_RT_feedback(ilevel,dtnew(ilevel))
+     if(rt_protostar_m1)call radiative_feedback_sink(ilevel)
 
      ! Hyperbolic solver
      if(rt_advect) call rt_godunov_fine(ilevel,dtnew(ilevel))

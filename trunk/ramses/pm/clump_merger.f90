@@ -30,16 +30,11 @@ subroutine compute_clump_properties(xx)
 
 #if USE_FLD==1
   real(dp)::eint,d_jeans,cs,erad_loc,ekin_loc,emag_loc,pi,factG,bx1,by1,bz1,bx2,by2,bz2
-  integer::nener_offset
 
   ! Gravitational constant
   factG=1d0
   pi=acos(-1.0d0)
   if(cosmo)factG=3d0/8d0/pi*omega_m*aexp
-
-#if NENER>0
-  nener_offset = inener-1
-#endif
 #endif
   
   period(1)=(nx==1)
@@ -135,8 +130,8 @@ subroutine compute_clump_properties(xx)
         ekin_loc=ekin_loc/d
         erad_loc=0.0d0
 #if NENER>0
-        do i=1,nener
-           erad_loc=erad_loc + uold(icellp(ipart),nener_offset+i)
+        do i=0,nener-1
+           erad_loc=erad_loc + uold(icellp(ipart),inener+i)
         end do
 #endif
         emag_loc=0.0d0

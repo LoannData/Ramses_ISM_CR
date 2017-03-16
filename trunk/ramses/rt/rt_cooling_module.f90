@@ -492,6 +492,7 @@ contains
        dCdT2 = dCdT2 * mu                            ! dC/dT2 = mu * dC/dT
        metal_tot=0.d0 ; metal_prime=0.d0             ! Metal cooling
        Zsolar(icell) = 1d0 ! HACK
+       ! Benoit : comment to avoid cooling by metals, e.g., below 10^4 K
        !if(Zsolar(icell) .gt. 0d0) &
        !     call rt_cmp_metals(T2(icell),nH(icell),mu,metal_tot          &
        !                       ,metal_prime,a_exp)

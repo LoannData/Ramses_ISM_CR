@@ -531,8 +531,8 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 #endif
         e=e-0.5*d*(u*u+v*v+w*w)
 #if NENER>0
-        do irad=1,nener
-           e=e-fluid_var(j,inener-1+irad)
+        do irad=0,nener-1
+           e=e-fluid_var(j,inener+irad)
         end do
 #endif
         if(energy_fix)e=fluid_var(j,nvar)
@@ -881,8 +881,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ekin=0.5d0*d*v2
            e=e-ekin
 #if NENER>0
-           do irad=1,nener
-              e=e-uold(indp(j,ind),inener-1+irad)
+           do irad=0,nener-1
+              e=e-uold(indp(j,ind),inener+irad)
            end do
 #endif
            e=e/d
@@ -1019,8 +1019,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 #endif
               e=e+0.5d0*d*v2
 #if NENER>0
-              do irad=1,nener
-                 e=e+uold(indp(j,ind),inener-1+irad)
+              do irad=0,nener-1
+                 e=e+uold(indp(j,ind),inener+irad)
               end do
 #endif
               uold(indp(j,ind),1)=d
@@ -1890,8 +1890,8 @@ subroutine make_sink_from_clump(ilevel)
               v2=(u**2+v**2+w**2)
               e=e-0.5d0*d*v2
 #if NENER>0
-              do irad=1,nener
-                 e=e-uold(ind_cell_new(i),inener-1+irad)
+              do irad=0,nener-1
+                 e=e-uold(ind_cell_new(i),inener+irad)
               end do
 #endif             
               e=e/d
@@ -1960,8 +1960,8 @@ subroutine make_sink_from_clump(ilevel)
 #endif
               e=e+0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
-              do irad=1,nener
-                 e=e+uold(ind_cell_new(i),inener-1+irad)
+              do irad=0,nener-1
+                 e=e+uold(ind_cell_new(i),inener+irad)
               end do
 #endif              
               uold(ind_cell_new(i),1)=d
@@ -3994,10 +3994,14 @@ subroutine radiative_feedback_sink(ilevel)
   use pm_commons
   use amr_commons
   use hydro_commons
+  use cloud_module,only: rt_protostar_m1
   use cooling_module,only: clight
-  use radiation_parameters,only:stellar_photon
+  use radiation_parameters,only:stellar_photon,aR
   use units_commons
-  implicit none
+#ifdef RT
+  use rt_hydro_commons
+#endif
+implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
 #endif
@@ -4111,24 +4115,33 @@ subroutine radiative_feedback_sink(ilevel)
                     if ((q.lt.1.0)) kernelvalue = 1.0d0-1.5d0*q**2+0.75d0*q**3 !=0.25d0*(2.0d0-q)**3-(1.0d0-q)**3
                     if ((q.ge.1.0)  .and.(q.lt.2.0)) kernelvalue = 0.25d0*(2.0d0-q)**3
                     weight = kernelvalue/(pi*h_loc**3)
-                    weight =1.0d0 ! bypass wightin. Maybe to be reconsidered...
+                    weight =1.0d0/((4.0d0*pi*rmax**3)/3.0d0) ! bypass weighting. Maybe to be reconsidered...
                     Tstar = Teff_sink(isink)
                     if(Tstar .gt. 0)then
-                       if(stellar_photon)then
-                          igrp=1    ! Put all stellar radiative flux in the first group 
-                          uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_sink(isink)*weight*dtnew(ilevel)/((4.0d0*pi*rmax**3)/3.0d0)
-                          uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_sink(isink)*weight*dtnew(ilevel)/((4.0d0*pi*rmax**3)/3.0d0)
-                       else
-                          do igrp=1,ngrp 
-                             Lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)/((4.0d0*pi*rmax**3)/3.0d0)
-                             uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_group*weight*dtnew(ilevel)
-                             uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_group*weight*dtnew(ilevel)
-                          end do
+                       if(.not. rt_protostar_m1)then
+                          if(stellar_photon)then
+                             igrp=1    ! Put all stellar radiative flux in the first group 
+                             uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_sink(isink)*weight*dtnew(ilevel)
+                             uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_sink(isink)*weight*dtnew(ilevel)
+                          else
+                             do igrp=1,ngrp 
+                                Lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)/((4.0d0*pi*rmax**3)/3.0d0)
+                                uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_group*weight*dtnew(ilevel)
+                                uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_group*weight*dtnew(ilevel)
+                             end do
+                          end if
                        end if
-                    end if
+#ifdef RT
+                       if(rt_protostar_m1)then
+                          ! We assume that energy is transported with M1 (rathewr than a number of photons with a mean energy groupe_egy).
+                          ! To be reconsidered when we will do Hii ionisation for later evolution.
 
-                 endif
-                 
+                          Lum_group = aR*(Tstar**4)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)
+                          rtunew(ind_cell(i),1)=rtunew(ind_cell(i),1) + Lum_group*weight*dtnew(ilevel)/((group_egy(1)*ev_to_erg)/scale_d/scale_v**2)
+                       end if
+#endif
+                    end if
+                 end if
               end do
            endif
         end do

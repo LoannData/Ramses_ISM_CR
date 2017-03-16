@@ -217,7 +217,7 @@ subroutine compute_clump_properties_round2(xx)
 
   integer::ipart,ilevel,info,i,peak_nr,global_peak_id,j,ii,jj,ht
   integer::grid,nx_loc,ix,iy,iz,ind,icpu,idim
-  integer::ig,iNp,irad,nener_offset
+  integer::ig,iNp,irad
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2,scale_kappa,scale_Np,scale_Fp
   real(dp)::d,vol,M,ekk,err,phi_rel,de,c_sound,d0,v_bulk2,p,T2,c_code
   real(dp)::dx,dx_loc,scale,vol_loc,abs_err,A1=0.,A2=0.,A3=0.
@@ -237,10 +237,6 @@ subroutine compute_clump_properties_round2(xx)
   real(dp),dimension(1:nGroups)::Np2Ep_flux
 #endif
 
-#if NENER>0
-  nener_offset = inener-1
-#endif
-  
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
@@ -377,8 +373,8 @@ subroutine compute_clump_properties_round2(xx)
         ! non-themal energy 
         err=0.d0
 #if NENER>0
-        do irad=1,nener
-           err=err+uold(icellp(ipart),nener_offset+irad)
+        do irad=0,nener-1
+           err=err+uold(icellp(ipart),inener+irad)
         end do
 #endif
 
@@ -788,7 +784,7 @@ subroutine surface_int_np(ind_cell,np,ilevel)
   logical,dimension(1:ndim)::period
   real(dp),dimension(1:nvector)::B_dot_n,B_dot_r,B2
   real(dp),dimension(1:nvector,1:3)::B
-  integer::irad, nener_offset
+  integer::irad
   real(dp)::P,eint,d
 
   period(1)=(nx==1)
@@ -799,10 +795,6 @@ subroutine surface_int_np(ind_cell,np,ilevel)
   if(ndim>2)period(3)=(nz==1)
 #endif
 
-#if NENER>0
-  nener_offset = inener-1
-#endif
-  
 #if NDIM==3
 
   ! Mesh spacing in that level
@@ -846,8 +838,8 @@ subroutine surface_int_np(ind_cell,np,ilevel)
      end do
 #endif
 #if NENER>0
-     do irad=1,nener
-        err_cell(j)=err_cell(j)+uold(ind_cell(j),nener_offset+irad)
+     do irad=0,nener-1
+        err_cell(j)=err_cell(j)+uold(ind_cell(j),inener+irad)
      end do
 #endif
 !!$     P_cell(j)=(gamma-1.0)*(uold(ind_cell(j),ndim+2)-ekk_cell(j)-err_cell(j)-emag_cell(j))
@@ -979,8 +971,8 @@ subroutine surface_int_np(ind_cell,np,ilevel)
 #endif
                     err_neigh=0.d0
 #if NENER>0
-                    do irad=1,nener
-                       err_neigh=err_neigh+uold(cell_index(j),nener_offset+irad)
+                    do irad=0,nener-1
+                       err_neigh=err_neigh+uold(cell_index(j),inener+irad)
                     end do
 #endif                    
 !!$                    P_neigh=(gamma-1.0)*(uold(cell_index(j),ndim+2)-ekk_neigh-emag_neigh-err_neigh)
@@ -1119,8 +1111,8 @@ subroutine surface_int_np(ind_cell,np,ilevel)
 #endif
                        err_neigh=0.d0
 #if NENER>0
-                       do irad=1,nener
-                          err_neigh=err_neigh+uold(cell_index(j),nener_offset+irad)
+                       do irad=0,nener-1
+                          err_neigh=err_neigh+uold(cell_index(j),inener+irad)
                        end do
 #endif
 !!$                       P_neigh=(gamma-1.0)*(uold(cell_index(j),ndim+2)-ekk_neigh-emag_neigh-err_neigh)

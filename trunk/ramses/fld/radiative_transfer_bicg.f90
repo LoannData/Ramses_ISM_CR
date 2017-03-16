@@ -2217,11 +2217,22 @@ subroutine cmp_energy(Etype)
   use radiation_parameters
   use const
   use units_commons
+  use hydro_parameters,only:nvar
+  use rt_hydro_commons
+  use rt_cooling_module
+
   implicit none
   integer,intent(in) :: Etype ! Etype=1 : beginning ; Etype=2 : end
   integer ::i,idim,this,ivar,igroup,irad
   real(dp)::usquare,Cv,eps,ekin,emag,rho,erad_loc
   real(dp)::tp_loc,cmp_temp
+#ifdef RT
+  real(dp)::scale_Np,scale_Fp
+#endif
+
+#ifdef RT
+  call rt_units(scale_Np,scale_Fp)
+#endif
 
   do i=1,nb_ind
      this = liste_ind(i)
@@ -2362,7 +2373,10 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
 
   use hydro_parameters,only:nvar
   use hydro_commons
+  use rt_hydro_commons
   use radiation_parameters
+  use rt_cooling_module
+  use cloud_module, only : rt_protostar_m1
   use units_commons
   use const
 
@@ -2373,11 +2387,18 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   real(dp),dimension(nvar_bicg          ),intent(out)::residual
 
   real(dp)::rho,Told_norm,Told,cv,lhs,rhs,planck_ana,radiation_source,deriv_radiation_source,cal_Teg,Trold
-  integer::igrp,igroup
+  integer::igrp,igroup,im1
   real(dp),dimension(ngrp)::wdtB,wdtE,source,deriv
-  real(dp)::ambi_heating,ohm_heating,nimhd_heating
+  real(dp)::ambi_heating,ohm_heating,nimhd_heating,protostellar_heating
 #if NIMHD==1
   real(dp)::bcell2,bx,by,bz,jsquare,jx,jy,jz,etaohmdiss,betaad,ionisrate
+#endif
+#ifdef RT
+  real(dp)::scale_Np,scale_Fp
+#endif
+
+#ifdef RT
+  call rt_units(scale_Np,scale_Fp)
 #endif
 
   rho       = uold(i,1          )
@@ -2434,9 +2455,18 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
      do igrp=1,ngrp
         mat_residual(igroup,igrp) = mat_residual(igroup,igrp) - wdtB(igroup)*(deriv(igroup)*P_cal*wdtE(igrp)/scale_E0/(cv+lhs))*vol_loc
      enddo
+     protostellar_heating = 0.0d0
+#ifdef RT
+     if(rt_protostar_m1 .and. rt_advect)then
+        do im1=1,ngroups
+           protostellar_heating = rtuold(i,iGroups(im1))*scale_Np*group_egy(im1)*ev_to_erg*kappaAbs(im1)*rho*scale_d*rt_c_cgs*z_ave / (scale_d*scale_v**2)
+        end do
+     end if
+#endif
 
      residual(igroup) = uold(i,firstindex_er+igroup)*vol_loc  &
           & + vol_loc*wdtB(igroup)*(source(igroup)/scale_E0-Told*deriv(igroup)/scale_E0) &
+          & +protostellar_heating*vol_loc* (scale_d*scale_v**2)*dt_imp*scale_t/scale_E0 &
           & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*(cv*Told+rhs+nimhd_heating)/(cv+lhs)
   enddo
 

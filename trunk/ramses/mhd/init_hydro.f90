@@ -96,12 +96,29 @@ subroutine init_hydro
      read(ilun)nboundary2
      read(ilun)gamma2
 !      if( (eos .and. nvar2.ne.nvar+3+1) .or. (.not.eos .and. nvar2.ne.nvar+3) )then
-     if(nvar2.ne.nvar+4)then
+     if(.not.(neq_chem.or.rt) .and. nvar2.ne.nvar+4)then
         write(*,*)'File hydro.tmp is not compatible'
         write(*,*)'Found   =',nvar2
         write(*,*)'Expected=',nvar+4
         call clean_stop
      end if
+#ifdef RT
+     if((neq_chem.or.rt).and.nvar2.lt.nvar)then ! OK to add ionization fraction vars
+        ! Convert birth times for RT postprocessing:
+        if(rt.and.static) convert_birth_times=.true.
+        if(myid==1) write(*,*)'File hydro.tmp is not compatible'
+        if(myid==1) write(*,*)'Found nvar2  =',nvar2
+        if(myid==1) write(*,*)'Expected=',nvar
+        if(myid==1) write(*,*)'..so only reading first ',nvar2, &
+                  'variables and setting the rest to zero'
+     end if
+     if((neq_chem.or.rt).and.nvar2.gt.nvar)then ! Not OK to drop variables
+        if(myid==1) write(*,*)'File hydro.tmp is not compatible'
+        if(myid==1) write(*,*)'Found   =',nvar2
+        if(myid==1) write(*,*)'Expected=',nvar
+        call clean_stop
+     end if
+#endif
      do ilevel=1,nlevelmax2
         do ibound=1,nboundary+ncpu
            if(ibound<=ncpu)then
@@ -208,10 +225,10 @@ subroutine init_hydro
 #endif
 
 #if NPSCAL>0
-                 do ivar=1,npscal ! Read passive scalars if any
+                 do ivar=firstindex_pscal+1,min(nvar,nvar2) ! Read passive scalars if any
                     read(ilun)xx
                     do i=1,ncache
-                       uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                       uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
                     end do
                  end do
 #endif
