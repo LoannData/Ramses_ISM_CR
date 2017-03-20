@@ -216,10 +216,10 @@ subroutine init_hydro
                  end do
 #endif
 
-                 !if eos, temperature also dumped
+                 ! Read in the temperature
+                 read(ilun)xx
                  if(eos) then
-                    read(ilun)xx
-
+                    !if eos, update the total energy
                     do i=1,ncache
                        d=max(uold(ind_grid(i)+iskip,1),smallr)
                        call enerint_eos(d,xx(i),e)
