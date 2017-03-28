@@ -142,9 +142,11 @@ module amr_commons
   real(dp)::units_length=1.0d0   ! [cm]
 
   ! Define center for angular load balancing
-  real(dp)::x_load_balance=0.5d0
-  real(dp)::y_load_balance=0.5d0
-  real(dp)::z_load_balance=0.5d0
+  real(dp)::x_load_balance=0.5d0 ! x coordinate of the cell center, in domain units (i.e. from 0 to 1)
+  real(dp)::y_load_balance=0.5d0 ! y coordinate of the cell center, in domain units (i.e. from 0 to 1)
+  real(dp)::z_load_balance=0.5d0 ! z coordinate of the cell center, in domain units (i.e. from 0 to 1)
+  real(dp)::angular_auto_min_rho=0.5d0 ! Fraction of the max density above which we flag cells for computing center coordinate
+  integer ::angular_auto_center=-1 ! Mode for center: 0: max density, n > 0: number of the sink particle to center around
 
 end module amr_commons
 

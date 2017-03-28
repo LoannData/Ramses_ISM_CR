@@ -218,6 +218,12 @@ recursive subroutine amr_step(ilevel,icount)
      if (FB_on) then
         call feedback_fixed(ilevel)
      endif
+     !----------------------------------------------------
+     ! Find densest cell for angular decomposition center
+     !----------------------------------------------------
+     if(angular_auto_center .ge. 0)then
+         call angular_decomposition_center
+     endif
   endif
 
 

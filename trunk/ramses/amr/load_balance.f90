@@ -1474,3 +1474,117 @@ function atan3(y,x)
   if(atan3 .lt. 0.0_dp) atan3 = 2.0_dp*pi + atan3
   
 end function atan3
+!#########################################################################
+!#########################################################################
+!#########################################################################
+!#########################################################################
+subroutine angular_decomposition_center
+  use pm_commons
+  use amr_commons
+  use hydro_commons
+  use units_commons
+  implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'
+#endif
+
+  integer::i,ind,iskip,nx_loc,ilevel,idim,igrid,info,ix,iy,iz
+  integer::ncache,ngrid,iter
+  real(dp)::angular_max_rho,angular_max_rho_loc,dx
+  real(dp), dimension(1:4) :: x_load_balance_loc,x_temp_glob
+  integer,dimension(1:nvector),save::ind_grid
+  real(dp),dimension(1:twotondim,1:3)::xc
+  real(dp),dimension(1:nvector,1:3),save::xx
+  
+  if(angular_auto_center == 0 .or. nsink==0)then ! Find maximum density
+  
+     nx_loc=icoarse_max-icoarse_min+1
+
+     angular_max_rho_loc = 0.0d0
+     x_load_balance_loc  = 0.0d0
+
+     do iter = 1,2 ! Need two iterations because we first need to know the maximum density
+        do ilevel=1,nlevelmax
+           ! Cell size and cell center offset
+           dx=0.5d0**ilevel
+           do ind=1,twotondim
+              iz=(ind-1)/4
+              iy=(ind-1-4*iz)/2
+              ix=(ind-1-2*iy-4*iz)
+              xc(ind,1)=(dble(ix)-0.5d0)*dx-dble(icoarse_min)
+#if NDIM>1
+              xc(ind,2)=(dble(iy)-0.5d0)*dx-dble(jcoarse_min)
+#endif
+#if NDIM>2
+              xc(ind,3)=(dble(iz)-0.5d0)*dx-dble(kcoarse_min)
+#endif
+           end do
+           ncache=active(ilevel)%ngrid
+           ! Loop over grids by vector sweeps
+           do igrid=1,ncache,nvector
+              ! Gather nvector grids
+              ngrid=MIN(nvector,ncache-igrid+1)
+              do i=1,ngrid
+                 ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+              end do
+              ! Loop over cells
+              do ind=1,twotondim
+                 iskip=ncoarse+(ind-1)*ngridmax
+                 do idim=1,ndim
+                    do i=1,ngrid
+                       xx(i,idim)=(xg(ind_grid(i),idim)+xc(ind,idim))
+                    end do
+                 end do
+                 do i=1,ngrid
+                    if(iter==1)then
+                       angular_max_rho_loc = max(angular_max_rho_loc,uold(ind_grid(i)+iskip,1))
+                    else
+                       if(uold(ind_grid(i)+iskip,1) .ge. angular_auto_min_rho*angular_max_rho)then
+                          x_load_balance_loc(1) = x_load_balance_loc(1) + xx(i,1)
+                          x_load_balance_loc(2) = x_load_balance_loc(2) + xx(i,2)
+                          x_load_balance_loc(3) = x_load_balance_loc(3) + xx(i,3)
+                          x_load_balance_loc(4) = x_load_balance_loc(4) + 1.0d0
+                       endif
+                    endif
+                 end do
+              enddo
+           enddo
+        enddo
+        if(iter==1)then
+#ifndef WITHOUTMPI
+           ! At the end of the first pass, communicate the maximum density
+           call MPI_ALLREDUCE(angular_max_rho_loc,angular_max_rho,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,info)
+#else
+           angular_max_rho = angular_max_rho_loc
+#endif
+        endif
+     enddo
+     
+#ifndef WITHOUTMPI
+     call MPI_ALLREDUCE(x_load_balance_loc,x_temp_glob,4,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     x_load_balance = x_temp_glob(1)/x_temp_glob(4)
+     y_load_balance = x_temp_glob(2)/x_temp_glob(4)
+     z_load_balance = x_temp_glob(3)/x_temp_glob(4)
+#else
+     angular_max_rho = angular_max_rho_loc
+     if(angular_max_rho*scale_d .ge. angular_auto_min_rho)then
+        x_load_balance = x_load_balance_loc(1)/x_load_balance_loc(4)
+        y_load_balance = x_load_balance_loc(2)/x_load_balance_loc(4)
+        z_load_balance = x_load_balance_loc(3)/x_load_balance_loc(4)
+     endif
+#endif
+     if(myid==1) write(*,'(a,f9.5,a,f9.5,a,f9.5,a,es10.3,a)') 'Load balance center: x=',x_load_balance,' y=',y_load_balance,&
+                 & ' z=',z_load_balance,' rho=',angular_max_rho*scale_d,' g/cm3'
+
+  else ! Center around chosen sink
+  
+     x_load_balance = xsink(angular_auto_center,1)/boxlen
+     y_load_balance = xsink(angular_auto_center,2)/boxlen
+     z_load_balance = xsink(angular_auto_center,3)/boxlen
+     if(myid==1) write(*,'(a,f9.5,a,f9.5,a,f9.5)') 'Load balance center: x=',x_load_balance,' y=',y_load_balance,' z=',z_load_balance
+  
+  endif
+  
+  return
+  
+end subroutine angular_decomposition_center
