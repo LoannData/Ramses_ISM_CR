@@ -36,7 +36,7 @@ subroutine read_params
        & ,FLD,tracer,extinction,DTU,radiative_nimhdheating,stellar &
        & ,x_load_balance,y_load_balance,z_load_balance
   namelist/output_params/noutput,foutput,fbackup,aout,tout,output_mode &
-       & ,tend,delta_tout,aend,delta_aout,gadget_output
+       & ,tend,delta_tout,aend,delta_aout,gadget_output,write_conservative
   namelist/amr_params/levelmin,levelmax,ngridmax,ngridtot &
        & ,npartmax,nparttot,nexpand,boxlen,nlevel_collapse
   namelist/poisson_params/epsilon,gravity_type,gravity_params &

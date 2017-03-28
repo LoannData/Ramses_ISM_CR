@@ -105,6 +105,7 @@ module amr_parameters
   logical::gadget_output=.false. ! Output in gadget format
   logical::output_now=.false. ! write output next step
   logical::writing=.false.    ! Write column density and save files
+  logical::write_conservative=.false. ! if .true., uold is dumped in outputs
 
   ! Column density module (Valdivia & Hennebelle 2014)
   integer::NdirExt_m=10       ! Theta directions for screening

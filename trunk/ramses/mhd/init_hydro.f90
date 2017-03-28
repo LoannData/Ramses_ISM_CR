@@ -137,10 +137,16 @@ subroutine init_hydro
                        do i=1,ncache
                           uold(ind_grid(i)+iskip,1)=xx(i)
                        end do
-                    else  ! Read velocity field
-                       do i=1,ncache
-                          uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
-                       end do
+                    else
+                       if(write_conservative) then ! Read momentum field
+                          do i=1,ncache
+                             uold(ind_grid(i)+iskip,ivar)=xx(i)
+                          end do
+                       else ! Read velocity field
+                          do i=1,ncache
+                             uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                          end do
+                       endif
                     end if
                  end do
                  do ivar=6,8 ! Read left B field
@@ -156,28 +162,45 @@ subroutine init_hydro
                     end do
                  end do
 #if NENER>NGRP
-                 ! Read non-thermal pressures --> non-thermal energies
-                 do ivar=9,8+nent
-                    read(ilun)xx
-                    do i=1,ncache
-                       uold(ind_grid(i)+iskip,ivar)=xx(i)/(gamma_rad(ivar-8)-1.0d0)
+                 if(write_conservative) then
+                    ! Read non-thermal energies
+                    do ivar=9,8+nent
+                       read(ilun)xx
+                       do i=1,ncache
+                          uold(ind_grid(i)+iskip,ivar)=xx(i)
+                       end do
                     end do
-                 end do
+                 else
+                    ! Read non-thermal pressures --> non-thermal energies
+                    do ivar=9,8+nent
+                       read(ilun)xx
+                       do i=1,ncache
+                          uold(ind_grid(i)+iskip,ivar)=xx(i)/(gamma_rad(ivar-8)-1.0d0)
+                       end do
+                    end do
+                 endif
 #endif
 
-                 read(ilun)xx ! Read pressure
-                 if(.not.eos) then
+                 if(write_conservative) then
+                    read(ilun)xx ! Read total energy
                     do i=1,ncache
-                       e=xx(i)/(gamma-1d0)
-                       d=max(uold(ind_grid(i)+iskip,1),smallr)
-                       u=uold(ind_grid(i)+iskip,2)/d
-                       v=uold(ind_grid(i)+iskip,3)/d
-                       w=uold(ind_grid(i)+iskip,4)/d
-                       A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
-                       B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
-                       C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
-                       uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
-                    end do
+                       uold(ind_grid(i)+iskip,5)=xx(i)
+                    enddo
+                 else
+                    read(ilun)xx ! Read pressure
+                    if(.not.eos) then
+                       do i=1,ncache
+                          e=xx(i)/(gamma-1d0)
+                          d=max(uold(ind_grid(i)+iskip,1),smallr)
+                          u=uold(ind_grid(i)+iskip,2)/d
+                          v=uold(ind_grid(i)+iskip,3)/d
+                          w=uold(ind_grid(i)+iskip,4)/d
+                          A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
+                          B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
+                          C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
+                          uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
+                       end do
+                    endif
                  endif
 
 #if USE_FLD==1
@@ -208,38 +231,53 @@ subroutine init_hydro
 #endif
 
 #if NPSCAL>0
-                 do ivar=1,npscal ! Read passive scalars if any
-                    read(ilun)xx
-                    do i=1,ncache
-                       uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                 if(write_conservative) then
+                    do ivar=1,npscal ! Read conservative passive scalars if any
+                       read(ilun)xx
+                       do i=1,ncache
+                          uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
+                       end do
                     end do
-                 end do
+                 else
+                    do ivar=1,npscal ! Read passive scalars if any
+                       read(ilun)xx
+                       do i=1,ncache
+                          uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                       end do
+                    end do
+                 endif
 #endif
 
                  ! Read in the temperature
                  read(ilun)xx
-                 if(eos) then
-                    !if eos, update the total energy
-                    do i=1,ncache
-                       d=max(uold(ind_grid(i)+iskip,1),smallr)
-                       call enerint_eos(d,xx(i),e)
-                       u=uold(ind_grid(i)+iskip,2)/d
-                       v=uold(ind_grid(i)+iskip,3)/d
-                       w=uold(ind_grid(i)+iskip,4)/d
-                       A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
-                       B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
-                       C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
-                       uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
-                    end do
-                 endif
+                 if(.not.write_conservative) then
+                    if(eos) then
+                       !if eos, update the total energy
+                       do i=1,ncache
+                          d=max(uold(ind_grid(i)+iskip,1),smallr)
+                          if(energy_fix) then
+                             e=uold(ind_grid(i)+iskip,nvar)
+                          else
+                             call enerint_eos(d,xx(i),e)
+                          endif
+                          u=uold(ind_grid(i)+iskip,2)/d
+                          v=uold(ind_grid(i)+iskip,3)/d
+                          w=uold(ind_grid(i)+iskip,4)/d
+                          A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
+                          B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
+                          C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
+                          uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
+                       end do
+                    endif
 
 #if NENER>0
-                 do i=1,ncache
-                    do irad=1,nener
-                       uold(ind_grid(i)+iskip,5)=uold(ind_grid(i)+iskip,5)+uold(ind_grid(i)+iskip,8+irad)
+                    do i=1,ncache
+                       do irad=1,nener
+                          uold(ind_grid(i)+iskip,5)=uold(ind_grid(i)+iskip,5)+uold(ind_grid(i)+iskip,8+irad)
+                       end do
                     end do
-                 end do
 #endif
+                 endif
 
               end do
               deallocate(ind_grid,xx)
@@ -267,7 +305,3 @@ subroutine init_hydro
   end if
 
 end subroutine init_hydro
-
-
-
-
