@@ -221,7 +221,7 @@ recursive subroutine amr_step(ilevel,icount)
      !----------------------------------------------------
      ! Find densest cell for angular decomposition center
      !----------------------------------------------------
-     if(angular_auto_center .ge. 0)then
+     if((ordering='angular') .and. (angular_auto_center .ge. 0))then
          call angular_decomposition_center
      endif
   endif
