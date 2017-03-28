@@ -44,6 +44,13 @@ subroutine load_balance
         if(numbtot(1,ilevel)>0)write(*,999)ilevel,numbtot(1:4,ilevel)
      end do
   end if
+  
+  !---------------------------------------------------
+  ! Find densest cell for angular decomposition center
+  !---------------------------------------------------
+  if((ordering=='angular') .and. (angular_auto_center .ge. 0))then
+     call angular_decomposition_center
+  endif
 
   !-------------------------------------------
   ! Compute new cpu map using chosen ordering
@@ -1573,7 +1580,7 @@ subroutine angular_decomposition_center
         z_load_balance = x_load_balance_loc(3)/x_load_balance_loc(4)
      endif
 #endif
-     if(myid==1) write(*,'(a,f9.5,a,f9.5,a,f9.5,a,es10.3,a)') 'Load balance center: x=',x_load_balance,' y=',y_load_balance,&
+     if(myid==1) write(*,'(a,f9.5,a,f9.5,a,f9.5,a,es10.3,a)') ' Load balance center: x=',x_load_balance,' y=',y_load_balance,&
                  & ' z=',z_load_balance,' rho=',angular_max_rho*scale_d,' g/cm3'
 
   else ! Center around chosen sink
@@ -1581,7 +1588,7 @@ subroutine angular_decomposition_center
      x_load_balance = xsink(angular_auto_center,1)/boxlen
      y_load_balance = xsink(angular_auto_center,2)/boxlen
      z_load_balance = xsink(angular_auto_center,3)/boxlen
-     if(myid==1) write(*,'(a,f9.5,a,f9.5,a,f9.5)') 'Load balance center: x=',x_load_balance,' y=',y_load_balance,' z=',z_load_balance
+     if(myid==1) write(*,'(a,f9.5,a,f9.5,a,f9.5)') ' Load balance center: x=',x_load_balance,' y=',y_load_balance,' z=',z_load_balance
   
   endif
   
