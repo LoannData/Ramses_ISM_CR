@@ -156,8 +156,8 @@ subroutine authorize_fine(ilevel)
                           flag2(ind_cell(i))=1
                        endif
                     else
-                       if(    order_min(i)>bound_key(myid-1+(isub-1)*ncpu) .or. &
-                            & order_max(i)<bound_key(myid  +(isub-1)*ncpu) )then
+                       if(    order_max(i)>bound_key(myid-1+(isub-1)*ncpu) .or. &
+                            & order_min(i)<bound_key(myid  +(isub-1)*ncpu) )then
                           flag2(ind_cell(i))=1
                        endif
                     endif
@@ -184,9 +184,16 @@ subroutine authorize_fine(ilevel)
               if(ordering/='bisection') then
                  do isub=1,overload
                     do i=1,ngrid
-                       if(    order_max(i)>bound_key2(myid-1+(isub-1)*ncpu).and.&
-                            & order_min(i)<bound_key2(myid  +(isub-1)*ncpu) )then
-                          flag2(ind_cell(i))=1
+                       if (order_min(i) < order_max(i))then
+                          if(    order_max(i)>bound_key2(myid-1+(isub-1)*ncpu).and.&
+                               & order_min(i)<bound_key2(myid  +(isub-1)*ncpu) )then
+                             flag2(ind_cell(i))=1
+                          endif
+                       else
+                          if(    order_max(i)>bound_key2(myid-1+(isub-1)*ncpu).or.&
+                               & order_min(i)<bound_key2(myid  +(isub-1)*ncpu) )then
+                             flag2(ind_cell(i))=1
+                          endif
                        endif
                     end do
                  end do

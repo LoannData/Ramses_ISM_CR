@@ -712,10 +712,11 @@ subroutine cmp_ordering(x,order,nn)
   integer,dimension(1:nvector),save::ix,iy,iz
   integer::i,ncode,bit_length,nx_loc
   integer::temp,info
-  real(kind=8)::scale,bscale,xx,yy,zz,xc,yc,zc,atan3
+  real(kind=8)::scale,bscale,xx,yy,zz,xc,yc,zc,atan3,dxmin,xshift=0.125d0
 
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
+  dxmin=scale/dble(2**nlevelmax)
 
   if(ordering=='planar')then
      ! Planar domain decomposition
@@ -730,9 +731,12 @@ subroutine cmp_ordering(x,order,nn)
 !      xc=boxlen/2.
 !      yc=boxlen/2.
 !      zc=boxlen/2.
-     xc=boxlen*x_load_balance
-     yc=boxlen*y_load_balance
-     zc=boxlen*z_load_balance
+     ! We shift the center of the domain by a fraction of
+     ! the minimum cell size to make sure it is always
+     ! contained within a cell
+     xc=boxlen*x_load_balance+xshift*dxmin
+     yc=boxlen*y_load_balance+xshift*dxmin
+     zc=boxlen*z_load_balance+xshift*dxmin
      do i=1,nn
         xx=x(i,1)-xc
         yy=x(i,2)-yc
@@ -834,22 +838,21 @@ subroutine cmp_minmaxorder(x,order_min,order_max,dx,nn)
 !      xc=boxlen/2.
 !      yc=boxlen/2.
 !      zc=boxlen/2.
-     xc=boxlen*x_load_balance
-     yc=boxlen*y_load_balance
-     zc=boxlen*z_load_balance
+     ! We shift the center of the domain by a fraction of
+     ! the minimum cell size to make sure it is always
+     ! contained within a cell
+     xc=boxlen*x_load_balance+xshift*dxmin
+     yc=boxlen*y_load_balance+xshift*dxmin
+     zc=boxlen*z_load_balance+xshift*dxmin
      do i=1,nn
 
         xx=x(i,1)-xc
         yy=x(i,2)-yc
+
         xx1=x(i,1)-dxx
         xx2=x(i,1)+dxx
         yy1=x(i,2)-dxx
         yy2=x(i,2)+dxx
-
-        xx1 = xx1 + sign(xshift*dxmin,xx)
-        xx2 = xx2 + sign(xshift*dxmin,xx)
-        yy1 = yy1 + sign(xshift*dxmin,yy)
-        yy2 = yy2 + sign(xshift*dxmin,yy)
 
         xx3 = abs(xx2-xc) + abs(xx1-xc)
         yy3 = abs(yy2-yc) + abs(yy1-yc)
@@ -863,11 +866,6 @@ subroutine cmp_minmaxorder(x,order_min,order_max,dx,nn)
            xx2=x(i,1)-xc+dxx
            yy1=x(i,2)-yc-dxx
            yy2=x(i,2)-yc+dxx
-
-           xx1 = xx1 + sign(xshift*dxmin,xx)
-           xx2 = xx2 + sign(xshift*dxmin,xx)
-           yy1 = yy1 + sign(xshift*dxmin,yy)
-           yy2 = yy2 + sign(xshift*dxmin,yy)
 
            if((yy1*yy2 .lt. 0.0d0) .and. (xx .gt. 0.0d0))then
                order_min(i)=atan3(yy1,xx1)
