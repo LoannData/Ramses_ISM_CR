@@ -6215,7 +6215,7 @@ double precision function densionbis(rhon)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-use hydro_parameters
+use hydro_parameters, only : coefionis,default_ionisrate,ntestDADM,rhoi0,dp
 use units_commons
 
 implicit none 
@@ -6237,7 +6237,7 @@ rhoncgs=rhon*scale_d
 
 ! Mellon & Li 2009 (?) or Hennebelle & Teyssier 2007
 ! WARNING 3.d-16 si in cgs
-densionbis=coefionis*sqrt(rhoncgs)
+densionbis=coefionis*sqrt(rhoncgs*default_ionisrate/1.0d-17)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!
 ! densionbis in USER UNITS !!!

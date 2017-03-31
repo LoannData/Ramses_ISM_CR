@@ -22,12 +22,21 @@ subroutine file_descriptor_hydro(filename)
   write(ilun,'("nvar        =",I11)')nvar+4
   ivar=1
   write(ilun,'("variable #",I2,": density")')ivar
-  ivar=2
-  write(ilun,'("variable #",I2,": velocity_x")')ivar
-  ivar=3
-  write(ilun,'("variable #",I2,": velocity_y")')ivar
-  ivar=4
-  write(ilun,'("variable #",I2,": velocity_z")')ivar
+  if(write_conservative) then
+     ivar=2
+     write(ilun,'("variable #",I2,": momentum_x")')ivar
+     ivar=3
+     write(ilun,'("variable #",I2,": momentum_y")')ivar
+     ivar=4
+     write(ilun,'("variable #",I2,": momentum_z")')ivar
+  else
+     ivar=2
+     write(ilun,'("variable #",I2,": velocity_x")')ivar
+     ivar=3
+     write(ilun,'("variable #",I2,": velocity_y")')ivar
+     ivar=4
+     write(ilun,'("variable #",I2,": velocity_z")')ivar
+  endif
   ivar=5
   write(ilun,'("variable #",I2,": B_left_x")')ivar
   ivar=6
@@ -41,13 +50,25 @@ subroutine file_descriptor_hydro(filename)
   ivar=10
   write(ilun,'("variable #",I2,": B_right_z")')ivar
 #if NENER>NGRP
-  ! Non-thermal pressures
-  do ivar=1,nent
-     write(ilun,'("variable #",I2,": non_thermal_pressure_",I1)')10+ivar,ivar
-  end do
+  if(write_conservative) then
+     ! Non-thermal energies
+     do ivar=1,nent
+        write(ilun,'("variable #",I2,": non_thermal_energy_",I1)')10+ivar,ivar
+     end do
+  else
+     ! Non-thermal pressures
+     do ivar=1,nent
+        write(ilun,'("variable #",I2,": non_thermal_pressure_",I1)')10+ivar,ivar
+     end do
+  endif
 #endif
-  ivar=11+nent
-  write(ilun,'("variable #",I2,": thermal_pressure")')ivar
+  if(write_conservative) then
+     ivar=11+nent
+     write(ilun,'("variable #",I2,": total_energy")')ivar
+  else
+     ivar=11+nent
+     write(ilun,'("variable #",I2,": thermal_pressure")')ivar
+  endif
 #if NGRP>0
   ! Radiative energies
   do ivar=1,ngrp
@@ -77,10 +98,17 @@ endif
   end do
 #endif
 #if NPSCAL>0
-  ! Passive scalars
-  do ivar=1,npscal
-     write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+3+ivar,ivar
-  end do
+  if(write_conservative) then
+     ! Passive scalars
+     do ivar=1,npscal
+        write(ilun,'("variable #",I2,": passive_scalar_cons_",I1)')firstindex_pscal+3+ivar,ivar
+     end do
+  else
+     ! Passive scalars
+     do ivar=1,npscal
+        write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+3+ivar,ivar
+     end do
+  endif
 #endif
   ! Temperature
   ivar=firstindex_pscal+3+npscal+1
@@ -164,9 +192,15 @@ subroutine backup_hydro(filename)
                        xdp(i)=uold(ind_grid(i)+iskip,1)
                     end do
                  else ! Write velocity field
-                    do i=1,ncache
-                       xdp(i)=uold(ind_grid(i)+iskip,ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
-                    end do
+                    if(write_conservative) then
+                       do i=1,ncache
+                          xdp(i)=uold(ind_grid(i)+iskip,ivar)
+                       end do
+                    else
+                       do i=1,ncache
+                          xdp(i)=uold(ind_grid(i)+iskip,ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
+                       end do
+                    endif
                  endif
                  write(ilun)xdp
               end do
@@ -184,31 +218,47 @@ subroutine backup_hydro(filename)
               end do
 #if NENER>NGRP
               ! Write non-thermal pressures
-              do ivar=1,nent
-                 do i=1,ncache
-                    xdp(i)=(gamma_rad(ivar)-1d0)*uold(ind_grid(i)+iskip,8+ivar)
+              if(write_conservative) then
+                 do ivar=1,nent
+                    do i=1,ncache
+                       xdp(i)=uold(ind_grid(i)+iskip,8+ivar)
+                    end do
+                    write(ilun)xdp
+                 end do
+              else
+                 do ivar=1,nent
+                    do i=1,ncache
+                       xdp(i)=(gamma_rad(ivar)-1d0)*uold(ind_grid(i)+iskip,8+ivar)
+                    end do
+                    write(ilun)xdp
+                 end do
+              endif
+#endif
+              if(write_conservative) then
+                 do i=1,ncache ! Write total energy
+                    xdp(i)=uold(ind_grid(i)+iskip,5)
+                 enddo
+                 write(ilun)xdp
+              else
+                 do i=1,ncache ! Write thermal pressure
+                    d=max(uold(ind_grid(i)+iskip,1),smallr)
+                    u=uold(ind_grid(i)+iskip,2)/d
+                    v=uold(ind_grid(i)+iskip,3)/d
+                    w=uold(ind_grid(i)+iskip,4)/d
+                    A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
+                    B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
+                    C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
+                    e=uold(ind_grid(i)+iskip,5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
+#if NENER>0
+                    do irad=1,nener
+                       e=e-uold(ind_grid(i)+iskip,8+irad)
+                    end do
+#endif
+                    call pressure_eos(d,e,p)
+                    xdp(i)=p
                  end do
                  write(ilun)xdp
-              end do
-#endif
-              do i=1,ncache ! Write thermal pressure
-                 d=max(uold(ind_grid(i)+iskip,1),smallr)
-                 u=uold(ind_grid(i)+iskip,2)/d
-                 v=uold(ind_grid(i)+iskip,3)/d
-                 w=uold(ind_grid(i)+iskip,4)/d
-                 A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
-                 B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
-                 C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
-                 e=uold(ind_grid(i)+iskip,5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
-#if NENER>0
-                 do irad=1,nener
-                    e=e-uold(ind_grid(i)+iskip,8+irad)
-                 end do
-#endif
-                 call pressure_eos(d,e,p)
-                 xdp(i)=p
-              end do
-              write(ilun)xdp
+              endif
 
 #if NGRP>0
               do ivar=1,ngrp ! Write radiative energy if any
@@ -235,12 +285,21 @@ subroutine backup_hydro(filename)
 #endif
 
 #if NPSCAL>0
-              do ivar=1,npscal ! Write passive scalars if any
-                 do i=1,ncache
-                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
+              if(write_conservative) then
+                 do ivar=1,npscal ! Write conservative passive scalars if any
+                    do i=1,ncache
+                       xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)
+                    end do
+                    write(ilun)xdp
                  end do
-                 write(ilun)xdp
-              end do
+              else
+                 do ivar=1,npscal ! Write passive scalars if any
+                    do i=1,ncache
+                       xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
+                    end do
+                    write(ilun)xdp
+                 end do
+              endif
 #endif
               
               ! Write temperature

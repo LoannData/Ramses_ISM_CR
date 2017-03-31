@@ -284,6 +284,7 @@ module hydro_parameters
   real(dp):: coefdtohm = 1.d-10
   real(dp):: coefohm = 0.05d0
   real(dp):: coefhall=0.05d0
+  real(dp)::default_ionisrate=1d-17
 
 ! WARNING FOLLOWING VALUES IN CGS
 ! IF NEW ADDED MODIFY units.f90 TO CONVERT IN USER UNITS

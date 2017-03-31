@@ -10,7 +10,6 @@ module hydro_commons
   real(dp),allocatable,dimension(:)::rho_barotrop,temp_barotrop
   real(dp)::mass_tot=0.0D0,mass_tot_0=0.0D0
   real(dp)::ana_xmi,ana_xma,ana_ymi,ana_yma,ana_zmi,ana_zma
-  real(dp)::default_ionisrate=1d-17
   integer::nbins
 end module hydro_commons
 

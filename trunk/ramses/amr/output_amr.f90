@@ -509,6 +509,11 @@ subroutine output_info(filename)
   else
      write(ilun,'("eos         =",I11)')0
   endif
+  if(write_conservative) then
+     write(ilun,'("write_cons  =",I11)')1
+  else
+     write(ilun,'("write_cons  =",I11)')0
+  endif
 
   close(ilun)
 
