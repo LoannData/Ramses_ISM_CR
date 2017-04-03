@@ -36,8 +36,9 @@ SUBROUTINE sink_RT_feedback(ilevel, dt)
   integer:: igrid, jgrid, ipart, jpart, next_part
   integer:: i, ig, ip, npart1, npart2, icpu
   integer,dimension(1:nvector),save:: ind_grid, ind_part, ind_grid_part
-  real(dp),dimension(1:nsink):: sink_ioni_flux !this arrays gather the ionising flux by looping over stellar object
-                                               !note that this array is local and therefore is not declared in pm_common
+  !this array gathers the ionising flux by looping over stellar object
+  !note that this array is local and therefore is not declared in pm_common
+  real(dp),dimension(1:nsink,1:ngroups):: sink_ioni_flux
 !-------------------------------------------------------------------------
   if(.not.rt_advect)RETURN
   if(nsink .le. 0 ) return
@@ -152,7 +153,9 @@ SUBROUTINE gather_ioni_flux(sink_ioni_flux)
         !remember vaccafits is in code units because the corresponding parameters have been normalised in read_stellar_params (stf_K and stf_m0) 
         call vaccafit(M_stellar,Flux_stellar)
 
-        sink_ioni_flux(isink) = sink_ioni_flux(isink) + Flux_stellar
+        ! HACK: This is only for H-ionising photons
+        ! TODO: Implement groups a volonte
+        sink_ioni_flux(isink,1) = sink_ioni_flux(isink,1) + Flux_stellar
      endif
 
   enddo
@@ -205,7 +208,7 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
   ! Particle based arrays
   integer,dimension(1:nvector),save::igrid_son,ind_son
   logical,dimension(1:nvector),save::ok
-  real(dp),dimension(1:nvector,ngroups),save::part_NpInp
+  !real(dp),dimension(1:nvector,ngroups),save::part_NpInp
   real(dp),dimension(1:nvector,1:ndim),save::x
   integer ,dimension(1:nvector,3),save::id=0,igd=0,icd=0
   integer ,dimension(1:nvector),save::igrid,icell,indp,kg
@@ -225,8 +228,8 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
   ! Sink cluster totals
 !  real(dp)::scluster,mcluster,wcluster,ssink
 
-
-  real(dp),dimension(1:nsink):: sink_ioni_flux !this arrays gather the ionising flux by looping over stellar object
+  !this arrays gather the ionising flux by looping over stellar object
+  real(dp),dimension(1:nsink,1::ngroups):: sink_ioni_flux
 
 !-------------------------------------------------------------------------
 ! if(.not. metal) z = log10(max(z_ave*0.02, 10.d-5))![log(m_metals/m_tot)]
@@ -336,15 +339,18 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
         ! HACK - ADD PHOTONS TO SINKS
         ! Use weighted fit
 
-        ! Scale that photon emission rate right up
+        ! Scale photon emission to the correct internal units
+        ! HACK: Current version only treats H-ionising photons
+        ! TODO: Add other groups
 !        dn(j) = sink_ioni_flux(isink) * dt*scale_t / dble(ncloud_sink) / vol_cgs / scale_N
          !the flux is normalised in read_stellar_object : thus no "scale_t" here see stf_K parameter
-        dn(j) = sink_ioni_flux(isink) * dt / dble(ncloud_sink) / vol_cgs / scale_Np
-  
+        dn(j) = sink_ioni_flux(isink,1) * dt &
+             & / dble(ncloud_sink) / vol_cgs / scale_Np
+
 
         !record the number of photons emitted by each sink particle
         !no division by vol_cgs since we want the photon number and not the density
-        Eioni(isink) = Eioni(isink) + sink_ioni_flux(isink) * dt / dble(ncloud_sink) / scale_Np
+        Eioni(isink) = Eioni(isink) + sink_ioni_flux(isink,1) * dt / dble(ncloud_sink) / scale_Np
 
         !write(*,*) "DEBUG",dn(j),j,ncloud_sink,msink(isink),&
         !     & scale_msun,scale_Np,dt,scale_t,vol_cgs
