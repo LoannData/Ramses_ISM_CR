@@ -29,8 +29,8 @@ PATCH = ../patch/rt/frig_main
 EXEC = ramses
 
 MPI = 1
-##COMP = "GNU"
-COMP = "INTEL"
+COMP = "GNU"
+##COMP = "INTEL"
 
 
 
@@ -184,7 +184,7 @@ MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o po
          poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
          clfind_commons.o gadgetreadfile.o write_makefile.o  write_gitinfo.o \
          radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
-         rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o feedback_module.o cloud_module.o
+         rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o table_1d_module.o singlestar_module.o feedback_module.o cloud_module.o
 ifeq ($(NIMHD),1)
 MODOBJ +=  variables_X.o
 endif

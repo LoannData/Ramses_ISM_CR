@@ -48,7 +48,7 @@ SUBROUTINE sink_RT_feedback(ilevel, dt)
 
   !if stellar objects are used, start by looping over the stellar objects and gather their fluxes
   if (stellar) then
-     call gather_ioni_flux(sink_ioni_flux)
+     call gather_ioni_flux(sink_ioni_flux,dt)
   endif
 
   ! Loop over cpus
@@ -134,30 +134,47 @@ SUBROUTINE gather_ioni_flux(sink_ioni_flux)
 ! sink_ioni_flux =>  the ionising flux of each sink 
   use amr_commons
   use pm_commons
+  use rt_parameters
   use feedback_module
 
-  real(dp),dimension(1:nsink):: sink_ioni_flux !this arrays gathers the ionising flux by looping over stellar object
+  real(dp),dimension(1:nsink,1:ngroups):: sink_ioni_flux !this arrays gathers the ionising flux by looping over stellar object
   integer:: istellar,isink
-  real(dp)::M_stellar,Flux_stellar
+  real(dp)::M_stellar,Flux_stellar,ts,dts
+  real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp),dimension(1:ngroups)::nphotons
 
   sink_ioni_flux = 0.
+  nphotons = 0d0
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   do istellar=1,nstellar 
+     !id of the sink to which the stellar object belongs 
+     isink = id_stellar(istellar)
+     M_stellar = mstellar(istellar)
 
-     !check whether the object is emitting
-     if (t - tstellar(istellar) < hii_t) then
-       !id of the sink to which the stellar object belongs 
-        isink = id_stellar(istellar)
-
-        M_stellar = mstellar(istellar)     
-        !remember vaccafits is in code units because the corresponding parameters have been normalised in read_stellar_params (stf_K and stf_m0) 
-        call vaccafit(M_stellar,Flux_stellar)
-
-        ! HACK: This is only for H-ionising photons
-        ! TODO: Implement groups a volonte
-        sink_ioni_flux(isink,1) = sink_ioni_flux(isink,1) + Flux_stellar
+     ! Use singlestar_module (reads SB99-derived tables)
+     if (use_ssm) then
+        ts = (t-tstellar(istellar))*scale_t
+        dts = dt*scale_t
+        call ssm_radiation(M_stellar,ts,dts,nphotons)
+        ! Scale to units used later
+        ! 1) the code later expects we've scaled by scale_t already
+        ! 2) we'll multiply by dt later but have already integrated
+        ! (I'm very anxious about this kind of internal unit scaling)
+        nphotons = nphotons*scale_t/dt
+     ! Use fit to Vacca+ 1996
+     else
+        !check whether the object is emitting
+        if (t - tstellar(istellar) < hii_t) then
+           !remember vaccafits is in code units because the corresponding parameters have been normalised in read_stellar_params (stf_K and stf_m0) 
+           call vaccafit(M_stellar,Flux_stellar)
+           
+           ! TODO: Include Helium-ionising photons as well 
+           ! (also in Vacca96/Sternberg03)
+           nphotons(1) = Flux_stellar
+        endif
      endif
-
+     sink_ioni_flux(isink,:) = sink_ioni_flux(isink,:) + nphotons
   enddo
 
 END SUBROUTINE gather_ioni_flux
@@ -229,7 +246,7 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
 !  real(dp)::scluster,mcluster,wcluster,ssink
 
   !this arrays gather the ionising flux by looping over stellar object
-  real(dp),dimension(1:nsink,1::ngroups):: sink_ioni_flux
+  real(dp),dimension(1:nsink,1:ngroups):: sink_ioni_flux
 
 !-------------------------------------------------------------------------
 ! if(.not. metal) z = log10(max(z_ave*0.02, 10.d-5))![log(m_metals/m_tot)]
@@ -336,36 +353,13 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
      if( ok(j) ) then                                      !   ilevel cell
         ! Get sink index
         isink=-idp(ind_part(j))
-        ! HACK - ADD PHOTONS TO SINKS
-        ! Use weighted fit
-
         ! Scale photon emission to the correct internal units
-        ! HACK: Current version only treats H-ionising photons
-        ! TODO: Add other groups
 !        dn(j) = sink_ioni_flux(isink) * dt*scale_t / dble(ncloud_sink) / vol_cgs / scale_N
          !the flux is normalised in read_stellar_object : thus no "scale_t" here see stf_K parameter
-        dn(j) = sink_ioni_flux(isink,1) * dt &
-             & / dble(ncloud_sink) / vol_cgs / scale_Np
-
-
-        !record the number of photons emitted by each sink particle
-        !no division by vol_cgs since we want the photon number and not the density
-        Eioni(isink) = Eioni(isink) + sink_ioni_flux(isink,1) * dt / dble(ncloud_sink) / scale_Np
-
-        !write(*,*) "DEBUG",dn(j),j,ncloud_sink,msink(isink),&
-        !     & scale_msun,scale_Np,dt,scale_t,vol_cgs
-        !call clean_stop
-
-        ! energy increase due to accretion luminosity 
-        !ener=acc_lum(isink)*dt
-        !increase in energy density
-        !dn(j)=ener/dble(ncloud_sink)/vol_loc
-        !increase in photon number density
-        !dn(j)=dn(j)*Ep2Np
+         
         ! deposit the photons onto the grid
-        ! TODO: ADD HELIUM 1 & 2
-
-        rtunew(indp(j),1)=rtunew(indp(j),1)+dn(j)
+        rtunew(indp(j),:)=rtunew(indp(j),:) + sink_ioni_flux(isink,:) * dt &
+             & / dble(ncloud_sink) / vol_cgs / scale_Np
      endif
   end do
 
@@ -572,6 +566,10 @@ SUBROUTINE sink_RT_vsweep(ind_grid,ind_part,ind_grid_part,ng,np,dt,ilevel)
 !        dn(j) = dn(j) * dt*scale_t / dble(ncloud_sink) / vol_cgs / scale_Np
          !!!CAREFUL : CHANGE with respect to Sam's original choices
          !the flux is normalised in read_stellar_object : thus no "scale_t" here see stf_K parameter
+        ! Note from Sam: I'm not sure this follows since I'm not normalising
+        !   above, so if you use this code double check it all, I guess
+        ! (the Vacca fit is just used to scale the output, scluster is 
+        !   still in absolute number of photons)
         dn(j) = dn(j) * dt / dble(ncloud_sink) / vol_cgs / scale_Np
         !write(*,*) "DEBUG",dn(j),j,ncloud_sink,msink(isink),&
         !     & scale_msun,scale_Np,dt,scale_t,vol_cgs

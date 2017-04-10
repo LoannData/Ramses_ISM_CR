@@ -1,5 +1,6 @@
 module feedback_module
   use amr_parameters,only:dp,ndim
+  use singlestar_module
   implicit none
 
   public
@@ -71,6 +72,11 @@ module feedback_module
   integer,parameter::NSNMAX=1000
   integer::FB_nsource=0
 
+  ! Location of single star module tables
+  character(LEN=200)::ssm_table_directory
+  ! Use single stellar module?
+  logical::use_ssm=.false.
+
   ! Type of source ('supernova', 'wind')
   ! NOTE: 'supernova' is a single dump, 'wind' assumes these values are per year
   character(LEN=10),dimension(1:NSNMAX)::FB_sourcetype='supernova'
@@ -136,7 +142,7 @@ SUBROUTINE read_feedback_params(nml_ok)
        & FB_mejecta, FB_energy, FB_thermal, &
        & FB_radius, FB_r_refine, Vdisp, &
        & jet_feedback_sink, mass_jet_sink, frac_acc_ej, cone_jet, & 
-       & v_jet, expo_jet, verbose_jet
+       & v_jet, expo_jet, verbose_jet, ssm_table_directory, use_ssm
   rewind(1)
   read(1,NML=FEEDBACK_PARAMS,END=101)
 101 continue
@@ -155,6 +161,9 @@ SUBROUTINE read_feedback_params(nml_ok)
 
       !normalise Vdisp which is assumed to be in KM/S
       Vdisp = Vdisp * 1.e5 / scale_v
+      
+      ! Set up the single stellar sources
+      if (use_ssm) call ssm_setup(ssm_table_directory)
 
 END SUBROUTINE read_feedback_params
 !*************************************************************************
