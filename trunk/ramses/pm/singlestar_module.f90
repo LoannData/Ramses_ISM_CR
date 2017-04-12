@@ -6,6 +6,9 @@ MODULE singlestar_module
   use table_1d_module
   
   implicit none
+
+  logical::ssm_is_setup=.false.
+
   integer,parameter::dp=kind(1.0D0) ! real*8  
 
   ! HACK TO MAKE THIS WORK WITHOUT RADIATION MODULE
@@ -51,6 +54,7 @@ SUBROUTINE ssm_setup(tableloc_in)
   ! NOTE - this is a lifetime per star
   ! These stars MUST match the stars in the other tables
   ! We assume stars are 5,10,15,...115,120 Msun
+  if (ssm_is_setup) return
   filename = TRIM(ssm_tableloc)//"lifetimes.dat"
   call setup_table(ssm_lifetimes,filename)
   ssm_numtables = ssm_lifetimes%size
@@ -74,6 +78,7 @@ SUBROUTINE ssm_setup(tableloc_in)
      call ssm_filename(it,"HeIII",filename)
      call setup_table(ssm_rads(it,3),filename)
   enddo
+  ssm_is_setup=.true.
   ! TODO: Should I also deallocate later???
   
 END SUBROUTINE ssm_setup
@@ -175,7 +180,6 @@ SUBROUTINE ssm_filename(index,prop,filename)
   filename = TRIM(ssm_tableloc)//"singlestar"//TRIM(nmass)// &
        & "cumul"//prop//".dat"
   ! TODO: Add error checking for file existence
-  
 END SUBROUTINE ssm_filename
 
 SUBROUTINE ssm_interpolate(tables, mass_ini, time, output)

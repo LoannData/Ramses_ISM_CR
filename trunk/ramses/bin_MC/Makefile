@@ -29,8 +29,8 @@ PATCH = ../patch/rt/frig_main
 EXEC = ramses
 
 MPI = 1
-COMP = "GNU"
-##COMP = "INTEL"
+##COMP = "GNU"
+COMP = "INTEL"
 
 
 
