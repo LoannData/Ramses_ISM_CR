@@ -48,7 +48,7 @@ SUBROUTINE sink_RT_feedback(ilevel, dt)
 
   !if stellar objects are used, start by looping over the stellar objects and gather their fluxes
   if (stellar) then
-     call gather_ioni_flux(sink_ioni_flux,dt)
+     call gather_ioni_flux(dt,sink_ioni_flux)
   endif
 
   ! Loop over cpus
@@ -127,7 +127,7 @@ END SUBROUTINE sink_RT_feedback
 !*************************************************************************
 !*************************************************************************
 !*************************************************************************
-SUBROUTINE gather_ioni_flux(sink_ioni_flux)
+SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
 ! This routine is called by sink_RT_feedback is stellar objects are used
 ! It gathers the ionising flux on each sinks which is used to perform ionising radiation feedback
 
@@ -137,15 +137,19 @@ SUBROUTINE gather_ioni_flux(sink_ioni_flux)
   use rt_parameters
   use feedback_module
 
-  real(dp),dimension(1:nsink,1:ngroups):: sink_ioni_flux !this arrays gathers the ionising flux by looping over stellar object
+  implicit none
+
+  real(dp),intent(in)::dt
+  real(dp),dimension(1:nsink,1:ngroups),intent(out):: sink_ioni_flux !this arrays gathers the ionising flux by looping over stellar object
   integer:: istellar,isink
-  real(dp)::M_stellar,Flux_stellar,ts,dts
-  real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp)::M_stellar,Flux_stellar,ts,dts,M_stellar_Msun
+  real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2,scale_m
   real(dp),dimension(1:ngroups)::nphotons
 
-  sink_ioni_flux = 0.
+  sink_ioni_flux = 0d0
   nphotons = 0d0
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_m=scale_d*scale_l**3d0
 
   do istellar=1,nstellar 
      !id of the sink to which the stellar object belongs 
@@ -156,12 +160,12 @@ SUBROUTINE gather_ioni_flux(sink_ioni_flux)
      if (use_ssm) then
         ts = (t-tstellar(istellar))*scale_t
         dts = dt*scale_t
-        call ssm_radiation(M_stellar,ts,dts,nphotons)
-        ! Scale to units used later
-        ! 1) the code later expects we've scaled by scale_t already
-        ! 2) we'll multiply by dt later but have already integrated
-        ! (I'm very anxious about this kind of internal unit scaling)
-        nphotons = nphotons*scale_t/dt
+        M_stellar_Msun = M_stellar*(scale_m/Msun)
+        call ssm_radiation(M_stellar_Msun,ts,dts,nphotons)
+        write(*,*) "SSM_RADIATION", M_stellar_Msun,ts,dts,nphotons
+        ! Divide by dt so we can scale up later
+        nphotons = nphotons/dt
+        nphotons = max(nphotons,0d0)
      ! Use fit to Vacca+ 1996
      else
         !check whether the object is emitting
