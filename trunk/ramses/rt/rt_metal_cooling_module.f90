@@ -32,7 +32,7 @@ SUBROUTINE rt_metal_cool(Tin,Nin,xin,mu,metal_tot,metal_prime)
   real(dp),intent(out)::metal_tot,metal_prime
 
   ! Set a reference temperature to calculate gradient wrt T
-  eps = 1e-5 ! A small value
+  eps = 1d-5 ! A small value
   T1 = Tin*mu
   T2 = Tin*(1+eps)*mu
   
@@ -72,19 +72,26 @@ SUBROUTINE rt_metal_cool_mashup(T,N,x,mu,cool)
   ! cool         <=  Metal cooling [erg s-1 cm-3]
 
   real(dp),intent(in)::T,N,x,mu
-  real(dp)::logT,logN,logF,sig,coolph,coolphoto,dummy,drefdt
+  real(dp)::logT,logN,logF,sig,coolph,coolphoto,dummy,drefdt,fp,fn
   real(dp),intent(out)::cool
-  real(dp),parameter::scaleup=1d30
+  !real(dp),parameter::scaleup=1d30
 
   cool = 0d0
   coolph = 0d0
   coolphoto = 0d0
+  ! Sigmoid that cuts to zero at high N
+  ! Used to prevent cooling crashes in clumps around sinks
+  ! NOTE: This is a temporary fix for a full photoionised cooling func
+  sig = 1d0/(1d0 + exp(2d0*(log10(N)-4d0)))
+  ! fp = photoionised fraction, fn = neutral fraction (of cooling)
+  fp = x*sig
+  fn = 1d0-fp
 
   ! Get equilibrium metal cooling
   if (T < 10035.d0) then
      ! Patrick's low-temperature cooling function
      call cooling_low(T,N,coolph)
-     cool = -coolph
+     cool = -coolph     
   else
      ! HACK - set a_exp to 1d0
      call rt_cmp_metals(T/mu,N,mu,cool,dRefdT,1d0)
@@ -99,18 +106,16 @@ SUBROUTINE rt_metal_cool_mashup(T,N,x,mu,cool)
   ! Add a threshold in x to make sure neutral gas is actually treated properly
   ! This is because sometimes the multiplier truncates cooling for low values
 !change made after Sam's advice : PH - 9/06
-!  if ((T .lt. 1d5).and.(x .gt.1d-6)) then
-  if ((T .lt. 1d5).and.(T .gt. 5000.) .and.(x .gt.1d-2) .and. (N .lt. 1.e5) ) then
+  if ((T .lt. 1d5).and.(x .gt.1d-6)) then
+!  if ((T .lt. 1d5).and.(T .gt. 5000d0) .and.(x .gt.1d-2) .and. (N .lt. 1.d5) ) then
 !  if ((T .lt. 1d5).and.(x .gt.1e-1)) then
-     ! Prevent floating point underflows by scaling up
-     cool = cool*scaleup
-     call cool_ferlandlike(T/mu,N,coolphoto)
+     call cool_bodgefit(T/mu,N,coolphoto)
      ! If the cooling is above this value just use this anyway
-     if (coolphoto*scaleup .gt.cool) then
-        cool = cool*(1d0-x) + coolphoto*x*scaleup
+     if (coolphoto .gt.cool) then
+        coolphoto = coolphoto*fp
+        cool = cool*fn
+        cool = cool + coolphoto
      endif
-     ! Scale back down again to the physical value
-     cool = cool/scaleup
   endif
 
 END SUBROUTINE rt_metal_cool_mashup
@@ -127,10 +132,10 @@ SUBROUTINE cool_osterbrock(T,N,cool)
   real(dp),intent(out)::cool
   ! Now set up the hard-coded linear interpolation approximation
   ! DO LOG(T)-LOG(cool) INTERPOLATION FOR BETTER FIT???
-  real(dp),parameter::x0=log10(5e3)
-  real(dp),parameter::x1=log10(10e3)
-  real(dp),parameter::y0=log10(7.5e-25)
-  real(dp),parameter::y1=log10(2.6e-24)
+  real(dp),parameter::x0=log10(5d3)
+  real(dp),parameter::x1=log10(10d3)
+  real(dp),parameter::y0=log10(7.5d-25)
+  real(dp),parameter::y1=log10(2.6d-24)
   cool = (log10(T) - x0) * (y1-y0) / (x1-x0) + y0
   cool = 10d0**cool ! recast to linear space
   cool = cool*N*N ! N*Ne (fully ionised)
@@ -151,7 +156,7 @@ SUBROUTINE cool_ferlandlike(T,N,cool)
   real(dp),intent(out)::cool
   ! First piece: flat cooling @ 3d-24
   real(dp),parameter::cool0=3d-24
-  real(dp),parameter::T0=9000.0
+  real(dp),parameter::T0=9000d0
   ! Second piece: linear fit to meet rt_cmp_metals @ 1e5
   real(dp),parameter::cool1=2.2d-22
   real(dp),parameter::T1=1d5
@@ -165,6 +170,54 @@ SUBROUTINE cool_ferlandlike(T,N,cool)
   cool = cool*N*N ! N*Ne (fully ionised)
 
 END SUBROUTINE cool_ferlandlike
+
+SUBROUTINE cool_bodgefit(T,N,cool)
+  ! Bodge fit to some Cloudy tables to stop messing up at low T
+  ! This is based on some ipython notebook noodling
+  ! TODO: We should replace this with more physical models asap
+  ! Modified to meet our neq_chem metal cooling peak in rt_cmp_metals
+  ! Compute cooling enhancement due to metals
+  ! T            => Temperature in Kelvin *with mu included*
+  ! N            => Hydrogen number density (H/cc)
+  ! x            => Hydrogen ionisation fraction (0->1)
+  ! cool         <=  Metal cooling [erg s-1 cm-3]
+
+  real(dp),intent(in)::T,N
+  real(dp),intent(out)::cool
+  ! First piece: flat cooling @ 3d-24
+  real(dp),parameter::cool0=3d-24
+  real(dp),parameter::T0=9000d0
+  ! Second piece: linear fit to meet rt_cmp_metals @ 1e5
+  real(dp),parameter::cool1=2.2d-22
+  real(dp),parameter::T1=1d5
+  ! Low temperature sigmoid parameters
+  real(dp)::x,y,newx,coolslope
+  real(dp),parameter::xl=1d0
+  real(dp),parameter::xh=8d0
+  real(dp),parameter::yl=-27d0
+  real(dp),parameter::yh=-20d0
+  cool = cool0
+  ! Low temperature sigmoid 
+  x = log10(T)
+  newx = (x - xl) / (xh-xl)
+  newx = newx*20d0-10d0
+  y = 1d0 / (1d0 + exp(-newx/0.9d0-9.5d0)) - 1d0
+  y = ((y + 1d0) / 2d0)
+  cool = 10d0**(y * (yh-yl) + yl)
+  ! Heating to prevent T crash at low T, high N
+  !y = 10d0**((8d0-0.5d0*x)-31.5d0)
+  !if (T.lt.1d3) cool = cool - y
+  ! Set to the Ferland slope if above a certain value
+  if (T.gt.5d3) then 
+     ! Slope of Ferland fit
+     coolslope = (log10(T) - log10(T0)) * (log10(cool1)-log10(cool0)) / &
+          & (log10(T1)-log10(T0)) + log10(cool0)
+     coolslope = 10d0**coolslope
+     cool = max(cool,coolslope)
+  endif
+  cool = cool*N*N ! N*Ne (fully ionised)
+
+END SUBROUTINE cool_bodgefit
 
 ! HACK - SHIFTED HERE FROM rt_cooling_module TO PREVENT CIRCULAR IMPORTS
 !=========================================================================
