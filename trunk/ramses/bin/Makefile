@@ -108,7 +108,8 @@ endif
 ifeq ($(COMP),"INTEL")
    ifeq ($(MPI),1)
       F90 = mpif90
-      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
+#      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
+      FFLAGS = -cpp $(DEFINES) -DNOSYSTEM
    else
       F90 = ifort
       FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
