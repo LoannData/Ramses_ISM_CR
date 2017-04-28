@@ -193,7 +193,7 @@ MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o 
 
 MODOBJ += radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
 	  rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o \
-	  feedback_module.o cloud_module.o
+	  table_1d_module.o singlestar_module.o feedback_module.o cloud_module.o
 ifeq ($(NIMHD),1)
 MODOBJ +=  variables_X.o
 endif
