@@ -796,6 +796,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   real(dp),dimension(1:nvar)::z
   real(dp)::factG,scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::dx,dx_loc,dx_min,scale,vol_min,vol_loc,weight,acc_mass,temp,d_jeans
+  real(dp)::cv,deint
   ! Grid based arrays
   real(dp),dimension(1:nvector,1:ndim)::xpart
   real(dp),dimension(1:nvector,1:ndim,1:twotondim)::xx
@@ -1039,18 +1040,19 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               ! fix the energy equation to account for the work of the truly accreted material 
 !              unew(indp(j,ind),5)=unew(indp(j,ind),5)-uold(indp(j,ind),5)*acc_mass/(d*vol_loc)+delta_e_tot/vol_loc
 
-              unew(indp(j,ind),5)=unew(indp(j,ind),5)-ekin*acc_mass/(d*vol_loc)+delta_e_tot/vol_loc-eint
+              unew(indp(j,ind),5)=unew(indp(j,ind),5)-ekin*acc_mass/(d*vol_loc)+delta_e_tot/vol_loc!-eint
 
 
               do ivar=imetal,lastindex_pscal
                  unew(indp(j,ind),ivar)=unew(indp(j,ind),ivar)-uold(indp(j,ind),ivar)*acc_mass/(d*vol_loc)
               end do
 
-              d=unew(indp(j,ind),1)
-              call enerint_eos(d,temp,eint)
-              unew(indp(j,ind),5)=unew(indp(j,ind),5)+eint
+              cv=eint/temp/d   ! specific heat capacity
+              deint = acc_mass/vol_loc*cv*temp
+!              call enerint_eos(d,temp,eint)
+              unew(indp(j,ind),5)=unew(indp(j,ind),5)-deint
               if(energy_fix)then
-                 unew(indp(j,ind),nvar)=eint
+                 unew(indp(j,ind),nvar)=unew(indp(j,ind),nvar)-deint
               endif
 
               ! put the tangential momentum back into the gas
@@ -4119,7 +4121,7 @@ subroutine radiative_feedback_sink(ilevel)
                           uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_sink(isink)*weight*dtnew(ilevel)/((4.0d0*pi*rmax**3)/3.0d0)
                           uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_sink(isink)*weight*dtnew(ilevel)/((4.0d0*pi*rmax**3)/3.0d0)
                        else
-                          do igrp=1,ngrp 
+                         do igrp=1,ngrp 
                              Lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)/((4.0d0*pi*rmax**3)/3.0d0)
                              uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_group*weight*dtnew(ilevel)
                              uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_group*weight*dtnew(ilevel)
