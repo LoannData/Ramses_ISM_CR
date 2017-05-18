@@ -224,7 +224,7 @@ subroutine create_stellar(ncreate, nbuf, xnew, id_new, print_table)
     integer, dimension(1:nbuf), intent(in):: id_new
     logical, intent(in):: print_table
 
-    integer:: ncreate_loc
+    integer:: ncreate_loc, iloc
     real(dp), dimension(1:ncreate):: mnew_loc, tnew_loc, ltnew_loc
     real(dp), dimension(1:ncreate):: mnew, tnew, ltnew
     real(dp), dimension(1:ncreate, 1:ndim):: xnew_loc, xnew2
@@ -273,7 +273,15 @@ subroutine create_stellar(ncreate, nbuf, xnew, id_new, print_table)
     tnew_loc(1:ncreate_loc) = t
 
     ! Compute lifetime
-    ltnew_loc(1:ncreate_loc) = lt_t0 * exp(lt_a * (log(lt_m0 / mnew_loc))**lt_b)
+    ! Use single stellar module?
+    if (use_ssm) then
+       do iloc=1,ncreate_loc
+          call ssm_lifetime(mnew_loc(iloc),ltnew_loc(iloc))
+       end do
+    else    
+       ltnew_loc(1:ncreate_loc) = lt_t0 * &
+            & exp(lt_a * (log(lt_m0 / mnew_loc))**lt_b)
+    endif
 
     ! Communicate data
 #ifndef WITHOUTMPI

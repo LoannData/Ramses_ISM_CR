@@ -104,7 +104,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/nonidealmhd_params/nambipolar,gammaAD &
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
        & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm &
-       & ,rho_threshold,use_x1d,use_x2d,use_x3d,use_res
+       & ,rho_threshold,use_x1d,use_x2d,use_x3d,use_res,default_ionisrate
   namelist/pseudovisco_params/nvisco,visco
   ! fin modif nimhd
 

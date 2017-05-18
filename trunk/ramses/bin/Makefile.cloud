@@ -6,9 +6,9 @@ NVECTOR = 32
 QUADHILBERT = 16
 NPRE = 8
 
-NDIM = 1
+NDIM = 3
 SOLVER = mhd
-NIMHD=0
+NIMHD= 0
 
 NENT = 0
 
@@ -22,17 +22,16 @@ NPSCAL = 0
 NENER = $(NENT)+$(NGRP)
 
 #for RT
-NGROUPS = 0
-NIONS = 0
+NGROUPS = 3
+NIONS = 3
 
-PATCH =
-
-GRACKLE = 0
+PATCH = ../patch/rt/frig_main
 EXEC = ramses
 
 MPI = 1
-COMP = "GNU"
-#COMP = "INTEL"
+##COMP = "GNU"
+COMP = "INTEL"
+
 
 
 ifeq ($(NIMHD),1)
@@ -40,9 +39,10 @@ ifeq ($(NIMHD),1)
 else
    NPSCAL := $(NPSCAL)+$(NIONS)+1 # for internal energy
 endif
-NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
-ifeq ($(USE_M_1),1)
-   NVAR=$(NVAR)+$(NDIM)*$(NGRP)
+ifeq ($(USE_FLD),1)
+    NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
+ else
+    NVAR=8+$(NENER)+$(NDIM)*$(NGRP)+$(NEXTINCT)+$(NPSCAL)
 endif
 
 
@@ -53,21 +53,20 @@ endif
 ## 5 pressure
 ## 6:8 magnetic field
 ## 9:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
-## 9+nener9+nener+1:9+nener+nextinct : for extinction (look at definition of firstindex_pscal in mhd/read_hydro_param)
+## 9+nener9+nener+1:9+nener+nextinct : for extenction (look at definition of firstindex_pscal in mhd/read_hydro_param)
 ## 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine) 
 ## note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
-## then in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
+## tehn in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
 ## nvar-4:nvar-1 : current (used in godfine1 if IMHD==1) unew(....,nvar-4+idim)
 ## nvar-1:nvar : internal energy used in set_uold if (energy_fix)
 
 #if you want to add your own scalar this has to be done between : 
 #9+nener+nextinct+1+nions+1 and nvar-4
 
-#then do not forget that within the code the magnetic variable are duplicated and stored
+#then do not forgot that within the code the magnetic variable are dupplicated and stored
 #nvar+1:nvar+3
 
 #finally note that ichem, idelay and imetal have not been checked carefully
-
 
 #############################################################################
 GITBRANCH = $(shell git rev-parse --abbrev-ref HEAD)
@@ -76,20 +75,13 @@ GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR=$(NVAR) -DNENER=$(NENER) \
           -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL) -DNIMHD=$(NIMHD) \
-	  -DNEXTINCT=$(NEXTINCT) #-DQUADHILBERT=$(QUADHILBERT)
-ifneq ($(NIONS)$(NGROUPS),00)
-DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)
-endif
+	  -DNEXTINCT=$(NEXTINCT) -DRT  -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)  #-DQUADHILBERT=$(QUADHILBERT) 
 ifneq (,$(filter 1,$(USE_FLD) $(USE_M_1)))
 DEFINES += -DUSE_FLD=$(USE_FLD) -DUSE_M_1=$(USE_M_1)
-endif
-ifeq ($(GRACKLE),1)
-DEFINES += -Dgrackle
 endif
 #############################################################################
 # Fortran compiler options and directives
 
-#############################################################################
 # GFORTRAN
 ifeq ($(COMP),"GNU")
    ifeq ($(MPI),1)
@@ -109,13 +101,13 @@ ifeq ($(COMP),"INTEL")
    ifeq ($(MPI),1)
       F90 = mpif90
 #      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
-      FFLAGS = -cpp $(DEFINES) -DNOSYSTEM
+      FFLAGS = -cpp  $(DEFINES) -DNOSYSTEM
    else
       F90 = ifort
       FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
    endif
-   FFLAGS += -O3
 #   FFLAGS += -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds
+   FFLAGS +=  -O1
 endif
 
 # INTEL
@@ -164,12 +156,8 @@ LIBMPI =
 # --- CUDA libraries, for Titane ---
 LIBCUDA = -L/opt/cuda/lib  -lm -lcuda -lcudart
 
-ifeq ($(GRACKLE),1)
-# Add include and library install path for grackle and hdf5 here
-LIBS_GRACKLE = -L$(HOME)/local/lib -lgrackle -lhdf5 -lz -lgfortran -ldl
-LIBS_OBJ     = -I$(HOME)/local/include -DCONFIG_BFLOAT_8 -DH5_USE_16_API -fPIC
-endif
-LIBS = $(LIBMPI) $(LIBS_GRACKLE)
+LIBGRACKLE = -lgrackle -lhdf5 -lz
+LIBS = $(LIBMPI)
 
 # Lapack
 ifeq ($(USE_M_1),1)
@@ -179,22 +167,24 @@ ifneq ($(NGRP),$(filter $(NGRP),0 1))
 LIBS += -llapack
 endif
 endif
+
 #############################################################################
 # Sources directories are searched in this exact order
 BINDIR = .
-VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
+#PATHSTRING = $(subst ../,$(BINDIR)/../,$(PATCH):../$(SOLVER):../fld/:../nimhd:../aton:../hydro:../pm:../poisson:../amr)
+#VPATH = $(PATHSTRING)$(B
+ifeq ($(strip $(PATCH)),)
+VPATH = $(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../rt:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr
+else
+VPATH = $(BINDIR)/$(PATCH):$(BINDIR)/../$(SOLVER):$(BINDIR)/../fld/:$(BINDIR)/../nimhd:$(BINDIR)/../aton:$(BINDIR)/../rt:$(BINDIR)/../hydro:$(BINDIR)/../pm:$(BINDIR)/../poisson:$(BINDIR)/../amr
+endif
 #############################################################################
 # All objects
-MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o 
-ifeq ($(GRACKLE),1)
-MODOBJ += grackle_parameters.o
-endif
-MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
-         clfind_commons.o gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o
-
-MODOBJ += radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
-	  rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o \
-	  table_1d_module.o singlestar_module.o feedback_module.o cloud_module.o
+MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o \
+         poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
+         clfind_commons.o gadgetreadfile.o write_makefile.o  write_gitinfo.o \
+         radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
+         rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o table_1d_module.o singlestar_module.o feedback_module.o cloud_module.o
 ifeq ($(NIMHD),1)
 MODOBJ +=  variables_X.o
 endif
@@ -205,8 +195,7 @@ AMROBJ = read_params.o init_amr.o init_time.o init_refine.o adaptive_loop.o amr_
 # Particle-Mesh objects
 PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o newdt_fine.o particle_tree.o \
         add_list.o remove_list.o star_formation.o sink_particle.o feedback.o clump_finder.o clump_merger.o \
-        flag_formation_sites.o init_sink.o output_sink.o stellar_particle.o init_stellar.o output_stellar.o \
-	sink_RT_feedback.o
+        flag_formation_sites.o init_sink.o output_sink.o  stellar_particle.o init_stellar.o output_stellar.o
 # Poisson solver objects
 POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o multigrid_coarse.o multigrid_fine_commons.o \
              multigrid_fine_fine.o multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o output_poisson.o
@@ -215,12 +204,12 @@ HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_f
            uplmde.o umuscl.o interpol_hydro.o godunov_utils.o condinit.o hydro_flag.o hydro_boundary.o \
            boundana.o read_hydro_params.o synchro_hydro_fine.o \
            multigroup.o m1_utils.o \
-           radiative_transfer_bicg.o radiation_boundary.o cooling_module_frig.o
+           radiative_transfer_bicg.o radiation_boundary.o
 # RT objects
 RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o rt_output_hydro.o rt_godunov_fine.o \
         rt_interpol_hydro.o rt_godunov_utils.o rt_condinit.o rt_hydro_flag.o rt_hydro_boundary.o rt_boundana.o \
         rt_read_hydro_params.o rt_units.o
-
+PATCHOBJ = cooling_module_frig.o sink_RT_feedback.o  ##velocity_fine_frig.o ##write_cool.o output_clumps.o
 ifeq ($(NIMHD),1)
 HYDROOBJ += uplmde_sts_ohm.o uplmde_sts_ohm_dtu.o
 endif
@@ -229,12 +218,8 @@ endif
 #TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
 #          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
 #          add_turb_forcing.o write_pymses.o libfftw3.a
-# Patch objects
-FortranFiles = $(wildcard $(addsuffix /*.f90,$(shell [ -z $(PATCH) ] || find $(PATCH)/* -type d)))
-PATCHOBJ = $(notdir $(patsubst %.f90, %.o, $(FortranFiles)))
-
 # All objects
-AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(RTOBJ) # $(TURBOBJ)
+AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(RTOBJ) $(PATCHOBJ) # $(TURBOBJ)  
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
 ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o $(BINDIR)/../aton/atonlib/libaton.a
@@ -260,12 +245,10 @@ write_makefile.o: FORCE
 write_patch.o: FORCE
 	$(BINDIR)/../utils/scripts/cr_write_patch.sh $(PATCH)
 	$(F90) $(FFLAGS) -c write_patch.f90 -o $@
-%.o:%.F
-	$(F90) $(FFLAGS) -c $^ -o $@ $(LIBS_OBJ)
 %.o:%.f90
-	$(F90) $(FFLAGS) -c $^ -o $@ $(LIBS_OBJ)
+	$(F90) $(FFLAGS) -c $^ -o $@
 FORCE:
 #############################################################################
 clean :
-	rm -f *.o *.$(MOD) *__genmod.f90
+	rm *.o *.$(MOD) *__genmod.f90
 #############################################################################

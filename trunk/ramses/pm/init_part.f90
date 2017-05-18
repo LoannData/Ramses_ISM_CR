@@ -8,7 +8,7 @@ subroutine init_part
   use feedback_module
 
 #ifdef RT
-  use rt_parameters,only: convert_birth_times
+  use amr_parameters,only: convert_birth_times
 #endif
   implicit none
 #ifndef WITHOUTMPI
