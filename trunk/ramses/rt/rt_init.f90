@@ -192,7 +192,7 @@ SUBROUTINE read_rt_params(nml_ok)
        & ,rt_nsource, rt_source_type                                     &
        & ,rt_src_x_center, rt_src_y_center, rt_src_z_center              &
        & ,rt_src_length_x, rt_src_length_y, rt_src_length_z              &
-       & ,rt_exp_source, rt_src_group                                    &
+       & ,rt_exp_source, rt_src_group, rt_src_start, rt_src_end          &
        & ,rt_n_source, rt_u_source, rt_v_source, rt_w_source             &
        ! RT boundary (for boundary conditions)                           &
        & ,rt_n_bound,rt_u_bound,rt_v_bound,rt_w_bound                    &
@@ -496,6 +496,8 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
      ! Find which photon group we should be contributing to
      if(rt_src_group(k) .le. 0 .or. rt_src_group(k) .gt. nGroups) cycle
      group_ind = iGroups(rt_src_group(k))
+     if ((t-rt_src_start(k)) .lt. 0.) cycle
+     if(((t-rt_src_end(k)) .gt. 0.) .and. (rt_src_end(k) .gt. 0.)) cycle
      ! For "square" regions only:
      if(rt_source_type(k) .eq. 'square')then
        ! Exponent of choosen norm

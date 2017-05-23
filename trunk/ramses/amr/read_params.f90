@@ -5,6 +5,7 @@ subroutine read_params
   use hydro_parameters
   use radiation_parameters
 
+  use cloud_module
   use feedback_module
 
   implicit none
@@ -265,10 +266,6 @@ subroutine read_params
 
   call read_hydro_params(nml_ok)
 
-  !cloud and feedback parameter 
-  call read_cloud_params(nml_ok)
-  call read_feedback_params(nml_ok)
-
 #ifdef RT
   call rt_read_hydro_params(nml_ok)
 #endif
@@ -277,7 +274,11 @@ subroutine read_params
   if (movie)call set_movie_vars
 
 
-  !stelar objects
+  ! Cloud and feedback parameter 
+  call read_cloud_params(nml_ok)
+  call read_feedback_params(nml_ok)
+
+  ! Stellar objects
   if (stellar)call read_stellar_params
 
 

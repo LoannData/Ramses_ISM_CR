@@ -293,6 +293,11 @@ subroutine clump_finder(create_output,keep_alive)
         if(myid==1)write(*,*)"Outputing clump properties to disc."
         call write_clump_properties(.true.)
      endif
+     ! Output diagnostic files for clumps/sinks every step?
+     if (output_clumps)then
+        call write_clumps_each_step
+     endif
+
      
   end if
 
@@ -869,7 +874,7 @@ subroutine read_clumpfind_params()
   namelist/clumpfind_params/ivar_clump,& 
        & relevance_threshold,density_threshold,&
        & saddle_threshold,mass_threshold,clinfo,&
-       & n_clfind,rho_clfind,age_cut_clfind
+       & n_clfind,rho_clfind,age_cut_clfind,output_clumps
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_m  
   
   ! Read namelist file 

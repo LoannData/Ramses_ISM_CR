@@ -4,15 +4,16 @@
 MODULE singlestar_module
   
   use table_1d_module
+
+  use rt_parameters
   
   implicit none
 
   logical::ssm_is_setup=.false.
 
-  integer,parameter::dp=kind(1.0D0) ! real*8  
-
   ! HACK TO MAKE THIS WORK WITHOUT RADIATION MODULE
-  integer,parameter::ngroups=3
+  !integer,parameter::dp=kind(1.0D0) ! real*8  
+  !integer,parameter::ngroups=3
   
   private
   
