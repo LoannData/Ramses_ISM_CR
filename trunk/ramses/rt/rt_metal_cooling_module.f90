@@ -32,7 +32,7 @@ SUBROUTINE rt_metal_cool(Tin,Nin,xin,mu,metal_tot,metal_prime)
   real(dp),intent(out)::metal_tot,metal_prime
 
   ! Set a reference temperature to calculate gradient wrt T
-  eps = 1e-5 ! A small value
+  eps = 1d-5 ! A small value
   T1 = Tin*mu
   T2 = Tin*(1+eps)*mu
   
@@ -100,7 +100,7 @@ SUBROUTINE rt_metal_cool_mashup(T,N,x,mu,cool)
   ! This is because sometimes the multiplier truncates cooling for low values
 !change made after Sam's advice : PH - 9/06
 !  if ((T .lt. 1d5).and.(x .gt.1d-6)) then
-  if ((T .lt. 1d5).and.(T .gt. 5000.) .and.(x .gt.1d-2) .and. (N .lt. 1.e5) ) then
+  if ((T .lt. 1d5).and.(T .gt. 5000d0) .and.(x .gt.1d-2) .and. (N .lt. 1.d5) ) then
 !  if ((T .lt. 1d5).and.(x .gt.1e-1)) then
      ! Prevent floating point underflows by scaling up
      cool = cool*scaleup
@@ -127,10 +127,10 @@ SUBROUTINE cool_osterbrock(T,N,cool)
   real(dp),intent(out)::cool
   ! Now set up the hard-coded linear interpolation approximation
   ! DO LOG(T)-LOG(cool) INTERPOLATION FOR BETTER FIT???
-  real(dp),parameter::x0=log10(5e3)
-  real(dp),parameter::x1=log10(10e3)
-  real(dp),parameter::y0=log10(7.5e-25)
-  real(dp),parameter::y1=log10(2.6e-24)
+  real(dp),parameter::x0=log10(5d3)
+  real(dp),parameter::x1=log10(10d3)
+  real(dp),parameter::y0=log10(7.5d-25)
+  real(dp),parameter::y1=log10(2.6d-24)
   cool = (log10(T) - x0) * (y1-y0) / (x1-x0) + y0
   cool = 10d0**cool ! recast to linear space
   cool = cool*N*N ! N*Ne (fully ionised)
@@ -151,7 +151,7 @@ SUBROUTINE cool_ferlandlike(T,N,cool)
   real(dp),intent(out)::cool
   ! First piece: flat cooling @ 3d-24
   real(dp),parameter::cool0=3d-24
-  real(dp),parameter::T0=9000.0
+  real(dp),parameter::T0=9000d0
   ! Second piece: linear fit to meet rt_cmp_metals @ 1e5
   real(dp),parameter::cool1=2.2d-22
   real(dp),parameter::T1=1d5

@@ -6,7 +6,7 @@ module hydro_commons
   real(dp),allocatable,dimension(:,:)::Rho_eos,Ener_eos,Temp_eos,P_eos,Cs_eos,S_eos,eint_eos
   real(dp),allocatable,dimension(:,:)::xH_eos, xH2_eos, xHe_eos,xHep_eos,Cv_eos,Dc_eos
   real(dp),allocatable,dimension(:,:)::resistivite_chimie_res ! resistivites chimie
-  real(dp),allocatable,dimension(:,:,:)::resistivite_chimie_x ! resistivites chimie
+  real(dp),allocatable,dimension(:,:,:,:)::resistivite_chimie_x ! resistivites chimie
   real(dp),allocatable,dimension(:)::rho_barotrop,temp_barotrop
   real(dp)::mass_tot=0.0D0,mass_tot_0=0.0D0
   real(dp)::ana_xmi,ana_xma,ana_ymi,ana_yma,ana_zmi,ana_zma

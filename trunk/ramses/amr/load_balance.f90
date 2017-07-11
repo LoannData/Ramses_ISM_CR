@@ -44,6 +44,13 @@ subroutine load_balance
         if(numbtot(1,ilevel)>0)write(*,999)ilevel,numbtot(1:4,ilevel)
      end do
   end if
+  
+  !---------------------------------------------------
+  ! Find densest cell for angular decomposition center
+  !---------------------------------------------------
+  if((ordering=='angular') .and. (angular_auto_center .ge. 0))then
+     call angular_decomposition_center
+  endif
 
   !-------------------------------------------
   ! Compute new cpu map using chosen ordering
@@ -705,10 +712,11 @@ subroutine cmp_ordering(x,order,nn)
   integer,dimension(1:nvector),save::ix,iy,iz
   integer::i,ncode,bit_length,nx_loc
   integer::temp,info
-  real(kind=8)::scale,bscale,xx,yy,zz,xc,yc,zc
+  real(kind=8)::scale,bscale,xx,yy,zz,xc,yc,zc,atan3,dxmin,xshift=0.125d0
 
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
+  dxmin=scale/dble(2**nlevelmax)
 
   if(ordering=='planar')then
      ! Planar domain decomposition
@@ -720,23 +728,23 @@ subroutine cmp_ordering(x,order,nn)
 #if NDIM>1
   if(ordering=='angular')then
      ! Angular domain decomposition
-     xc=boxlen/2.
-     yc=boxlen/2.
-     zc=boxlen/2.
+!      xc=boxlen/2.
+!      yc=boxlen/2.
+!      zc=boxlen/2.
+     ! We shift the center of the domain by a fraction of
+     ! the minimum cell size to make sure it is always
+     ! contained within a cell
+     xc=boxlen*x_load_balance+xshift*dxmin
+     yc=boxlen*y_load_balance+xshift*dxmin
+     zc=boxlen*z_load_balance+xshift*dxmin
      do i=1,nn
-        xx=x(i,1)-xc+1d-10
+        xx=x(i,1)-xc
         yy=x(i,2)-yc
-#if NDIM>2
-        zz=x(i,3)
-#endif
-        if(xx>0.)then
-           order(i)=atan(yy/xx)+acos(-1.)/2.
-        else
-           order(i)=atan(yy/xx)+acos(-1.)*3./2.
-        endif
-#if NDIM>2
-        if(zz.gt.zc)order(i)=order(i)+2.*acos(-1.)
-#endif
+        order(i)=atan3(yy,xx)
+! #if NDIM>2
+!         zz=x(i,3)
+!         if(zz.gt.zc)order(i)=order(i)+2.d0*acos(-1.d0)
+! #endif
      end do
   end if
 #endif
@@ -806,9 +814,9 @@ subroutine cmp_minmaxorder(x,order_min,order_max,dx,nn)
   integer,dimension(1:nvector),save::ix,iy,iz
   integer::i,ncode,bit_length,nxny,nx_loc
 
-  real(dp)::theta1,theta2,theta3,theta4,dxx,dxmin  
-  real(kind=8)::scale,bscaleloc,bscale,xx,yy,zz,xc,yc,zc
-  real(qdp)::dkey,oneqdp=1.0
+  real(dp)::theta1,theta2,theta3,theta4,dxx,dxmin,xshift=0.125d0,atan3
+  real(dp)::scale,bscaleloc,bscale,xx,yy,zz,xc,yc,zc,xx1,xx2,yy1,yy2,xx3,yy3
+  real(qdp)::dkey,oneqdp=1.0_qdp
 
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
@@ -827,62 +835,56 @@ subroutine cmp_minmaxorder(x,order_min,order_max,dx,nn)
   if(ordering=='angular')then
      ! Angular domain decomposition
      dxx=0.5d0*dx
-     xc=boxlen/2.
-     yc=boxlen/2.
-     zc=boxlen/2.
+!      xc=boxlen/2.
+!      yc=boxlen/2.
+!      zc=boxlen/2.
+     ! We shift the center of the domain by a fraction of
+     ! the minimum cell size to make sure it is always
+     ! contained within a cell
+     xc=boxlen*x_load_balance+xshift*dxmin
+     yc=boxlen*y_load_balance+xshift*dxmin
+     zc=boxlen*z_load_balance+xshift*dxmin
      do i=1,nn
-        if(dx==boxlen)then
-           order_min(i)=0.
-           order_max(i)=4.*acos(-1.)
+
+        xx=x(i,1)-xc
+        yy=x(i,2)-yc
+
+        xx1=x(i,1)-dxx
+        xx2=x(i,1)+dxx
+        yy1=x(i,2)-dxx
+        yy2=x(i,2)+dxx
+
+        xx3 = abs(xx2-xc) + abs(xx1-xc)
+        yy3 = abs(yy2-yc) + abs(yy1-yc)
+        
+        if((xx3.le.dx).and.(yy3.le.dx))then
+           order_min(i)=0.0d0
+           order_max(i)=2.0d0*acos(-1.0d0)
         else
-           ! x- y-
-           yy=x(i,2)-yc-dxx
-           xx=x(i,1)-xc-dxx
-           if(xx.ge.0.)then
-              xx=xx+1d-10
-              theta1=atan(yy/xx)+acos(-1.)/2.
+
+           xx1=x(i,1)-xc-dxx
+           xx2=x(i,1)-xc+dxx
+           yy1=x(i,2)-yc-dxx
+           yy2=x(i,2)-yc+dxx
+
+           if((yy1*yy2 .lt. 0.0d0) .and. (xx .gt. 0.0d0))then
+               order_min(i)=atan3(yy1,xx1)
+               order_max(i)=atan3(yy2,xx1)
            else
-              xx=xx-1d-10
-              theta1=atan(yy/xx)+acos(-1.)*3./2.
+               ! x- y-
+              theta1=atan3(yy1,xx1)
+              ! x+ y-
+              theta2=atan3(yy1,xx2)           
+              ! x+ y+
+              theta3=atan3(yy2,xx2)
+              ! x- y+
+              theta4=atan3(yy2,xx1)
+              order_min(i)=min(theta1,theta2,theta3,theta4)
+              order_max(i)=max(theta1,theta2,theta3,theta4)
            endif
-           ! x+ y-
-           xx=x(i,1)-xc+dxx
-           if(xx.gt.0.)then
-              xx=xx+1d-10
-              theta2=atan(yy/xx)+acos(-1.)/2.
-           else
-              xx=xx-1d-10
-              theta2=atan(yy/xx)+acos(-1.)*3./2.
-           endif
-           
-           ! x+ y+
-           yy=x(i,2)-yc+dxx
-           if(xx.gt.0.)then
-              xx=xx+1d-10
-              theta3=atan(yy/xx)+acos(-1.)/2.
-           else
-              xx=xx-1d-10
-              theta3=atan(yy/xx)+acos(-1.)*3./2.
-           endif
-           ! x- y+
-           xx=x(i,1)-xc-dxx
-           if(xx.ge.0.)then
-              xx=xx+1d-10
-              theta4=atan(yy/xx)+acos(-1.)/2.
-           else
-              xx=xx-1d-10
-              theta4=atan(yy/xx)+acos(-1.)*3./2.
-           endif
-           order_min(i)=min(theta1,theta2,theta3,theta4)
-           order_max(i)=max(theta1,theta2,theta3,theta4)
-#if NDIM>2
-           zz=x(i,3)
-           if(zz.gt.zc)then
-              order_min(i)=order_min(i)+2.*acos(-1.)
-              order_max(i)=order_max(i)+2.*acos(-1.)
-           endif
-#endif
+
         endif
+
      end do
   end if
 #endif
@@ -1462,3 +1464,132 @@ end subroutine defrag
 !#########################################################################
 !#########################################################################
 !#########################################################################
+function atan3(y,x)
+
+  use amr_parameters, only : dp
+
+  implicit none
+  
+  real(dp), intent(in) :: y,x
+  real(dp) :: atan3,pi
+  
+  pi = acos(-1.0_dp)
+  
+  atan3 = atan2(y,x)
+  if(atan3 .lt. 0.0_dp) atan3 = 2.0_dp*pi + atan3
+  
+end function atan3
+!#########################################################################
+!#########################################################################
+!#########################################################################
+!#########################################################################
+subroutine angular_decomposition_center
+  use pm_commons
+  use amr_commons
+  use hydro_commons
+  use units_commons
+  implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'
+#endif
+
+  integer::i,ind,iskip,nx_loc,ilevel,idim,igrid,info,ix,iy,iz
+  integer::ncache,ngrid,iter
+  real(dp)::angular_max_rho,angular_max_rho_loc,dx
+  real(dp), dimension(1:4) :: x_load_balance_loc,x_temp_glob
+  integer,dimension(1:nvector),save::ind_grid
+  real(dp),dimension(1:twotondim,1:3)::xc
+  real(dp),dimension(1:nvector,1:3),save::xx
+  
+  if(angular_auto_center == 0 .or. nsink==0)then ! Find maximum density
+  
+     nx_loc=icoarse_max-icoarse_min+1
+
+     angular_max_rho_loc = 0.0d0
+     x_load_balance_loc  = 0.0d0
+
+     do iter = 1,2 ! Need two iterations because we first need to know the maximum density
+        do ilevel=1,nlevelmax
+           ! Cell size and cell center offset
+           dx=0.5d0**ilevel
+           do ind=1,twotondim
+              iz=(ind-1)/4
+              iy=(ind-1-4*iz)/2
+              ix=(ind-1-2*iy-4*iz)
+              xc(ind,1)=(dble(ix)-0.5d0)*dx-dble(icoarse_min)
+#if NDIM>1
+              xc(ind,2)=(dble(iy)-0.5d0)*dx-dble(jcoarse_min)
+#endif
+#if NDIM>2
+              xc(ind,3)=(dble(iz)-0.5d0)*dx-dble(kcoarse_min)
+#endif
+           end do
+           ncache=active(ilevel)%ngrid
+           ! Loop over grids by vector sweeps
+           do igrid=1,ncache,nvector
+              ! Gather nvector grids
+              ngrid=MIN(nvector,ncache-igrid+1)
+              do i=1,ngrid
+                 ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+              end do
+              ! Loop over cells
+              do ind=1,twotondim
+                 iskip=ncoarse+(ind-1)*ngridmax
+                 do idim=1,ndim
+                    do i=1,ngrid
+                       xx(i,idim)=(xg(ind_grid(i),idim)+xc(ind,idim))
+                    end do
+                 end do
+                 do i=1,ngrid
+                    if(iter==1)then
+                       angular_max_rho_loc = max(angular_max_rho_loc,uold(ind_grid(i)+iskip,1))
+                    else
+                       if(uold(ind_grid(i)+iskip,1) .ge. angular_auto_min_rho*angular_max_rho)then
+                          x_load_balance_loc(1) = x_load_balance_loc(1) + xx(i,1)
+                          x_load_balance_loc(2) = x_load_balance_loc(2) + xx(i,2)
+                          x_load_balance_loc(3) = x_load_balance_loc(3) + xx(i,3)
+                          x_load_balance_loc(4) = x_load_balance_loc(4) + 1.0d0
+                       endif
+                    endif
+                 end do
+              enddo
+           enddo
+        enddo
+        if(iter==1)then
+#ifndef WITHOUTMPI
+           ! At the end of the first pass, communicate the maximum density
+           call MPI_ALLREDUCE(angular_max_rho_loc,angular_max_rho,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,info)
+#else
+           angular_max_rho = angular_max_rho_loc
+#endif
+        endif
+     enddo
+     
+#ifndef WITHOUTMPI
+     call MPI_ALLREDUCE(x_load_balance_loc,x_temp_glob,4,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     x_load_balance = x_temp_glob(1)/x_temp_glob(4)
+     y_load_balance = x_temp_glob(2)/x_temp_glob(4)
+     z_load_balance = x_temp_glob(3)/x_temp_glob(4)
+#else
+     angular_max_rho = angular_max_rho_loc
+     if(angular_max_rho*scale_d .ge. angular_auto_min_rho)then
+        x_load_balance = x_load_balance_loc(1)/x_load_balance_loc(4)
+        y_load_balance = x_load_balance_loc(2)/x_load_balance_loc(4)
+        z_load_balance = x_load_balance_loc(3)/x_load_balance_loc(4)
+     endif
+#endif
+     if(myid==1) write(*,'(a,f9.5,a,f9.5,a,f9.5,a,es10.3,a)') ' Load balance center: x=',x_load_balance,' y=',y_load_balance,&
+                 & ' z=',z_load_balance,' rho=',angular_max_rho*scale_d,' g/cm3'
+
+  else ! Center around chosen sink
+  
+     x_load_balance = xsink(angular_auto_center,1)/boxlen
+     y_load_balance = xsink(angular_auto_center,2)/boxlen
+     z_load_balance = xsink(angular_auto_center,3)/boxlen
+     if(myid==1) write(*,'(a,f9.5,a,f9.5,a,f9.5)') ' Load balance center: x=',x_load_balance,' y=',y_load_balance,' z=',z_load_balance
+  
+  endif
+  
+  return
+  
+end subroutine angular_decomposition_center

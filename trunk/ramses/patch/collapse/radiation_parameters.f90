@@ -170,7 +170,7 @@ subroutine init_opacities
   if(opacity_type == 'multigroup')then
 
      if(nrestart .eq. 0)then
-        opfilename = 'dust_gas_opacity_table.bin'
+        opfilename = 'VaytetEtAl2013AandA557A90_opacities.bin'
 
         if(myid==1)then
            write(*,*)
@@ -592,7 +592,7 @@ subroutine init_opacities
            close(79)
         end if
      else
-        if(myid==1)write(*,*),'Reading opacity table from previous run'
+        if(myid==1)write(*,*) 'Reading opacity table from previous run'
 
         open (80,file='multigroup_opacity.bin',form='unformatted')
         read (80) nx_opmesh,ny_opmesh,nz_opmesh,dx_opmesh,dy_opmesh,dz_opmesh,dmin_opmesh,dmax_opmesh,tmin_opmesh,tmax_opmesh,trmin_opmesh,trmax_opmesh

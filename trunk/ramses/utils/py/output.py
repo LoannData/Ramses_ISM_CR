@@ -238,7 +238,7 @@ class Output(object):
         self.sinkDataFrame = None
         print "-> Searching for sink file ...",
         if self.sinkPath is not None:
-            names = ['Id', 'mass', 'x', 'y', 'z', 'vx', 'vy', 'vz',
+            names = ['Id', 'mass', 'dmf', 'x', 'y', 'z', 'vx', 'vy', 'vz',
                      'rot_period', 'lx', 'ly', 'lz', 'acc_rate',
                      'acc_lum', 'age', 'int_lum', 'Teff']
             self.sinkDataFrame = pd.read_csv(self.sinkPath, header=None,

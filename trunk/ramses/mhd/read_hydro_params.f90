@@ -38,8 +38,8 @@ subroutine read_hydro_params(nml_ok)
        & ,var_region &
 #endif
        & ,A_region,B_region,C_region
-  namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr  &
-       & ,niter_riemann,slope_type,slope_mag_type,switch_solv &
+  namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr &
+       & ,niter_riemann,slope_type,slope_mag_type,switch_solv,switch_solv_dens &
 #if NENER>0
        & ,gamma_rad &
 #endif

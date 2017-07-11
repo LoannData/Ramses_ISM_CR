@@ -274,12 +274,12 @@ subroutine cooling_low(T,n,ref)
 
 
 
-  ne = 2.4E-3*((T/100.)**0.25)/0.5 !formule C15 Wolfire et al. 2003
+  ne = 2.4d-3*((T/100d0)**0.25d0)/0.5d0 !formule C15 Wolfire et al. 2003
 
   ! Analytic ionisation in absence of photoionisation
   x_ana = ne / N   ! ionisation
-  x_ana = min(x_ana,0.1)
-  x_ana = max(x_ana,3.5E-4*0.4)
+  x_ana = min(x_ana,0.1d0)
+  x_ana = max(x_ana,3.5d-4*0.4d0)
   x = x_ana ! (Different variables in case we need photoionised values later)
 
   !transition hyperfine a basse temperature: carbone et oxygene

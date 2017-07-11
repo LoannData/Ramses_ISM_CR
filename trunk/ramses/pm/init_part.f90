@@ -8,7 +8,7 @@ subroutine init_part
   use feedback_module
 
 #ifdef RT
-  use rt_parameters,only: convert_birth_times
+  use amr_parameters,only: convert_birth_times
 #endif
   implicit none
 #ifndef WITHOUTMPI
@@ -207,7 +207,11 @@ subroutine init_part
      if(cosmo)then
         min_mdm_cpu = 1.0
         do ipart=1,npart2
-           if(tp(ipart).eq.0d0)then
+           if(star)then
+              if(tp(ipart).eq.0d0)then
+                 if(mp(ipart).lt.min_mdm_cpu) min_mdm_cpu = mp(ipart)
+              endif
+           else
               if(mp(ipart).lt.min_mdm_cpu) min_mdm_cpu = mp(ipart)
            endif
         enddo
@@ -225,8 +229,8 @@ subroutine init_part
            endif
            ilevel = ilevel+1
         enddo
+        if(myid==1) write(*,*) 'nlevelmax_part=',nlevelmax_part
      endif
-     if(myid==1) write(*,*) 'nlevelmax_part=',nlevelmax_part
 
      if(debug)write(*,*)'part.tmp read for processor ',myid
      npart=npart2     

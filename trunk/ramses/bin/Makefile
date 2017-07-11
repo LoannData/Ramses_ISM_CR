@@ -41,10 +41,9 @@ ifeq ($(NIMHD),1)
 else
    NPSCAL := $(NPSCAL)+$(NIONS)+1 # for internal energy
 endif
-ifeq ($(USE_FLD),1)
-   NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
-else
-   NVAR=8+$(NENER)+$(NDIM)*$(NGRP)+$(NEXTINCT)+$(NPSCAL)
+NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
+ifeq ($(USE_M_1),1)
+   NVAR=$(NVAR)+$(NDIM)*$(NGRP)
 endif
 
 
@@ -111,7 +110,8 @@ endif
 ifeq ($(COMP),"INTEL")
    ifeq ($(MPI),1)
       F90 = mpif90
-      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
+#      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
+      FFLAGS = -cpp $(DEFINES) -DNOSYSTEM
    else
       F90 = ifort
       FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
@@ -196,7 +196,7 @@ MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o 
 
 MODOBJ += radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
 	  rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o \
-	  feedback_module.o cloud_module.o
+	  table_1d_module.o singlestar_module.o feedback_module.o cloud_module.o
 ifeq ($(NIMHD),1)
 MODOBJ +=  variables_X.o
 endif
@@ -208,7 +208,7 @@ AMROBJ = read_params.o init_amr.o init_time.o init_refine.o adaptive_loop.o amr_
 PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o newdt_fine.o particle_tree.o \
         add_list.o remove_list.o star_formation.o sink_particle.o feedback.o clump_finder.o clump_merger.o \
         flag_formation_sites.o init_sink.o output_sink.o stellar_particle.o init_stellar.o output_stellar.o \
-	sink_RT_feedback.o
+	sink_RT_feedback.o output_clumps.o
 # Poisson solver objects
 POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o multigrid_coarse.o multigrid_fine_commons.o \
              multigrid_fine_fine.o multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o output_poisson.o
@@ -270,5 +270,5 @@ write_patch.o: FORCE
 FORCE:
 #############################################################################
 clean :
-	rm *.o *.$(MOD) *__genmod.f90
+	rm -f *.o *.$(MOD) *__genmod.f90
 #############################################################################

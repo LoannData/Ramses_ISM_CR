@@ -1,6 +1,7 @@
 module cloud_module
   use amr_parameters
   use hydro_parameters,only:Msun
+  use rt_parameters
 
   ! TODO - CLEAN THIS OUT
 
@@ -63,7 +64,8 @@ module cloud_module
   integer ,allocatable,dimension(:)::nb_ligne_PMS
   real(dp),allocatable,dimension(:,:,:)::data_PMS
 
-
+  ! Scale time by a factor? (e.g. t_ff)
+  real(dp)::scale_tout=1d0
 
 
 end module cloud_module
@@ -197,7 +199,7 @@ subroutine read_cloud_params(nml_ok)
   ! Namelist definitions
   !--------------------------------------------------
   namelist/cloud_params/mass_c,rap,cont,ff_sct,ff_rt,ff_act,ff_vct,thet_mag &
-       & ,bl_fac
+       & ,bl_fac, scale_tout
 
   ! Read namelist file
   rewind(1)
@@ -219,6 +221,12 @@ subroutine read_cloud_params(nml_ok)
   z_refine = z_refine*boxlen
   r_refine = r_refine*boxlen
 
+  ! Also scale any RT sources
+  rt_src_x_center = rt_src_x_center * boxlen
+  rt_src_y_center = rt_src_y_center * boxlen
+  rt_src_z_center = rt_src_z_center * boxlen
+
+
   ! Set the sink formation threshold based on the Jeans criterion
   cellsize = boxlen * 0.5**nlevelmax * pcincm / scale_l
   n_sink = 881.0 / cellsize**2 ! Scaled to give 1e6 for 30pc/1024
@@ -226,8 +234,13 @@ subroutine read_cloud_params(nml_ok)
   if(myid==1) write(*,*) "SETTING n_sink, n_clfind TO", n_sink, n_clfind
 
   ! Feedback parameters
-  call read_feedback_params(nml_ok)
+  ! Removed - done in read_params instead
+  !call read_feedback_params(nml_ok)
 
+  ! Use scale_tout parameter - allows scaling outputs to, e.g., t_ff
+  if (scale_tout.ne.1d0) then
+     tout = tout*scale_tout
+  endif
 
 end subroutine read_cloud_params
 

@@ -274,7 +274,7 @@ subroutine diffusion_cg (ilevel,Nsub)
            error=error_ini
            error_cg_loc=1.0d0
 
-           do while(error/error_ini>epsilon .and. error_cg_loc> epsilon)!error_ini/norm_er .gt. 1.0d-15)
+           do while(error/error_ini>epsilon .or. error_cg_loc> epsilon)!error_ini/norm_er .gt. 1.0d-15)
  
               iter=iter+1
               if(iter>itermax)exit

@@ -10,7 +10,7 @@ rt=.true.
 &AMR_PARAMS 
 levelmin=3 !6
 levelmax=7 !8
-ngridmax=800000
+ngridmax=10000
 nexpand=1
 boxlen=20.0
 /

@@ -2377,7 +2377,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   real(dp),dimension(ngrp)::wdtB,wdtE,source,deriv
   real(dp)::ambi_heating,ohm_heating,nimhd_heating
 #if NIMHD==1
-  real(dp)::bcell2,bx,by,bz,jsquare,jx,jy,jz,etaohmdiss,betaad
+  real(dp)::bcell2,bx,by,bz,jsquare,jx,jy,jz,etaohmdiss,betaad,ionisrate
 #endif
 
   rho       = uold(i,1          )
@@ -2399,12 +2399,13 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
      jy=uold(i,nvar-2)
      jz=uold(i,nvar-1)
      jsquare=(jx**2+jy**2+jz**2)
+     ionisrate=default_ionisrate
 
-     if(nmagdiffu .eq. 1 .or. nmagdiffu2 .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told)*dt_imp*vol_loc
+     if(nmagdiffu .eq. 1 .or. nmagdiffu2 .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told,ionisrate)*dt_imp*vol_loc
      
      if(nambipolar .eq. 1 .or. nambipolar2 .eq.1 )then
         ambi_heating = (jy*bz-jz*by)**2+(jz*bx-jx*bz)**2+(jx*by-jy*bx)**2
-        ambi_heating = ambi_heating * betaad(rho,bcell2,Told)*dt_imp*vol_loc
+        ambi_heating = ambi_heating * betaad(rho,bcell2,Told,ionisrate)*dt_imp*vol_loc
      endif
      nimhd_heating=ambi_heating+ohm_heating
   end if

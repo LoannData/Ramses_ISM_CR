@@ -184,6 +184,7 @@ module hydro_parameters
   character(LEN=10)::riemann='llf'
   character(LEN=10)::riemann2d='llf'
   real(dp)::switch_solv=1.d20
+  real(dp)::switch_solv_dens=1.d20
   integer ::ischeme=0
   integer ::iriemann=0
   integer ::iriemann2d=0
@@ -262,6 +263,7 @@ module hydro_parameters
   real(dp):: rho_threshold=1.d-10     ! safeguard for the ambipolar flux in high density contrast cases (in code units)
   integer :: use_x1d=0               ! use abundances
   integer :: use_x2d=0               ! use abundances
+  integer :: use_x3d=0               ! use abundance table with rho, T, Xi
   integer :: use_res=0             ! use resistivities
 
 ! magnetic diffusion coefficient see function etaohmdiss in umsucl
@@ -289,6 +291,7 @@ module hydro_parameters
   real(dp):: coefdtohm = 1.d-10
   real(dp):: coefohm = 0.05d0
   real(dp):: coefhall=0.05d0
+  real(dp)::default_ionisrate=1d-17
 
 ! WARNING FOLLOWING VALUES IN CGS
 ! IF NEW ADDED MODIFY units.f90 TO CONVERT IN USER UNITS
