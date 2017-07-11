@@ -379,13 +379,13 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
 
 #if NENER>0
    do irad = 1,nent
-      if(err_grad_nent(irad) >= 0.)then
+      if(err_grad_prad(irad) >= 0.)then
          do k=1,nn
             pg=ug(k,8+irad); pm=um(k,8+irad); pd=ud(k,8+irad)
             error=2.0d0*MAX( &
                  & ABS((pd-pm)/(pd+pm+floor_p)), &
                  & ABS((pm-pg)/(pm+pg+floor_p)) )
-            ok(k) = ok(k) .or. error > err_grad_nent(irad)
+            ok(k) = ok(k) .or. error > err_grad_prad(irad)
          end do
       end if
    end do
