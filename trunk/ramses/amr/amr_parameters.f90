@@ -199,6 +199,15 @@ module amr_parameters
   logical ::simplechem=.false.  ! H2 formation only
   real(dp)::p_UV   =1.0D0       ! Parameter of variation of G0 (UV) 
 
+!Cosmic rays related variables
+  logical ::cr_diffusion=.false.      ! Cosmic ray diffusion module activated
+  logical ::fix_temp_diff=.false.     ! Cosmic ray diffusion energy fix
+  logical ::alfven_diff_coeff=.false. ! CR diffusion coeffcient dependant on the Alfvenic Mach number
+  logical ::slopelim_cond=.false.     ! TODO for the asymetric scheme
+  logical ::isotrope_cond=.false.     ! Activate isotropic CR diffusion
+  real(dp)::epsilon_diff_cr=1d-6      ! CG iteration break criteria for CR diffusion 
+  integer :: niter_cr=0               ! Total number of iterations for CR diffusion
+
 #ifdef grackle
   integer::grackle_comoving_coordinates=0
   integer::use_grackle=1

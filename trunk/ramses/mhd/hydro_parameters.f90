@@ -38,6 +38,12 @@ module hydro_parameters
 #else
   integer,parameter::npscal=NPSCAL
 #endif
+! Cosmic rays energy groups
+#ifndef NCR
+  integer,parameter::ncr=0
+#else
+  integer,parameter::ncr=NCR
+#endif
 
   integer,parameter::nent=nener-ngrp      ! Number of non-thermal energies
 #if USE_M_1==0
@@ -130,7 +136,7 @@ module hydro_parameters
   real(dp),dimension(1:NENER)::err_grad_prad=-1.0
 #endif
 #if NPSCAL>0
-#if USE_FLD==1
+#if USE_M_1==0
   real(dp),dimension(1:NVAR-8-NENER)::err_grad_var=-1.0
 #endif
 #if USE_M_1==1
@@ -172,6 +178,7 @@ module hydro_parameters
   real(dp)::difmag=0.0d0
   real(dp)::smallc=1.d-10
   real(dp)::smallr=1.d-10
+  real(dp)::smallcr=1.d-10
   real(dp)::eta_mag=0.0d0
   character(LEN=10)::scheme='muscl'
   character(LEN=10)::riemann='llf'
@@ -291,5 +298,19 @@ module hydro_parameters
   logical :: use_nonideal_mhd
   real(dp)::nu_sts=0.001
 ! fin modif nimhd
+
+
+  !Cosmic rays related variables
+  real(dp)::k_perp=0.01       ! Perpendicular diffusion coefficient (k_perp*kspitzer_para)
+  real(dp)::R_length = 1.0d0
+  real(dp)::M0 = 1.0 
+  real(dp)::gamma_ei=1.0       
+  real(dp)::Dcr=1.0d29 ! Classical value, in cm^2/s (e.g., Jockipii 1999)
+  real(dp)::flinj=1.0d0 ! fraction of boxlen for CR injection
+  ! Interpolation parameters for anisotropic diffusion
+  integer ::interpol_var_cond=0
+  integer ::interpol_type_cond=1
+  integer ::interpol_mag_type_cond=-1
+
 
 end module hydro_parameters

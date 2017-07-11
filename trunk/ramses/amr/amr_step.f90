@@ -567,6 +567,13 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 #endif
 
+#ifdef SOLVERmhd
+  ! Cosmic ray diffusion step
+  if(cr_diffusion)then
+                               call timer('Cosmic rays diffusion','start')
+     call crdiffusion_cg(ilevel,icount)
+  end if
+#endif
 
 #if USE_FLD==1  
   ! Radiation diffusion step

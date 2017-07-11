@@ -10,11 +10,12 @@ NDIM = 1
 SOLVER = mhd
 NIMHD=0
 
-NENT = 0
+NCR = 0
+NENT =0+$(NCR)
 
 USE_FLD=0
 USE_M_1=0
-NGRP = 0
+NGRP=0
 
 NEXTINCT = 0
 NPSCAL = 0
@@ -53,7 +54,8 @@ endif
 ## 2:4 velocity
 ## 5 pressure
 ## 6:8 magnetic field
-## 9:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
+## 9:9+ncr : cosmic rays energy density (ncr groups of energy)
+## 9+ncr:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
 ## 9+nener9+nener+1:9+nener+nextinct : for extinction (look at definition of firstindex_pscal in mhd/read_hydro_param)
 ## 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine) 
 ## note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
@@ -182,7 +184,7 @@ endif
 #############################################################################
 # Sources directories are searched in this exact order
 BINDIR = .
-VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
+VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../cr:../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o 
@@ -215,7 +217,8 @@ HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_f
            uplmde.o umuscl.o interpol_hydro.o godunov_utils.o condinit.o hydro_flag.o hydro_boundary.o \
            boundana.o read_hydro_params.o synchro_hydro_fine.o \
            multigroup.o m1_utils.o \
-           radiative_transfer_bicg.o radiation_boundary.o cooling_module_frig.o
+           radiative_transfer_bicg.o radiation_boundary.o cooling_module_frig.o \
+	   crdiffusion.o crdiff_split.o crdiffusion_fine.o	
 # RT objects
 RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o rt_output_hydro.o rt_godunov_fine.o \
         rt_interpol_hydro.o rt_godunov_utils.o rt_condinit.o rt_hydro_flag.o rt_hydro_boundary.o rt_boundana.o \

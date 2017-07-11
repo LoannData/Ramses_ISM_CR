@@ -20,7 +20,7 @@ SUBROUTINE rt_init
   ! Count the number of variables and check if ok:
 !  nvar_count = ichem-1     ! # of non-rt vars: rho u v w p (z) (delay) (x)
   if(rt_isIRtrap) &
-     iIRtrapVar = inener  ! Trapped rad. stored in nonthermal pressure var
+     iIRtrapVar = inener+ncr  ! Trapped rad. stored in nonthermal pressure var, but after cosmic rays energy densities
 !  iIons=nvar_count+1         !      Starting index of ionisation fractions
 !  nvar_count = nvar_count+3  !                                # hydro vars
 
@@ -42,7 +42,8 @@ endif
 !! 2:4 velocity
 !! 5 pressure
 !! 6:8 magnetic field
-!! 9:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
+!! 9:9+ncr : cosmic rays energy density (ncr groups of energy)     
+!! 9+ncr:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
 !! 9+nener9+nener+1:9+nener+nextinct : for extinction (look at definition of firstindex_pscal in mhd/read_hydro_param)
 !! 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine) 
 !! note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 

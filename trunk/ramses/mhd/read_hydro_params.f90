@@ -38,7 +38,7 @@ subroutine read_hydro_params(nml_ok)
        & ,var_region &
 #endif
        & ,A_region,B_region,C_region
-  namelist/hydro_params/gamma,courant_factor,smallr,smallc &
+  namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr  &
        & ,niter_riemann,slope_type,slope_mag_type,switch_solv &
 #if NENER>0
        & ,gamma_rad &
@@ -50,7 +50,8 @@ subroutine read_hydro_params(nml_ok)
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2,err_grad_E &
        & ,floor_d,floor_u,floor_p,ivar_refine,var_cut_refine &
        & ,floor_A,floor_B,floor_C,floor_B2,floor_E &
-       & ,interpol_var,interpol_type,sink_refine,interpol_mag_type
+       & ,interpol_var,interpol_type,sink_refine,interpol_mag_type &
+       & ,interpol_var_cond,interpol_type_cond,interpol_mag_type_cond
   namelist/boundary_params/nboundary,bound_type &
        & ,ibound_min,ibound_max,jbound_min,jbound_max &
        & ,kbound_min,kbound_max &
@@ -76,7 +77,11 @@ subroutine read_hydro_params(nml_ok)
 !       & ,rsink_max,msink_max,merge_stars &
        & ,units_density,units_time,units_length,neq_chem,ir_feedback,ir_eff &
        & ,larson_lifetime,flux_accretion,t_diss &
-       & ,mu_gas
+       & ,mu_gas &
+       & ,isotrope_cond,slopelim_cond,k_perp,cr_diffusion &
+       & ,M0,Dcr,epsilon_diff_cr,fix_temp_diff,alfven_diff_coeff
+
+
   namelist/radiation_params/grey_rad_transfer,dtdiff_params,dt_control &
        & ,rosseland_params,planck_params,epsilon_diff,fld_limiter &
        & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group  &
@@ -631,6 +636,9 @@ subroutine read_hydro_params(nml_ok)
   endif
   if (interpol_mag_type == -1) then
     interpol_mag_type = interpol_type
+  endif
+  if (interpol_mag_type_cond == -1) then
+    interpol_mag_type_cond = interpol_type_cond
   endif
 
 end subroutine read_hydro_params

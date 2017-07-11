@@ -6,8 +6,6 @@ module radiation_parameters
   real(dp),allocatable,dimension(:,:)::rad_flux ! Flux entrant dans une cellule
   real(dp),allocatable,dimension(:,:)::urad     ! Old values of Erg in NR iterations
   real(dp),allocatable,dimension(:,:)::frad     ! Radiative force  
-  integer,allocatable,dimension(:)::liste_ind
-  integer::nb_ind
   real(dp)::Tr_floor=10.0 ! Background radiation field temperature - WARNING: it affects the pressure_fix in set_uold.
   integer::ntp,nfr
 
@@ -56,7 +54,6 @@ module radiation_parameters
   integer,parameter::i_fld_limiter_nolim=0
   integer,parameter::i_fld_limiter_minerbo=1
   integer,parameter::i_fld_limiter_levermore=2
-  real(dp)   ::dt_imp                                    ! Implicit timestep
   integer :: niter=0                                 ! Total number of iteration
   real(dp),dimension(1:10)::dtdiff_params=1d10       ! Conduction time step behaviour
   real(dp),dimension(1:10)::rosseland_params=1.0     ! Rosseland opacity coefficient's parameters
