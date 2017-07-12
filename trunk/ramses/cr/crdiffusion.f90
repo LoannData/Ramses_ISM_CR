@@ -8,7 +8,7 @@ subroutine crdiffusion_cg (ilevel,Nsub)
   include 'mpif.h'
 #endif
   !===========================================================================
-  ! Iterative solver with Conjugate Gradient method to sole cosmic rays 
+  ! Iterative solver with Conjugate Gradient method to solve cosmic rays 
   ! anisotropic diffusion (Dubois & Commercon 2016)
   ! Solve A x = b
   !   r1      : stored in unew(i,1)
@@ -83,7 +83,7 @@ subroutine crdiffusion_cg (ilevel,Nsub)
 !!$  end do
 
   if (nb_ind == 0)then
-     !print*,'No leaf-cell - myid=',myid
+!     print*,'No leaf-cell - myid=',myid,'ilevel=',ilevel
      exist_leaf_cell=.false.
   end if
 
@@ -325,14 +325,13 @@ end do
 !=============================
 call cmp_energy_cr(2)
 
+
 ! Update boundaries
 call make_virtual_fine_dp(uold(1,5),ilevel)
 do ivar=1,ncr
    ind_cr = 8+ivar
    call make_virtual_fine_dp(uold(1,ind_cr),ilevel)
 end do
-!  call upload_fine(ilevel)
-!  call upload_fine(ilevel-1)
 
 
 111 format('   Entering conduction_cg')
@@ -699,7 +698,6 @@ do i=1,nb_ind
      unew(this,5)=uold(this,5)-ecr ! Store old total energy minus CR energy
      do igroup=1,ncr
         unew(this,ind_cr+igroup) = uold(this,ind_cr+igroup)
-!        print*,unew(this,ind_cr+igroup),'1'
      end do
 
   elseif(Etype==2)then
@@ -708,7 +706,6 @@ do i=1,nb_ind
      do igroup=1,ncr
         uold(this,ind_cr+igroup) = unew(this,ind_cr+igroup)
         uold(this,5) = uold(this,5) + unew(this,ind_cr+igroup)
-!        print*,unew(this,ind_cr+igroup),'2'
      end do
 
   end if

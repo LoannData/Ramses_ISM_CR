@@ -312,7 +312,7 @@ module hydro_parameters
   real(dp)::flinj=1.0d0 ! fraction of boxlen for CR injection
   ! Interpolation parameters for anisotropic diffusion
   integer ::interpol_var_cond=0
-  integer ::interpol_type_cond=1
+  integer ::interpol_type_cond=0
   integer ::interpol_mag_type_cond=-1
 
 

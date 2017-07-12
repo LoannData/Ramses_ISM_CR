@@ -48,6 +48,12 @@ subroutine read_hydro_params(nml_ok)
        & ,a_refine,b_refine,exp_refine,jeans_refine,mass_cut_refine &
        & ,m_refine,mass_sph,err_grad_d,err_grad_p,err_grad_u &
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2,err_grad_E &
+#if NENER>0
+       & ,err_grad_prad &
+#endif
+#if NPSCAL>0
+       & ,err_grad_var &
+#endif
        & ,floor_d,floor_u,floor_p,ivar_refine,var_cut_refine &
        & ,floor_A,floor_B,floor_C,floor_B2,floor_E &
        & ,interpol_var,interpol_type,sink_refine,interpol_mag_type &

@@ -567,6 +567,21 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 #endif
 
+  if((static_gas).and.(cr_diffusion .or. FLD))then
+     call upload_fine(ilevel)
+#ifdef SOLVERmhd
+     do ivar=1,nvar+3
+#else
+        do ivar=1,nvar
+#endif
+           call make_virtual_fine_dp(uold(1,ivar),ilevel)
+#ifdef SOLVERmhd
+     end do
+#else
+     end do
+#endif
+     if(simple_boundary)call make_boundary_hydro(ilevel)
+  end if
 #ifdef SOLVERmhd
   ! Cosmic ray diffusion step
   if(cr_diffusion)then

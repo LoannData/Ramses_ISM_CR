@@ -91,7 +91,6 @@ subroutine crdiff_split(uin,flux,dx,dy,dz,dt,ngrid,compute,fdx,igroup)
         if(compute==2)Ecr(l,i,j,k)=uin(l,i,j,k,2)
         Dpara(l,i,j,k)=uin(l,i,j,k,3)
         kperp(l,i,j,k)=max(uin(l,i,j,k,4),k_perp)
-
      end do
   enddo
   enddo
@@ -187,12 +186,15 @@ if(isotrope_cond)then
   do i=if1,if2
      do l = 1, ngrid
         dTdx1  =(Temp(l,i,j,k)-Temp(l,i-1,j,k))/dx
-        
-        fx    =kpar*dTdx1
+        kpar=2d0/(Dpara(l,i-1,j,k)+Dpara(l,i,j,k))        
         dx_loc=max(ffdx(l,i,j,k),ffdx(l,i-1,j,k))
+        if(compute.ne.3)then
+           fx    =kpar*dTdx1
+        else
+           fx=kpar/dx
+        end if
         fx=fx/dx_loc
         myflux(l,i,j,k)=fx*dt/dx
-        if(compute==3)myflux(l,i,j,k)=kpar*dt/dx**2
      enddo
   enddo
   enddo
@@ -208,7 +210,6 @@ else
 #if NDIM==1
 !!$        1-------
         dTdx1=(Temp(l,i,j,k)-Temp(l,i-1,j,k))/dx
-!!$        kparx1=2d0/(oneoverkspitzer(l,i-1,j,k)+oneoverkspitzer(l,i,j,k))
 
         if(alfven_diff_coeff)kpar = 2.0d0/(Dpara(l,i,j,k)+Dpara(l,i-1,j,k))
         fx=kpar*dTdx1
@@ -496,11 +497,15 @@ if(isotrope_cond)then
   do i=ilo,ihi
      do l = 1, ngrid
         dTdy1  =(Temp(l,i,j,k)-Temp(l,i,j-1,k))/dx
-        fy    =kpar*dTdy1
         dx_loc=max(ffdx(l,i,j,k),ffdx(l,i,j-1,k))
+        kpar=2d0/(Dpara(l,i,j-1,k)+Dpara(l,i,j,k))
+        if(compute.ne.3)then
+           fy    =kpar*dTdy1
+        else
+           fy=kpar/dx
+        end if
         fy=fy/dx_loc
         myflux(l,i,j,k)=fy*dt/dx
-        if(compute==3)myflux(l,i,j,k)=kpar*dt/dx**2
      enddo
   enddo
   enddo
@@ -799,18 +804,21 @@ subroutine cmpZcrflx(Temp,bf,myflux,dx,dy,dz,dt,ngrid,compute,ffdx,kpar,Dpara,kp
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
 
-  if(isotrope_cond)then
+if(isotrope_cond)then
   do k=kf1,kf2
   do j=jlo,jhi
   do i=ilo,ihi
      do l = 1, ngrid
         dTdz1  =(Temp(l,i,j,k)-Temp(l,i,j,k-1))/dx
-!!$        kpar=2d0/(Dpara(l,i,j,k-1)+Dpara(l,i,j,k))
-        fz    =kpar*dTdz1
         dx_loc=max(ffdx(l,i,j,k),ffdx(l,i,j,k-1))
+        kpar=2d0/(Dpara(l,i,j,k-1)+Dpara(l,i,j,k))
+        if(compute.ne.3)then
+           fz    =kpar*dTdz1
+        else
+           fz=kpar/dx
+        end if
         fz=fz/dx_loc
         myflux(l,i,j,k)=fz*dt/dx
-        if(compute==3)myflux(l,i,j,k)=kpar*dt/dx**2
      enddo
   enddo
   enddo
