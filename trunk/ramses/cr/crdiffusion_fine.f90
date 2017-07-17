@@ -217,54 +217,65 @@ subroutine crdifffine1(ind_grid,ncache,ilevel,compute,igroup)
 
         ! Compute Alfvenic Mach number = V/V_A and store it into uloc(:,3)
         do i=1,nexist
-           dens   = uold(ind_cell(i),1)
-           vx     = uold(ind_cell(i),2)/dens
-           vy     = uold(ind_cell(i),3)/dens
-           vz     = uold(ind_cell(i),4)/dens
-           vnorm  = (vx**2+vy**2+vz**2)**0.5
-           bx     = 0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-           by     = 0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-           bz     = 0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-           bnorm  = (bx**2+by**2+bz**2)**0.5
-           
-           va = bnorm/(dens**0.5)
-           Ma = vnorm/va
-           !==========================================================
-           ! Ma>1 : lambda = Linj/Ma^3, isotrop, D=c*lambda/3
-           ! Ma<1 : lambda_perp = lambda_para*Ma^4 and lambda_para=Linj/Ma^2
-           !==========================================================
-           if(Ma > 1)then
-              Dpara = kpar/(Ma**3)
-              kperp = 1.0d0
+           if(alfven_diff_coeff)then
+              dens   = uold(ind_cell(i),1)
+              vx     = uold(ind_cell(i),2)/dens
+              vy     = uold(ind_cell(i),3)/dens
+              vz     = uold(ind_cell(i),4)/dens
+              vnorm  = (vx**2+vy**2+vz**2)**0.5
+              bx     = 0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+              by     = 0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+              bz     = 0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+              bnorm  = (bx**2+by**2+bz**2)**0.5
+              
+              va = bnorm/(dens**0.5)
+              Ma = vnorm/va
+              !==========================================================
+              ! Ma>1 : lambda = Linj/Ma^3, isotrop, D=c*lambda/3
+              ! Ma<1 : lambda_perp = lambda_para*Ma^4 and lambda_para=Linj/Ma^2
+              !==========================================================
+              if(Ma > 1)then
+                 Dpara = kpar/(Ma**3)
+                 kperp = 1.0d0
+              else
+                 Dpara = kpar*(Ma**2)
+                 kperp=Ma**4
+              end if
            else
-              Dpara = kpar*(Ma**2)
-              kperp=Ma**4
-           end if
+              Dpara=Dcr/scale_kappa
+              kperp=k_perp
+           endif
            uloc(ind_exist(i),i3,j3,k3,3)=Dpara
            uloc(ind_exist(i),i3,j3,k3,4)=kperp ! Dperp=kperp*Dpara
         end do
         do i=1,nbuffer
-           dens= u2(i,ind_son,1)
-           vx = u2(i,ind_son,2)/dens
-           vy = u2(i,ind_son,3)/dens
-           vz = u2(i,ind_son,4)/dens
-           vnorm  = (vx**2+vy**2+vz**2)**0.5
-           bx = 0.5*(u2(i,ind_son,6)+u2(i,ind_son,nvar+1))
-           by = 0.5*(u2(i,ind_son,7)+u2(i,ind_son,nvar+2))
-           bz = 0.5*(u2(i,ind_son,8)+u2(i,ind_son,nvar+3))
-           bnorm = (bx**2+by**2+bz**2)**0.5
-           va = bnorm/dens**0.5
-           Ma = vnorm/va
-           !==========================================================
-           ! Ma>1 : lambda = Linj/Ma^3, isotrop, D=c*lambda/3
-           ! Ma<1 : lambda_perp = lambda_para*Ma^4 and lambda_para=Linj/Ma^2
-           !==========================================================
-           if(Ma > 1)then
-              Dpara = kpar/Ma**3
-              kperp = 1.0d0
+           if(alfven_diff_coeff)then
+              dens= u2(i,ind_son,1)
+              vx = u2(i,ind_son,2)/dens
+              vy = u2(i,ind_son,3)/dens
+              vz = u2(i,ind_son,4)/dens
+              vnorm  = (vx**2+vy**2+vz**2)**0.5
+              bx = 0.5*(u2(i,ind_son,6)+u2(i,ind_son,nvar+1))
+              by = 0.5*(u2(i,ind_son,7)+u2(i,ind_son,nvar+2))
+              bz = 0.5*(u2(i,ind_son,8)+u2(i,ind_son,nvar+3))
+              bnorm = (bx**2+by**2+bz**2)**0.5
+              va = bnorm/dens**0.5
+              Ma = vnorm/va
+              !==========================================================
+              ! Ma>1 : lambda = Linj/Ma^3, isotrop, D=c*lambda/3
+              ! Ma<1 : lambda_perp = lambda_para*Ma^4 and lambda_para=Linj/Ma^2
+              !==========================================================
+              if(Ma > 1)then
+                 Dpara = kpar/Ma**3
+                 kperp = 1.0d0
+              else
+                 Dpara = kpar*Ma**2
+                 kperp=Ma**4
+              end if
+              
            else
-              Dpara = kpar*Ma**2
-              kperp=Ma**4
+              Dpara=Dcr/scale_kappa
+              kperp=k_perp
            end if
 
            uloc(ind_nexist(i),i3,j3,k3,3)=Dpara
