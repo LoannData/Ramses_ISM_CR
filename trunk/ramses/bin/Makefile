@@ -10,7 +10,7 @@ NDIM = 1
 SOLVER = mhd
 NIMHD=0
 
-NCR = 1
+NCR = 0
 NENT =0+$(NCR)
 
 USE_FLD=0
