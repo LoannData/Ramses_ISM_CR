@@ -11,6 +11,9 @@ module hydro_commons
   real(dp)::mass_tot=0.0D0,mass_tot_0=0.0D0
   real(dp)::ana_xmi,ana_xma,ana_ymi,ana_yma,ana_zmi,ana_zma
   integer::nbins
+  integer,allocatable,dimension(:)::liste_ind
+  integer::nb_ind
+  real(dp)   ::dt_imp                            ! Implicit timestep 
 end module hydro_commons
 
 module const

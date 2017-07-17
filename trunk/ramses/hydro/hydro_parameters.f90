@@ -97,4 +97,16 @@ module hydro_parameters
   integer::ivirial2=6
   integer::inener=6
 
+  !Cosmic rays related variables
+  real(dp)::k_perp=0.01       ! Perpendicular diffusion coefficient (k_perp*kspitzer_para)
+  real(dp)::R_length = 1.0d0
+  real(dp)::M0 = 1.0 
+  real(dp)::gamma_ei=1.0       
+  real(dp)::Dcr=1.0d29 ! Classical value, in cm^2/s (e.g., Jockipii 1999)
+  real(dp)::flinj=1.0d0 ! fraction of boxlen for CR injection
+  ! Interpolation parameters for anisotropic diffusion
+  integer ::interpol_var_cond=0
+  integer ::interpol_type_cond=1
+  integer ::interpol_mag_type_cond=-1
+
 end module hydro_parameters

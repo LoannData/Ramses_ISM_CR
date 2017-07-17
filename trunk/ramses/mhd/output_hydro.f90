@@ -51,16 +51,28 @@ subroutine file_descriptor_hydro(filename)
   write(ilun,'("variable #",I2,": B_right_z")')ivar
 #if NENER>NGRP
   if(write_conservative) then
+#if NCR>0  
+     ! CR energies
+     do ivar=1,ncr
+        write(ilun,'("variable #",I2,": cosmic_rays_energy_",I1)')10+ivar,ivar
+     end do
+#endif
      ! Non-thermal energies
-     do ivar=1,nent
+     do ivar=1+ncr,nent
         write(ilun,'("variable #",I2,": non_thermal_energy_",I1)')10+ivar,ivar
      end do
   else
+#if NCR>0
+     ! CR pressures
+     do ivar=1,ncr
+        write(ilun,'("variable #",I2,": cosmic_rays_pressure_",I1)')10+ivar,ivar
+     end do
+#endif
      ! Non-thermal pressures
-     do ivar=1,nent
+     do ivar=1+ncr,nent
         write(ilun,'("variable #",I2,": non_thermal_pressure_",I1)')10+ivar,ivar
      end do
-  endif
+  end if
 #endif
   if(write_conservative) then
      ivar=11+nent
