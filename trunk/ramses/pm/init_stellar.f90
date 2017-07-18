@@ -30,7 +30,7 @@ subroutine init_stellar
     allocate(tstellar(1:nstellarmax))
     allocate(ltstellar(1:nstellarmax))
     allocate(id_stellar(1:nstellarmax))
-
+    
     ! Read restart variables from output files
     if(nrestart > 0) then
         ilun = 4*ncpu + myid + 11

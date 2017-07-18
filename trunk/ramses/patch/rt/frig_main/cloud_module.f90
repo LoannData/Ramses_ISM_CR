@@ -3,8 +3,6 @@ module cloud_module
   use hydro_parameters,only:Msun
   use rt_parameters
 
-  ! TODO - CLEAN THIS OUT
-
   !initial temperature used for the isothermal run
   real(dp)::temper
   real(dp)::temper_iso
@@ -80,8 +78,6 @@ subroutine calc_dmin(d_c)
   use hydro_commons
   use cloud_module
   implicit none
-
-  ! NOTE!! - IS THIS REALLY NECESSARY? - SAM GEEN OCTOBER 2015
 
   real(dp):: d_c, cont_ic, dmin
 
