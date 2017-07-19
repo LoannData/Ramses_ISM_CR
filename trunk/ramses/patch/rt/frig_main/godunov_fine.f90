@@ -1175,18 +1175,41 @@ subroutine godfine1(ind_grid,ncache,ilevel)
                 & -tmp(i,i3+i0,j3+j0,k3+k0,2,idim))
         end do
         end if
-#if NIMHD==1
-        if(radiative_nimhdheating .and. (nambipolar.eq.0 .or. nmagdiffu.eq.0))then
-           ! update jcenter
-           do i=1,ncache
-              unew(ind_cell(i),nvar-4+idim)=jcell(i,i3   ,j3   ,k3   ,idim)
-           end do
-        end if
-#endif
      end do
      end do
      end do
   end do
+
+#if NIMHD==1
+  !----------------------------------------------------------------
+  ! Warning, this has to be done in a separate loop !
+  ! If merged with the previous loop, unew(nvar-3) and unew(nvar-2)
+  ! are overwritten with fluxes (when idim=2,3)
+  !----------------------------------------------------------------
+  if(radiative_nimhdheating .and. (nambipolar.eq.1 .or. nmagdiffu.eq.1))then
+     do idim=1,ndim
+        do k2=k2min,k2max
+        do j2=j2min,j2max
+        do i2=i2min,i2max
+           ind_son=1+i2+2*j2+4*k2
+           iskip=ncoarse+(ind_son-1)*ngridmax
+           do i=1,ncache
+              ind_cell(i)=iskip+ind_grid(i)
+           end do
+           i3=1+i2
+           j3=1+j2
+           k3=1+k2
+           
+           ! update jcenter
+           do i=1,ncache
+              unew(ind_cell(i),nvar-4+idim)=jcell(i,i3   ,j3   ,k3   ,idim)
+           end do
+        enddo
+        enddo
+        enddo
+     enddo
+  end if
+#endif
 
   !---------------------------------------------------------
   ! Conservative update at level ilevel for induction system

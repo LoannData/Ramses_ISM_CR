@@ -63,9 +63,9 @@ subroutine crdiff_split(uin,flux,dx,dy,dz,dt,ngrid,compute,fdx,igroup)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::jsat
 
   ! Conversion factor from user units to cgs units
-  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-  scale_kappa = scale_l**2/scale_t
-  kpar=Dcr/scale_kappa
+!!$  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+!!$  scale_kappa = scale_l**2/scale_t
+!!$  kpar=Dcr/scale_kappa
 
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
@@ -97,7 +97,7 @@ subroutine crdiff_split(uin,flux,dx,dy,dz,dt,ngrid,compute,fdx,igroup)
   enddo
 
  ! Compute the heat flux in X direction
-  call cmpXcrflx(Ecr,bf,Xflux,dx,dy,dz,dt,ngrid,compute,ffdx,kpar,Dpara,kperp)
+  call cmpXcrflx(Ecr,bf,Xflux,dx,dy,dz,dt,ngrid,compute,ffdx,Dpara,kperp)
   do k=klo,khi
   do j=jlo,jhi
   do i=if1,if2
@@ -109,7 +109,7 @@ subroutine crdiff_split(uin,flux,dx,dy,dz,dt,ngrid,compute,fdx,igroup)
   enddo
 #if NDIM>1
   ! Compute the heat flux in Y direction
-  call cmpYcrflx(Ecr,bf,Yflux,dx,dy,dz,dt,ngrid,compute,ffdx,kpar,Dpara,kperp)
+  call cmpYcrflx(Ecr,bf,Yflux,dx,dy,dz,dt,ngrid,compute,ffdx,Dpara,kperp)
   do k=klo,khi
   do j=jf1,jf2
   do i=ilo,ihi
@@ -122,7 +122,7 @@ subroutine crdiff_split(uin,flux,dx,dy,dz,dt,ngrid,compute,fdx,igroup)
 #endif
 #if NDIM>2
   ! Compute the heat flux in Z direction
-  call cmpZcrflx(Ecr,bf,Zflux,dx,dy,dz,dt,ngrid,compute,ffdx,kpar,Dpara,kperp)
+  call cmpZcrflx(Ecr,bf,Zflux,dx,dy,dz,dt,ngrid,compute,ffdx,Dpara,kperp)
   do k=kf1,kf2
   do j=jlo,jhi
   do i=ilo,ihi
@@ -138,7 +138,7 @@ end subroutine crdiff_split
 !#########################################################################
 !#########################################################################
 !#########################################################################
-subroutine cmpXcrflx(Temp,bf,myflux,dx,dy,dz,dt,ngrid,compute,ffdx,kpar,Dpara,kperp)
+subroutine cmpXcrflx(Temp,bf,myflux,dx,dy,dz,dt,ngrid,compute,ffdx,Dpara,kperp)
   use amr_parameters
   use const             
   use hydro_parameters
@@ -194,6 +194,7 @@ if(isotrope_cond)then
            fx=kpar/dx
         end if
         fx=fx/dx_loc
+!        print*,fx,dtdx1,dx_loc,kpar
         myflux(l,i,j,k)=fx*dt/dx
      enddo
   enddo
@@ -211,7 +212,7 @@ else
 !!$        1-------
         dTdx1=(Temp(l,i,j,k)-Temp(l,i-1,j,k))/dx
 
-        if(alfven_diff_coeff)kpar = 2.0d0/(Dpara(l,i,j,k)+Dpara(l,i-1,j,k))
+        kpar = 2.0d0/(Dpara(l,i,j,k)+Dpara(l,i-1,j,k))
         fx=kpar*dTdx1
         if(compute==3)fx=kpar/dx 
         dx_loc=max(ffdx(l,i,j,k),ffdx(l,i-1,j,k))
@@ -253,7 +254,7 @@ else
            by2=by2/Bnorm
         endif
 
-        if(alfven_diff_coeff)then
+!!$        if(alfven_diff_coeff)then
            ! arithmetic mean
            kparax1=0.25d0*(Dpara(l,i  ,j  ,k)+Dpara(l,i  ,j-1,k) &
                 +      Dpara(l,i-1,j  ,k)+Dpara(l,i-1,j-1,k))
@@ -266,20 +267,20 @@ else
            
            kperpx1=0.25d0*(kperp(l,i  ,j  ,k)+kperp(l,i  ,j-1,k) &
                 +      kperp(l,i-1,j  ,k)+kperp(l,i-1,j-1,k))
-           kperpx2=0.25d0/(kperp(l,i  ,j+1,k)+kperp(l,i  ,j  ,k) &
+           kperpx2=0.25d0*(kperp(l,i  ,j+1,k)+kperp(l,i  ,j  ,k) &
                 +      kperp(l,i-1,j+1,k)+kperp(l,i-1,j  ,k))
            
            oneminuskperpx1 = 1.0d0-kperpx1
            oneminuskperpx2 = 1.0d0-kperpx2
-        else
-           kparax1 = kpar
-           kparax2 = kpar
-           kperpx1 = k_perp
-           kperpx2 = k_perp
-           oneminuskperpx1 = oneminuskperp
-           oneminuskperpx2 = oneminuskperp
-
-        endif
+!!$        else
+!!$           kparax1 = kpar
+!!$           kparax2 = kpar
+!!$           kperpx1 = k_perp
+!!$           kperpx2 = k_perp
+!!$           oneminuskperpx1 = oneminuskperp
+!!$           oneminuskperpx2 = oneminuskperp
+!!$
+!!$        endif
 
         if(compute .ne. 3)then   
            fx1=kparax1*(bx1*oneminuskperpx1*(bx1*dTdx1+by1*dTdy1)+kperpx1*dTdx1)
@@ -370,7 +371,7 @@ else
            bz4=bz4/Bnorm
         endif
 
-        if(alfven_diff_coeff)then
+!!$        if(alfven_diff_coeff)then
            kparax1=0.125d0*(Dpara(l,i  ,j  ,k  )+Dpara(l,i  ,j-1,k  )+Dpara(l,i  ,j  ,k-1) &
                 +      Dpara(l,i  ,j-1,k-1)+Dpara(l,i-1,j  ,k  )+Dpara(l,i-1,j-1,k  ) &
                 +      Dpara(l,i-1,j  ,k-1)+Dpara(l,i-1,j-1,k-1))
@@ -401,20 +402,20 @@ else
            oneminuskperpx2 = 1.0d0-kperpx2
            oneminuskperpx3 = 1.0d0-kperpx3
            oneminuskperpx4 = 1.0d0-kperpx4
-        else
-           kparax1 = kpar
-           kparax2 = kpar
-           kparax3 = kpar
-           kparax4 = kpar
-           kperpx1 = k_perp
-           kperpx2 = k_perp
-           kperpx3 = k_perp
-           kperpx4 = k_perp
-           oneminuskperpx1 = oneminuskperp
-           oneminuskperpx2 = oneminuskperp
-           oneminuskperpx3 = oneminuskperp
-           oneminuskperpx4 = oneminuskperp
-        endif
+!!$        else
+!!$           kparax1 = kpar
+!!$           kparax2 = kpar
+!!$           kparax3 = kpar
+!!$           kparax4 = kpar
+!!$           kperpx1 = k_perp
+!!$           kperpx2 = k_perp
+!!$           kperpx3 = k_perp
+!!$           kperpx4 = k_perp
+!!$           oneminuskperpx1 = oneminuskperp
+!!$           oneminuskperpx2 = oneminuskperp
+!!$           oneminuskperpx3 = oneminuskperp
+!!$           oneminuskperpx4 = oneminuskperp
+!!$        endif
 
         if(compute .ne. 3)then   
            fx1=kparax1*(bx1*oneminuskperpx1*(bx1*dTdx1+by1*dTdy1+bz1*dTdz1)+kperpx1*dTdx1)
@@ -446,7 +447,7 @@ end subroutine cmpXcrflx
 !#########################################################################
 !#########################################################################
 !#########################################################################
-subroutine cmpYcrflx(Temp,bf,myflux,dx,dy,dz,dt,ngrid,compute,ffdx,kpar,Dpara,kperp)
+subroutine cmpYcrflx(Temp,bf,myflux,dx,dy,dz,dt,ngrid,compute,ffdx,Dpara,kperp)
   use amr_parameters
   use const             
   use hydro_parameters
@@ -558,7 +559,8 @@ else
 !!$             +      Dpara(l,i-1,j  ,k)+Dpara(l,i-1,j-1,k))
 !!$        kpar=4d0/(Dpara(l,i  ,j  ,k)+Dpara(l,i+1,j  ,k) &
 !!$             +      Dpara(l,i  ,j-1,k)+Dpara(l,i+1,j-1,k))
-        if(alfven_diff_coeff)then
+
+!!$        if(alfven_diff_coeff)then
            kparay1=0.25d0*(Dpara(l,i  ,j  ,k)+Dpara(l,i  ,j-1,k) &
                 +      Dpara(l,i-1,j  ,k)+Dpara(l,i-1,j-1,k))
            kparay2=0.25d0*(Dpara(l,i  ,j  ,k)+Dpara(l,i+1,j  ,k) &
@@ -571,14 +573,14 @@ else
            
            oneminuskperpy1 = 1.0d0-kperpy1
            oneminuskperpy2 = 1.0d0-kperpy2
-        else
-           kparay1 = kpar
-           kparay2 = kpar
-           kperpy1 = k_perp
-           kperpy2 = k_perp
-           oneminuskperpy1 = oneminuskperp
-           oneminuskperpy2 = oneminuskperp
-        endif
+!!$        else
+!!$           kparay1 = kpar
+!!$           kparay2 = kpar
+!!$           kperpy1 = k_perp
+!!$           kperpy2 = k_perp
+!!$           oneminuskperpy1 = oneminuskperp
+!!$           oneminuskperpy2 = oneminuskperp
+!!$        endif
 
         if(compute .ne. 3)then   
            fy1=kparay1*(by1*oneminuskperpy1*(bx1*dTdx1+by1*dTdy1)+kperpy1*dTdy1)
@@ -681,7 +683,8 @@ else
 !!$        kpar=8d0/(Dpara(l,i+1,j  ,k+1)+Dpara(l,i+1,j-1,k+1)+Dpara(l,i+1,j  ,k  ) &
 !!$             +      Dpara(l,i+1,j-1,k  )+Dpara(l,i  ,j  ,k+1)+Dpara(l,i  ,j-1,k+1) &
 !!$             +      Dpara(l,i  ,j  ,k  )+Dpara(l,i  ,j-1,k  ))
-        if(alfven_diff_coeff)then
+
+!!$        if(alfven_diff_coeff)then
            kparay1=0.125d0*(Dpara(l,i  ,j  ,k  )+Dpara(l,i  ,j-1,k  )+Dpara(l,i  ,j  ,k-1) &
                 +      Dpara(l,i  ,j-1,k-1)+Dpara(l,i-1,j  ,k  )+Dpara(l,i-1,j-1,k  ) &
                 +      Dpara(l,i-1,j  ,k-1)+Dpara(l,i-1,j-1,k-1))
@@ -713,20 +716,20 @@ else
            oneminuskperpy3 = 1.0d0-kperpy3
            oneminuskperpy4 = 1.0d0-kperpy4
 
-        else
-           kparay1 = kpar
-           kparay2 = kpar
-           kparay3 = kpar
-           kparay4 = kpar
-           kperpy1 = k_perp
-           kperpy2 = k_perp
-           kperpy3 = k_perp
-           kperpy4 = k_perp
-           oneminuskperpy1 = oneminuskperp
-           oneminuskperpy2 = oneminuskperp
-           oneminuskperpy3 = oneminuskperp
-           oneminuskperpy4 = oneminuskperp
-        end if
+!!$        else
+!!$           kparay1 = kpar
+!!$           kparay2 = kpar
+!!$           kparay3 = kpar
+!!$           kparay4 = kpar
+!!$           kperpy1 = k_perp
+!!$           kperpy2 = k_perp
+!!$           kperpy3 = k_perp
+!!$           kperpy4 = k_perp
+!!$           oneminuskperpy1 = oneminuskperp
+!!$           oneminuskperpy2 = oneminuskperp
+!!$           oneminuskperpy3 = oneminuskperp
+!!$           oneminuskperpy4 = oneminuskperp
+!!$        end if
         
         if(compute .ne. 3)then        
            fy1=kparay1*(by1*oneminuskperpy1*(bx1*dTdx1+by1*dTdy1+bz1*dTdz1)+kperpy1*dTdy1)
@@ -759,7 +762,7 @@ end subroutine cmpYcrflx
 !#########################################################################
 !#########################################################################
 !#########################################################################
-subroutine cmpZcrflx(Temp,bf,myflux,dx,dy,dz,dt,ngrid,compute,ffdx,kpar,Dpara,kperp)
+subroutine cmpZcrflx(Temp,bf,myflux,dx,dy,dz,dt,ngrid,compute,ffdx,Dpara,kperp)
   use amr_parameters
   use const             
   use hydro_parameters
@@ -924,7 +927,8 @@ else
 !!$             +      Dpara(l,i+1,j  ,k-1)+Dpara(l,i  ,j+1,k  )+Dpara(l,i  ,j  ,k  ) &
 !!$             +      Dpara(l,i  ,j+1,k-1)+Dpara(l,i  ,j  ,k-1))
 !!$
-        if(alfven_diff_coeff)then
+
+!!$        if(alfven_diff_coeff)then
            kparaz1=0.125d0*(Dpara(l,i  ,j  ,k  )+Dpara(l,i  ,j-1,k  )+Dpara(l,i  ,j  ,k-1) &
              +      Dpara(l,i  ,j-1,k-1)+Dpara(l,i-1,j  ,k  )+Dpara(l,i-1,j-1,k  ) &
              +      Dpara(l,i-1,j  ,k-1)+Dpara(l,i-1,j-1,k-1))
@@ -956,20 +960,20 @@ else
            oneminuskperpz3 = 1.0d0-kperpz3
            oneminuskperpz4 = 1.0d0-kperpz4
 
-        else
-           kparaz1 = kpar
-           kparaz2 = kpar
-           kparaz3 = kpar
-           kparaz4 = kpar
-           kperpz1 = k_perp
-           kperpz2 = k_perp
-           kperpz3 = k_perp
-           kperpz4 = k_perp
-           oneminuskperpz1 = oneminuskperp
-           oneminuskperpz2 = oneminuskperp
-           oneminuskperpz3 = oneminuskperp
-           oneminuskperpz4 = oneminuskperp
-        end if
+!!$        else
+!!$           kparaz1 = kpar
+!!$           kparaz2 = kpar
+!!$           kparaz3 = kpar
+!!$           kparaz4 = kpar
+!!$           kperpz1 = k_perp
+!!$           kperpz2 = k_perp
+!!$           kperpz3 = k_perp
+!!$           kperpz4 = k_perp
+!!$           oneminuskperpz1 = oneminuskperp
+!!$           oneminuskperpz2 = oneminuskperp
+!!$           oneminuskperpz3 = oneminuskperp
+!!$           oneminuskperpz4 = oneminuskperp
+!!$        end if
 
         if(compute .ne. 3)then        
            fz1=kparaz1*(bz1*oneminuskperpz1*(bx1*dTdx1+by1*dTdy1+bz1*dTdz1)+kperpz1*dTdz1)

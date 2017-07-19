@@ -231,8 +231,8 @@ im=im(iimin:iimax,jjmin:jjmax)
 xscale=double(ximmax)/double(xeff)
 yscale=double(yimmax)/double(yeff)
 lscale=min([xscale,yscale])
-;imtv=CONGRID(im,lscale*xeff,lscale*yeff)
-imtv=REBIN(im,lscale*xeff,lscale*yeff,/sample)
+imtv=CONGRID(im,lscale*xeff,lscale*yeff)
+;imtv=REBIN(im,lscale*xeff,lscale*yeff,/sample)
 
 
 inddummy=where(imtv le dummy,ndummy)
