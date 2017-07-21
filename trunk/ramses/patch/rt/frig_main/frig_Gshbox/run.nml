@@ -1,0 +1,191 @@
+&RUN_PARAMS 
+hydro=.true.
+nrestart=73
+!nremap=5
+nsubcycle=10*2
+verbose=.false.
+rt=.true.
+poisson=.true.
+pic=.true.
+sink=.true.
+clumpfind=.true.
+stellar=.true.
+ordering='planar'
+/
+
+&INIT_PARAMS
+/
+
+&POISSON_PARAMS
+!trelax=0.0155329926
+gravity_type=-1
+/
+
+
+&CLUMPFIND_PARAMS
+n_clfind=1d2
+/
+
+&SINK_PARAMS
+nsinkmax=50000
+create_sinks=.true.
+n_sink=1d3
+accretion_scheme='threshold'
+!merging_scheme='timescale'
+!!merging_timescale=1d4
+!!msink_direct=10.
+/
+
+
+&STELLAR_PARAMS
+sn_feedback_sink=.True.
+!make_stellar_glob = .True.
+nstellarmax=100000
+imf_index=-2.35
+imf_low=8.
+imf_high=120.
+lt_a=0.23840797
+lt_b=2.20522946
+lt_m0=148.158972
+lt_t0=3.26515722
+stf_K=9.634642584812752d48 ! s**(-1)
+stf_m0=2.728098824280431d1 ! Msun
+stf_a=6.840015602892084d0
+stf_b=4.353614230584390d0
+stf_c=1.142166657042991d0
+hii_w=1.1
+hii_alpha= 3.11626026739d-13 ! cm**3/s
+hii_c=12.5 ! km/s
+hii_t=4.0 ! Myr
+hii_T2=0.0d0 ! K
+stellar_msink_th=120.
+/
+
+
+
+&AMR_PARAMS 
+levelmin=7
+levelmax=9
+ngridmax=700000
+npartmax=200000
+nexpand=1
+boxlen=1000.
+/
+
+&REFINE_PARAMS
+!x_refine=10*0.5
+!y_refine=10*0.5
+!z_refine=10*0.5
+!r_refine=0.6,0.5,10*0.5 ! FIRST TWO LEVELS MUST REFINE, THEN JEANS REFINEMENT
+!exp_refine=10*2.0
+!m_refine=2*0.0,10*1. ! Force a refined sphere inside inner 0.5 boxlen
+!jeans_refine=25*10. ! Allow Jeans refinement anywhere
+interpol_var=1
+interpol_type=0
+mass_sph=8.0
+mass_cut_refine=0.
+sink_refine=.true.
+/
+
+
+&CLOUD_PARAMS
+!mass_c=10000. !in solar mass
+!rap=1.        !axis ratio
+!cont=10.      !density contrast
+!ff_sct=0.1    !freefall time/sound crossing time
+!ff_rt=0.0     !freefall time/rotation time
+!ff_act=0.2    !freefall time/Alfven crossing time
+!ff_vct=2.     !freefall time/Vrms crossing time
+!thet_mag=0.   !angle between magnetic field and rotation axis
+!bl_fac=4.     !multiply the calculated boxlen by this factor
+bx_bound=0.5
+by_bound=0.
+bz_bound=0.
+turb=5.
+dens0=1.5
+Height0=150.
+Vshear=28.
+shear=.True.
+/
+
+&FEEDBACK_PARAMS
+Vsat=250.
+Tsat=1.e6
+Vdisp=1.
+/
+
+&OUTPUT_PARAMS
+foutput=200
+noutput=2
+tout = 1e-4,1.
+/
+
+&HYDRO_PARAMS
+switch_solv=1.d3
+switch_solv_dens=3.
+pressure_fix=.true.
+gamma=1.66666667
+courant_factor=0.8
+slope_type=1
+scheme='muscl'
+riemann='hlld'
+riemann2d='hlld'
+smallr=0.001
+/
+
+
+&RT_PARAMS
+rt_sink=.true.
+X=0.76d0
+Y=0.24d0
+rt_output_coolstats=.true.
+rt_flux_scheme='glf'
+rt_smooth=.true.
+rt_courant_factor=0.8		! courant number for RT timesteps
+rt_c_fraction=1.d-3	      ! fraction of actual lightspeed set to RT lightspeed
+rt_otsa=.false.			      		       	              	        ! no OTSA
+!rt_err_grad_xHII=0.1
+rt_nregion=1   !--------------------------------------------------------------------
+rt_region_type(1)='square'
+rt_reg_x_center=0.5
+rt_reg_y_center=0.5
+rt_reg_z_center=0.5
+rt_reg_length_x=1000.0
+rt_reg_length_y=1000.0
+rt_reg_length_z=1000.0
+/
+
+&RT_GROUPS
+group_csn(1,:)= 3.8808E-18, 7.6280E-22, 0.0000
+group_cse(1,:)= 3.6627E-18, 1.1054E-21, 0.0000
+group_csn(2,:)= 8.9878E-19, 6.1154E-18, 0.0000
+group_cse(2,:)= 8.7025E-19, 5.9879E-18, 0.0000
+group_csn(3,:)= 1.0528E-19, 1.5058E-18, 1.3239E-18
+group_cse(3,:)= 1.0448E-19, 1.4969E-18, 1.3173E-18
+group_egy     = 16.970, 28.161, 57.638
+spec2group    = 1, 2, 3
+/
+
+&BOUNDARY_PARAMS
+nboundary=4
+!!!!ibound_min=-1,-1,-1,-1
+!!!!ibound_max=+1,+1,+1,+1
+jbound_min=-1,+1,0,0
+jbound_max=-1,+1,0,0
+kbound_min=-1,-1,-1,+1
+kbound_max=+1,+1,-1,+1
+bound_type= 3, 3, 3, 3
+/
+
+&PHYSICS_PARAMS
+n_star=1.d-13 !in g cm^-3
+T2_star=10.  !in K
+T2max=1.e6
+g_star=0.66666
+cooling=.true.
+units_density=2.3247434d-24 ! mu * 1.66e-24, where mu = 1.4
+units_time = 2.5395079d15 ! 1/sqrt(G * units_density)
+units_length = 3.08d18 ! 1 pc
+!bondi=.false.
+!n_sink=1.d5
+/
