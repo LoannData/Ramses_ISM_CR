@@ -147,17 +147,18 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
   real(dp),dimension(1:ngroups)::nphotons
 
   sink_ioni_flux = 0d0
-  nphotons = 0d0
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   scale_m=scale_d*scale_l**3d0
 
   do istellar=1,nstellar 
      !id of the sink to which the stellar object belongs 
+     nphotons = 0d0
      isink = id_stellar(istellar)
      M_stellar = mstellar(istellar)
 
      ! Use singlestar_module (reads SB99-derived tables)
      if (use_ssm) then
+
         ts = (t-tstellar(istellar))*scale_t
         dts = dt*scale_t
         M_stellar_Msun = M_stellar*(scale_m/Msun)
@@ -178,7 +179,8 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
            nphotons(1) = Flux_stellar
         endif
      endif
-     sink_ioni_flux(isink,:) = sink_ioni_flux(isink,:) + nphotons
+!     sink_ioni_flux(isink,:) = sink_ioni_flux(isink,:) + nphotons
+     sink_ioni_flux(isink,1) = sink_ioni_flux(isink,1) + nphotons(1)
   enddo
 
 END SUBROUTINE gather_ioni_flux
@@ -362,8 +364,13 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
          !the flux is normalised in read_stellar_object : thus no "scale_t" here see stf_K parameter
          
         ! deposit the photons onto the grid
-        rtunew(indp(j),:)=rtunew(indp(j),:) + sink_ioni_flux(isink,:) * dt &
+!        rtunew(indp(j),:)=rtunew(indp(j),:) + sink_ioni_flux(isink,:) * dt &
+!             & / dble(ncloud_sink) / vol_cgs / scale_Np
+
+        rtunew(indp(j),1)=rtunew(indp(j),1) + sink_ioni_flux(isink,1) * dt &
              & / dble(ncloud_sink) / vol_cgs / scale_Np
+
+
      endif
   end do
 
