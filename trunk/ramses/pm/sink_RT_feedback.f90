@@ -141,7 +141,7 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
 
   real(dp),intent(in)::dt
   real(dp),dimension(1:nsink,1:ngroups),intent(out):: sink_ioni_flux !this arrays gathers the ionising flux by looping over stellar object
-  integer:: istellar,isink
+  integer:: istellar,isink,ig
   real(dp)::M_stellar,Flux_stellar,ts,dts,M_stellar_Msun
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2,scale_m
   real(dp),dimension(1:ngroups)::nphotons
@@ -155,7 +155,8 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
      nphotons = 0d0
      isink = id_stellar(istellar)
      M_stellar = mstellar(istellar)
-
+     ! Reset the photon counter
+     nphotons = 0d0
      ! Use singlestar_module (reads SB99-derived tables)
      if (use_ssm) then
 
@@ -173,14 +174,21 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
         if (t - tstellar(istellar) < hii_t) then
            !remember vaccafits is in code units because the corresponding parameters have been normalised in read_stellar_params (stf_K and stf_m0) 
            call vaccafit(M_stellar,Flux_stellar)
-           
-           ! TODO: Include Helium-ionising photons as well 
-           ! (also in Vacca96/Sternberg03)
-           nphotons(1) = Flux_stellar
+           ! HII-ionising is group 1 if no IR, else group 3 (IR is group 1, optical is group 2)
+           if (ngroups.eq.3) then
+              nphotons(1) = Flux_stellar
+           else
+              nphotons(3) = Flux_stellar
+           endif
         endif
      endif
-!     sink_ioni_flux(isink,:) = sink_ioni_flux(isink,:) + nphotons
-     sink_ioni_flux(isink,1) = sink_ioni_flux(isink,1) + nphotons(1)
+
+     do ig=1,ngroups
+        ! Remove negative photon counts
+        nphotons(ig) = max(nphotons(ig),0d0)
+        sink_ioni_flux(isink,ig) = sink_ioni_flux(isink,ig) + nphotons(ig)
+     enddo
+
   enddo
 
 END SUBROUTINE gather_ioni_flux
@@ -220,7 +228,7 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
   integer,dimension(1:nvector)::ind_grid_part,ind_part
   real(dp)::dt, sourcemass
   !-----------------------------------------------------------------------
-  integer::i,j,idim,nx_loc,ip,isink
+  integer::i,j,idim,nx_loc,ip,isink,ig
   real(dp)::dx,dx_loc,scale,vol_loc,vol_cgs
   logical::error
   ! Grid based arrays
@@ -364,12 +372,11 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
          !the flux is normalised in read_stellar_object : thus no "scale_t" here see stf_K parameter
          
         ! deposit the photons onto the grid
-!        rtunew(indp(j),:)=rtunew(indp(j),:) + sink_ioni_flux(isink,:) * dt &
-!             & / dble(ncloud_sink) / vol_cgs / scale_Np
 
-        rtunew(indp(j),1)=rtunew(indp(j),1) + sink_ioni_flux(isink,1) * dt &
-             & / dble(ncloud_sink) / vol_cgs / scale_Np
-
+        do ig=1,ngroups
+           rtunew(indp(j),iGroups(ig))=rtunew(indp(j),iGroups(ig)) + &
+                sink_ioni_flux(isink,ig) * dt / dble(ncloud_sink) / vol_cgs / scale_Np
+        end do
 
      endif
   end do
