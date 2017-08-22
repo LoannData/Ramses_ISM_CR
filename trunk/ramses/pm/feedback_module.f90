@@ -7,6 +7,7 @@ module feedback_module
 
 
   logical::sn_feedback_sink = .false. !SN feedback emanates from the sink
+  logical::sn_feedback_cr=.false.     !Add CR component to the SN feedback
 
   !mass, energy and momentum of supernova for forcing by sinks
   ! sn_e in erg, sn_p in g cm/s , sn_mass in Ms
@@ -19,6 +20,8 @@ module feedback_module
   !dispersion velocity of the stellar objects in km/s
   real(dp):: Vdisp=1. 
 
+  !fraction of the SN energy put in the CR (WARNING, this is currently not set to sn_e at maxiume, so if fcr=1, then the energy inptu can ne 2*sn_e)
+  real(dp)::fcr=0.1
 
   ! Stellar object related arrays, those parameters are read in  read_stellar_params 
   logical:: stellar = .false.
@@ -537,7 +540,15 @@ subroutine make_sn_stellar
                   sn_ed_lim = T_sn * dgas / (gamma-1.)
 
                   uold(ind_cell(i), 2+ndim) = uold(ind_cell(i), 2+ndim) + ekin + sn_ed_lim
-
+#if NCR>0
+                  if(sn_feedback_cr)then
+                     do ivar=1,ncr
+                        uold(ind_cell(i),firstindex_ent+ivar)=uold(ind_cell(i),firstindex_ent+ivar) &
+                             & + sn_ed*fcr
+                        uold(ind_cell(i), 2+ndim) = uold(ind_cell(i), 2+ndim) + sn_ed*fcr
+                     end do
+                  end if
+#endif
                   n_sn = n_sn + 1
 
                   !write(*,*) 'put SN, myid , n_sn ',myid, n_sn, 'x,y,z: ',x_sn(1),x_sn(2),x_sn(3), 'density ',dgas

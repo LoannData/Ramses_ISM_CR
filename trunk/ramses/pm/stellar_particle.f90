@@ -20,7 +20,7 @@ subroutine read_stellar_params()
                            & imf_index, imf_low, imf_high, &
                            & lt_t0, lt_m0, lt_a, lt_b, &
                            & stf_K, stf_m0, stf_a, stf_b, stf_c, &
-                           & hii_w, hii_alpha, hii_c, hii_t, hii_T2 ,sn_feedback_sink,make_stellar_glob,iseed
+                           & hii_w, hii_alpha, hii_c, hii_t, hii_T2 ,sn_feedback_sink ,sn_feedback_cr,make_stellar_glob,iseed,fcr
 
     real(dp):: scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
     real(dp):: msun, Myr, km_s
