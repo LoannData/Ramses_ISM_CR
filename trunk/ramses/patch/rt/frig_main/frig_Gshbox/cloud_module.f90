@@ -3,6 +3,8 @@ module cloud_module
   use hydro_parameters,only:Msun
   use rt_parameters
 
+  ! TODO - CLEAN THIS OUT
+
   !initial temperature used for the isothermal run
   real(dp)::temper
   real(dp)::temper_iso
@@ -46,6 +48,12 @@ module cloud_module
   real(dp):: delta_rho=0.0d0
   real(dp):: Mach=0.0d0
 
+
+  real(dp)::Vshear=0.    !value of the shear in km/s
+  logical:: shear=.false.        !add Corriolis and centrifuge forces
+
+
+
   ! PMS evolution related stuff
   logical :: rt_feedback=.false.       ! take into account RT feedback
   logical :: PMS_evol=.false.          ! Take into account PMS evolution subgrid model
@@ -78,6 +86,8 @@ subroutine calc_dmin(d_c)
   use hydro_commons
   use cloud_module
   implicit none
+
+  ! NOTE!! - IS THIS REALLY NECESSARY? - SAM GEEN OCTOBER 2015
 
   real(dp):: d_c, cont_ic, dmin
 
@@ -195,7 +205,7 @@ subroutine read_cloud_params(nml_ok)
   ! Namelist definitions
   !--------------------------------------------------
   namelist/cloud_params/mass_c,rap,cont,ff_sct,ff_rt,ff_act,ff_vct,thet_mag &
-       & ,bl_fac, scale_tout
+       & ,bl_fac,switch_solv,turb,Height0,dens0,bx_bound,by_bound,bz_bound,Vshear,shear
 
   ! Read namelist file
   rewind(1)
@@ -205,10 +215,17 @@ subroutine read_cloud_params(nml_ok)
   ! Get some units out there
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
-  ! Calculate boxlen
-  if (mass_c .gt. 0) then
-     call calc_boxlen
-  end if
+!  ! Calculate boxlen
+!  if (mass_c .gt. 0) then
+!     call calc_boxlen
+!  end if
+
+
+  write(*,*) 'shear ',shear
+
+
+  ! normalise the shear in code units 
+  Vshear = Vshear*1.e5/scale_v
 
   !since boxlen is not known initialy we must multiply the
   !refining parameters by boxlen here
@@ -217,28 +234,18 @@ subroutine read_cloud_params(nml_ok)
   z_refine = z_refine*boxlen
   r_refine = r_refine*boxlen
 
-  ! Also scale any RT sources
-  rt_src_x_center = rt_src_x_center * boxlen
-  rt_src_y_center = rt_src_y_center * boxlen
-  rt_src_z_center = rt_src_z_center * boxlen
-
-
   ! Set the sink formation threshold based on the Jeans criterion
-  cellsize = boxlen * 0.5**nlevelmax * pcincm / scale_l
-  n_sink = 881.0 / cellsize**2 ! Scaled to give 1e6 for 30pc/1024
-  n_clfind = 0.1 * n_sink
-  if(myid==1) write(*,*) "SETTING n_sink, n_clfind TO", n_sink, n_clfind
+!  cellsize = boxlen * 0.5**nlevelmax * pcincm / scale_l
+!  n_sink = 881.0 / cellsize**2 ! Scaled to give 1e6 for 30pc/1024
+!  n_clfind = 0.1 * n_sink
+!  if(myid==1) write(*,*) "SETTING n_sink, n_clfind TO", n_sink, n_clfind
 
   ! Feedback parameters
-  ! Removed - done in read_params instead
-  !call read_feedback_params(nml_ok)
+  call read_feedback_params(nml_ok)
 
-  ! Use scale_tout parameter - allows scaling outputs to, e.g., t_ff
-  if (scale_tout.ne.1d0) then
-     tout = tout*scale_tout
-  endif
 
 end subroutine read_cloud_params
+
 
 
 
@@ -276,6 +283,10 @@ subroutine boundary_frig(ilevel)
 #ifndef SOLVERmhd
   return
 #endif 
+
+
+return
+
 
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
@@ -367,123 +378,6 @@ subroutine boundary_frig(ilevel)
               call clean_stop
            end if
         end do
-
-
-        !impose vanishing gradient conditions at the x  faces
-        if(  xx(i,1) .lt. 2.*dx_min ) then 
-
-             !look for the grid neigbour of the top father
-             jgrid = son(nbor(ind_grid(i),2))
-
-           ind_cell_vois = iskip + jgrid 
-             !remember iskip is calculated above
-           if(ind .eq. 2 .or. ind .eq. 4 .or. ind .eq. 6 .or. ind .eq. 8) then 
-             ind_cell_vois = ind_cell_vois - ngridmax
-           endif
-
-           uold(ind_cell(i),1:nvar+3) =  uold(ind_cell_vois,1:nvar+3) 
-           uold(ind_cell(i),1) = MAX(uold(ind_cell(i),1),smallr)
-
-           A=0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-           B=0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-           C=0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-
-           Emag = 0.5*(A**2+B**2+C**2)
-
-           uold(ind_cell(i),5) = uold(ind_cell(i),5)  - Emag
-
-           ! Subtract non-thermal pressure terms
-!#if NENER>0
-!           do irad=1,nener
-!              uold(ind_cell(i),5) = uold(ind_cell(i),5) - uold(ind_cell(i),8+irad)
-!           end do
-!#endif
-
-           ! we have to modify the 2 normal components of the magnetic field
-           if(ind .eq. 2 .or. ind .eq. 4 .or. ind .eq. 6 .or. ind .eq. 8) then 
-              uold(ind_cell(i),nvar+1) = uold(ind_cell_vois,6)
- 
-
-              uold(ind_cell(i),6)  = uold(ind_cell(i),nvar+1) + uold(ind_cell(i),nvar+2) + uold(ind_cell(i),nvar+3) - uold(ind_cell(i),7) - uold(ind_cell(i),8) 
-           else
-              !should be equal to uold(ind_cell(i),7) of the preceeding case 
-              uold(ind_cell(i),nvar+1) =  uold(ind_cell_vois,6) + uold(ind_cell(i),nvar+2) + uold(ind_cell(i),nvar+3) - uold(ind_cell(i),7)  - uold(ind_cell(i),8) 
-
-              !ensure div B
-              uold(ind_cell(i),6) =  uold(ind_cell(i),nvar+1) + uold(ind_cell(i),nvar+2) + uold(ind_cell(i),nvar+3)  -uold(ind_cell(i),7) - uold(ind_cell(i),8) 
-           endif
-
-
-
-
-           A=0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-           B=0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-           C=0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-
-           Emag = 0.5*(A**2+B**2+C**2)
-
-           uold(ind_cell(i),5) =  uold(ind_cell(i),5) + Emag 
-
-           ! Add back the non-thermal pressure
-!#if NENER>0
-!           do irad=1,nener
-!              uold(ind_cell(i),5) = uold(ind_cell(i),5) + uold(ind_cell(i),8+irad)
-!           end do
-!#endif
-
-        endif
-
-
-
-        !impose vanishing gradient conditions at the x  faces
-        if(  xx(i,1) .gt. boxlen-2.*dx_min ) then 
-
-             !look for the grid neigbour of the top father
-             jgrid = son(nbor(ind_grid(i),1))
-
-           ind_cell_vois = iskip + jgrid 
-             !remember iskip is calculated above
-           if(ind .eq. 1 .or. ind .eq. 3 .or. ind .eq. 5 .or. ind .eq. 7) then 
-             ind_cell_vois = ind_cell_vois + ngridmax
-           endif
-
-           uold(ind_cell(i),1:nvar+3) =  uold(ind_cell_vois,1:nvar+3) 
-           uold(ind_cell(i),1) = MAX(uold(ind_cell(i),1),smallr)
-
-           A=0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-           B=0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-           C=0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-
-           Emag = 0.5*(A**2+B**2+C**2)
-
-           uold(ind_cell(i),5) = uold(ind_cell(i),5)  - Emag
-
-           ! we have to modify the 2 normal components of the magnetic field
-           if(ind .eq. 1 .or. ind .eq. 3 .or. ind .eq. 5 .or. ind .eq. 7) then 
-              uold(ind_cell(i),6) = uold(ind_cell_vois,nvar+1)
- 
-              uold(ind_cell(i),nvar+1) = uold(ind_cell(i),6) + uold(ind_cell(i),7) + uold(ind_cell(i),8) - uold(ind_cell(i),nvar+2) - uold(ind_cell(i),nvar+3) 
-           else
-              !should be equal to uold(ind_cell(i),9) of the preceeding case 
-              uold(ind_cell(i),6) =  uold(ind_cell(i),7) + uold(ind_cell(i),8)  + uold(ind_cell_vois,nvar+1) - uold(ind_cell(i),nvar+2) - uold(ind_cell(i),nvar+3) 
-
-              !ensure div B
-              uold(ind_cell(i),nvar+1) = uold(ind_cell(i),6) + uold(ind_cell(i),7) + uold(ind_cell(i),8) - uold(ind_cell(i),nvar+2) - uold(ind_cell(i),nvar+3) 
-           endif
-
-
-           A=0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-           B=0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-           C=0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-
-           Emag = 0.5*(A**2+B**2+C**2)
-
-           uold(ind_cell(i),5) =  uold(ind_cell(i),5) + Emag 
-
-        endif
-
-
-
 
 
         !impose vanishing gradient conditions at the y  faces
@@ -717,3 +611,186 @@ end subroutine boundary_frig
 !#########################################################
 !#########################################################
 !#########################################################
+
+! CC 03/17
+! Get the typical height scale z0 of the gas (mass_all does not work with amr)
+subroutine get_height_scale(ilevel,z0,mass_all)
+   use amr_commons
+   use hydro_commons
+   implicit none
+   include 'mpif.h'
+   integer::ilevel
+   integer::i,ind,ncache,igrid,iskip
+   integer::info,nleaf,ngrid,nx_loc
+   real(dp),dimension(1:3)::skip_loc
+   integer::rang,nb_procs,rang_z
+   integer,dimension(1:nvector),save::ind_grid,ind_cell,ind_leaf
+   real(dp)::dx,vol,scale,z0
+   real(kind=8)::mass_loc,mass_max,mass_diff,mass_all
+   real(kind=8),allocatable::mass_tab(:)
+
+  nx_loc=icoarse_max-icoarse_min+1
+  skip_loc=(/0.0d0,0.0d0,0.0d0/)
+  if(ndim>0)skip_loc(1)=dble(icoarse_min)
+  if(ndim>1)skip_loc(2)=dble(jcoarse_min)
+  if(ndim>2)skip_loc(3)=dble(kcoarse_min)
+  scale=boxlen/dble(nx_loc)
+  dx=0.5D0**ilevel*scale
+  vol=dx**ndim
+
+  mass_loc=0.0d0
+
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,nb_procs,info)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,rang,info)
+
+  allocate(mass_tab(0:nb_procs-1))
+
+  ! Loop over active grids by vector sweeps
+  ncache=active(ilevel)%ngrid
+  do igrid=1,ncache,nvector
+     ngrid=MIN(nvector,ncache-igrid+1)
+     do i=1,ngrid
+        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+     end do
+     
+     ! Loop over cells
+     do ind=1,twotondim        
+        iskip=ncoarse+(ind-1)*ngridmax
+        do i=1,ngrid
+           ind_cell(i)=ind_grid(i)+iskip
+        end do
+        
+        ! Gather leaf cells
+        nleaf=0
+        do i=1,ngrid
+           if(son(ind_cell(i))==0)then
+              nleaf=nleaf+1
+              ind_leaf(nleaf)=ind_cell(i)
+           end if
+        end do
+
+        do i=1,nleaf
+           mass_loc=mass_loc+uold(ind_leaf(i),1)*vol
+        end do
+     
+      end do
+ 
+   end do
+
+   !mass_all=0d0
+   !z0=0d0
+   !mass_tab(:)=0d0
+   !mass_max=0d0
+   !nb_procs=0
+   !rang=0
+
+   call MPI_ALLGATHER(mass_loc,1,MPI_DOUBLE_PRECISION,mass_tab,1,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,info)
+   call MPI_ALLREDUCE(mass_loc,mass_max,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,info)
+   call MPI_ALLREDUCE(mass_loc,mass_all,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        
+        ! The height z0 is such that M(z0)=Mmax/2**1.5
+   mass_tab(:)=abs(mass_tab(:)-mass_max/(2**1.5)) 
+ 
+   mass_diff=mass_tab(0)
+   rang_z=0
+   do i=1,nb_procs-1
+      if(mass_tab(i)<mass_diff) then  
+        mass_diff=mass_tab(i)
+        rang_z=i
+      end if
+   end do
+
+   if(rang==rang_z) then
+      z0=abs((xg(ind_grid(1),3)-skip_loc(3)-0.5))*scale
+   end if
+   call MPI_BCAST(z0,1,MPI_DOUBLE_PRECISION,rang_z,MPI_COMM_WORLD,info)
+
+end subroutine get_height_scale
+        
+           
+
+subroutine get_cell_index4(cell_index,cell_levl,xpart,xtcell,ilevel,np)
+  use amr_commons
+  implicit none
+  integer                                :: np,ilevel
+  integer,dimension(1:nvector)           :: cell_index,cell_levl
+  real(dp),dimension(1:nvector,1:3)      :: xpart
+  ! This function returns the index of the cell, at maximum level
+  ! ilevel, in which the input particle sits
+  real(dp)                               :: xx,yy,zz
+  integer                                :: i,j,ii,jj,kk,ind,iskip,igrid,ind_cell,igrid0,igrid_old
+
+  real(dp),dimension(1:twotondim,1:3)::xc
+  real(dp),dimension(1:nvector,1:ndim)::xtcell
+
+  integer::idim
+  integer::ix,iy,iz
+  real(dp)::dx
+  real(dp),dimension(1:3)::skip_loc
+
+
+
+  ! Mesh size at level ilevel
+  dx=0.5D0**ilevel
+
+  ! Set position of cell centers relative to grid center
+  do ind=1,twotondim
+     iz=(ind-1)/4
+     iy=(ind-1-4*iz)/2
+     ix=(ind-1-2*iy-4*iz)
+     if(ndim>0)xc(ind,1)=(dble(ix)-0.5D0)*dx
+     if(ndim>1)xc(ind,2)=(dble(iy)-0.5D0)*dx
+     if(ndim>2)xc(ind,3)=(dble(iz)-0.5D0)*dx
+  end do
+
+  skip_loc=(/0.0d0,0.0d0,0.0d0/)
+  if(ndim>0)skip_loc(1)=dble(icoarse_min)
+  if(ndim>1)skip_loc(2)=dble(jcoarse_min)
+  if(ndim>2)skip_loc(3)=dble(kcoarse_min)
+
+  
+  !if ((nx.eq.1).and.(ny.eq.1).and.(nz.eq.1)) then
+  !else if ((nx.eq.3).and.(ny.eq.3).and.(nz.eq.3)) then
+  !else
+     !write(*,*)"nx=ny=nz != 1,3 is not supported."
+     !call clean_stop
+  !end if
+  
+  igrid0=son(1+icoarse_min+jcoarse_min*nx+kcoarse_min*nx*ny)
+  do i=1,np
+     xx = xpart(i,1)
+     yy = xpart(i,2)
+     zz = xpart(i,3)
+     if( ((xx .le. 0) .or. (xx .ge. 1.)) .or. ((yy .le. 0) .or. (yy .ge. 1.)) .or. ((zz .le. 0) .or. (zz .ge. 1.)) ) then 
+        cell_index(i)=-1.
+     else 
+        xx = xx + (nx-1.)/2.
+        yy = yy + (ny-1.)/2.
+        zz = zz + (nz-1.)/2.
+        igrid=igrid0
+        do j=1,ilevel
+           ii=1; jj=1; kk=1
+           if(xx<xg(igrid,1))ii=0
+           if(yy<xg(igrid,2))jj=0
+           if(zz<xg(igrid,3))kk=0
+           ind=1+ii+2*jj+4*kk
+           iskip=ncoarse+(ind-1)*ngridmax
+           ind_cell=iskip+igrid
+           igrid_old = igrid
+           igrid=son(ind_cell)
+           if(igrid==0.or.j==ilevel)  exit
+        end do
+
+        do idim=1,ndim
+           xtcell(i,idim)=xg(igrid_old,idim)+xc(ind,idim)
+           xtcell(i,idim)=(xtcell(i,idim)-skip_loc(idim))
+        end do
+
+        cell_index(i)=ind_cell
+        cell_levl(i)=j
+     endif
+  end do
+
+  
+end subroutine get_cell_index4
+
