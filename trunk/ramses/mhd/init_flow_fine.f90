@@ -549,7 +549,7 @@ subroutine region_condinit(x,q,dx,nn)
 #endif
 #endif
 #if NEXTINCT>0
-              q(i,firstindex_nextinct+1)=zero
+              q(i,firstindex_extinct+1)=zero
 #endif
 #if NPSCAL>0
               do ivar=1,npscal
@@ -595,7 +595,7 @@ subroutine region_condinit(x,q,dx,nn)
 #endif
 #endif
 #if NEXTINCT>0
-           q(i,firstindex_nextinct+1)=zero
+           q(i,firstindex_extinct+1)=zero
 #endif
 #if NPSCAL>0
            do ivar=1,npscal

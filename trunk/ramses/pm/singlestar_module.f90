@@ -49,7 +49,7 @@ SUBROUTINE ssm_setup(tableloc_in)
 
   character(len=*),intent(in)::tableloc_in
   character(len=200)::filename
-  integer::it
+  integer::it,ip
   ssm_tableloc = tableloc_in
   ! Read the lifetimes tables
   ! NOTE - this is a lifetime per star
@@ -71,13 +71,20 @@ SUBROUTINE ssm_setup(tableloc_in)
      call ssm_filename(it,"massloss",filename)
      call setup_table(ssm_masslosses(it),filename)
      ! Radiation
-     ! TODO: Make more generic for, e.g., 5 groups?
+     ip = 0
+     if (ngroups.eq.5) then
+        ip = 2
+        call ssm_filename(it,"IR",filename)
+        call setup_table(ssm_rads(it,1),filename)
+        call ssm_filename(it,"Opt",filename)
+        call setup_table(ssm_rads(it,2),filename)
+     endif
      call ssm_filename(it,"HII",filename)
-     call setup_table(ssm_rads(it,1),filename)
+     call setup_table(ssm_rads(it,1+ip),filename)
      call ssm_filename(it,"HeII",filename)
-     call setup_table(ssm_rads(it,2),filename)
+     call setup_table(ssm_rads(it,2+ip),filename)
      call ssm_filename(it,"HeIII",filename)
-     call setup_table(ssm_rads(it,3),filename)
+     call setup_table(ssm_rads(it,3+ip),filename)
   enddo
   ssm_is_setup=.true.
   ! TODO: Should I also deallocate later???
@@ -178,7 +185,7 @@ SUBROUTINE ssm_filename(index,prop,filename)
   ! Index is 1 to 24 for masses 5 to 120
   call ssm_title(index*5,nmass)
   ! Put together filename
-  filename = TRIM(ssm_tableloc)//"singlestar"//TRIM(nmass)// &
+  filename = TRIM(ssm_tableloc)//"_m"//TRIM(nmass)// &
        & "cumul"//prop//".dat"
   ! TODO: Add error checking for file existence
 END SUBROUTINE ssm_filename

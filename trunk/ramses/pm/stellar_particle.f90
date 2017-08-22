@@ -20,11 +20,18 @@ subroutine read_stellar_params()
                            & imf_index, imf_low, imf_high, &
                            & lt_t0, lt_m0, lt_a, lt_b, &
                            & stf_K, stf_m0, stf_a, stf_b, stf_c, &
-                           & hii_w, hii_alpha, hii_c, hii_t, hii_T2 ,sn_feedback_sink ,sn_feedback_cr,make_stellar_glob,iseed,fcr
+                           & hii_w, hii_alpha, hii_c, hii_t, hii_T2 , &
+                           & sn_feedback_sink,make_stellar_glob,iseed, &
+                           & sn_feedback_cr,fcr &
+                           & mstellarini
+
 
     real(dp):: scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
     real(dp):: msun, Myr, km_s
 
+    ! Initialise mstellarini (should be zero if not set in the namelist)
+    mstellarini = 0d0
+    
     ! Read namelist file 
     rewind(1)
     read(1, nml=stellar_params, end=111)
@@ -61,7 +68,8 @@ subroutine read_stellar_params()
     lt_t0 = lt_t0 * Myr
     lt_m0 = lt_m0 * msun
     stellar_msink_th = stellar_msink_th * msun
-
+    mstellarini = mstellarini * msun
+    
     !Careful : convert the parameter for ionising flux in code units
     stf_K = stf_K * scale_t ! K is in s**(-1)
     stf_m0 = stf_m0 * msun 
@@ -230,6 +238,9 @@ subroutine create_stellar(ncreate, nbuf, xnew, id_new, print_table)
     real(dp), dimension(1:ncreate, 1:ndim):: xnew_loc, xnew2
     integer, dimension(1:ncreate):: id_new_loc, id_new2
     integer, dimension(1:ncpu)::displ
+
+    real(dp):: scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+    real(dp):: msun
     
 #ifndef WITHOUTMPI
     integer:: info, icpu, idim, isplit, nsplit
@@ -240,6 +251,9 @@ subroutine create_stellar(ncreate, nbuf, xnew, id_new, print_table)
 
     if(ncreate == 0) return
 
+    call units(scale_l, scale_t, scale_d, scale_v, scale_nH, scale_T2)
+    msun = 2d33 / scale_d / scale_l**3
+    
     ! Check that there is enough space
     if(ncreate + nstellar > nstellarmax) then
         if(myid == 1) write(*, *) 'Not enough space for new stellar objects'
@@ -276,7 +290,8 @@ subroutine create_stellar(ncreate, nbuf, xnew, id_new, print_table)
     ! Use single stellar module?
     if (use_ssm) then
        do iloc=1,ncreate_loc
-          call ssm_lifetime(mnew_loc(iloc),ltnew_loc(iloc))
+          call ssm_lifetime(mnew_loc(iloc)/msun,ltnew_loc(iloc))
+          ltnew_loc(iloc) = ltnew_loc(iloc) / scale_t
        end do
     else    
        ltnew_loc(1:ncreate_loc) = lt_t0 * &
@@ -303,7 +318,26 @@ subroutine create_stellar(ncreate, nbuf, xnew, id_new, print_table)
     xstellar(nstellar+1:nstellar+ncreate, 1:ndim) = xnew2(1:ncreate, 1:ndim)
     id_stellar(nstellar+1:nstellar+ncreate) = id_new2(1:ncreate)
 
-    mstellar(nstellar+1:nstellar+ncreate) = mnew
+    ! Set stellar masses
+    ! EITHER: use mnew
+    ! OR: use mstellarini if this has non-zero values
+    do istellar = nstellar+1, nstellar+ncreate
+       if (mstellarini(istellar).eq.0) then
+          ! No initialised stellar mass? That's ok, use this one
+          mstellar(istellar) = mnew(istellar-nstellar)
+       else
+          ! Current value? Leave it alone but overwrite the age with the correct one
+          mstellar(istellar) = mstellarini(istellar)
+          if (use_ssm) then
+             call ssm_lifetime(mstellar(istellar)/msun,ltnew(istellar-nstellar))
+             ltnew(istellar-nstellar) = ltnew(istellar-nstellar) / scale_t
+          else
+             ltnew(istellar-nstellar) = lt_t0 * &
+                  & exp(lt_a * (log(lt_m0 / mstellar(istellar)))**lt_b)
+          endif
+       endif
+    end do
+    !mstellar(nstellar+1:nstellar+ncreate) = mnew
     tstellar(nstellar+1:nstellar+ncreate) = tnew
     ltstellar(nstellar+1:nstellar+ncreate) = ltnew
 

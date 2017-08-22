@@ -225,7 +225,7 @@ subroutine init_hydro
                  do ivar=1,nextinct
                     read(ilun)xx ! Read extinction if activated
                     do i=1,ncache
-                       uold(ind_grid(i)+iskip,firstindex_nextinct+ivar) = xx(i)
+                       uold(ind_grid(i)+iskip,firstindex_extinct+ivar) = xx(i)
                     end do
                  end do
 #endif

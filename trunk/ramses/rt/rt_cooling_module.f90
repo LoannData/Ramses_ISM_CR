@@ -372,8 +372,8 @@ contains
              TR = max(T2_min_fix,(E_rad*rt_c_fraction/a_r)**0.25)
              dT2 = TR/mu ;   TK = TR
           endif
-          kAbs_loc(iIR) = kappaAbs(iIR) * (TK/10d0)**2
-          kSc_loc(iIR)  = kappaSc(iIR)  * (TK/10d0)**2
+          kAbs_loc(iIR) = kappaAbs(iIR) * (TK/10d0)**2 * exp(-TR/2d3)
+          kSc_loc(iIR)  = kappaSc(iIR)  * (TK/10d0)**2 * exp(-TR/2d3)
        endif
        ! Set dust absorption and scattering rates [s-1]:
        dustAbs(:)  = kAbs_loc(:) *rho*Zsolar(icell)*rt_c_cgs

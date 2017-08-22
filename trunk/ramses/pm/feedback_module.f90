@@ -54,8 +54,10 @@ module feedback_module
   real(dp), allocatable, dimension(:, :):: xstellar ! stellar object position
   real(dp), allocatable, dimension(:):: mstellar, tstellar, ltstellar ! stellar object mass, birth time, life time
   integer, allocatable, dimension(:):: id_stellar !the id  of the sink to which it belongs
-
-
+  ! Allow users to pre-set stellar mass selection for physics comparison runs, etc
+  ! Every time mstellar is added to, instead of a random value, use mstellarini
+  integer,parameter::nstellarini=5000
+  real(dp),dimension(nstellarini)::mstellarini ! List of stellar masses to use
 
   ! Proto-stellar jet feedback
 !  real(dp),allocatable,dimension(:)::vol_gas_jet,vol_gas_jet_all
