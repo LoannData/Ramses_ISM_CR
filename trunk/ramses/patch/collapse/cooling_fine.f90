@@ -2,6 +2,9 @@ subroutine cooling_fine(ilevel)
   use amr_commons
   use hydro_commons
   use cooling_module
+#ifdef grackle
+  use grackle_parameters
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -12,11 +15,7 @@ subroutine cooling_fine(ilevel)
   !-------------------------------------------------------------------
   integer::ncache,i,igrid,ngrid,info
   integer,dimension(1:nvector),save::ind_grid
-#ifdef grackle
-  integer:: iresult, initialize_grackle
-  real(kind=8)::density_units,length_units,time_units,velocity_units,temperature_units,a_units=1.0,a_value=1.0
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
-#endif
   ! files
   character(LEN=5)                    :: nsort, nocpu
   character(LEN = 80)                 :: filenamex,filenamey,filenamez
@@ -63,31 +62,13 @@ subroutine cooling_fine(ilevel)
   end do
 
   if((cooling.and..not.neq_chem).and.ilevel==levelmin.and.cosmo)then
-     if(myid==1)write(*,*)'Computing new cooling table'
 #ifdef grackle
-     ! Compute new cooling table at current aexp with grackle
-     if((1.D0/aexp-1.D0.lt.z_reion).and.(grackle_UVbackground.eq.1).and.(.not.grackle_UVbackground_on)) then
-        if(myid==1)write(*,*)'Grackle: Activating UV background'
-        grackle_UVbackground_on = .true.
-        a_value = aexp
-        call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-        density_units=scale_d
-        length_units=scale_l
-        time_units=scale_t
-        velocity_units=scale_v
-        ! Initialize the Grackle data
-         iresult = initialize_grackle(                                &
-           &     grackle_comoving_coordinates,                        &
-           &     density_units, length_units,                         &
-           &     time_units, velocity_units,                          &
-           &     a_units, a_value,                                    &
-           &     use_grackle, grackle_with_radiative_cooling,         &
-           &     TRIM(grackle_data_file),                             &
-           &     grackle_primordial_chemistry, grackle_metal_cooling, &
-           &     grackle_UVbackground, grackle_h2_on_dust,            &
-           &     grackle_cmb_temperature_floor, gamma) 
+     if(use_grackle==0)then
+        if(myid==1)write(*,*)'Computing new cooling table'
+        call set_table(dble(aexp)) 
      endif
 #else
+     if(myid==1)write(*,*)'Computing new cooling table'
      call set_table(dble(aexp))
 #endif
   endif
@@ -103,6 +84,9 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   use amr_commons
   use hydro_commons
   use cooling_module
+#ifdef grackle
+  use grackle_parameters
+#endif
 #ifdef ATON
   use radiation_commons, ONLY: Erad
 #endif
@@ -113,22 +97,25 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
        ,rt_pressBoost,iIRtrapVar,kappaSc,a_r,is_kIR_T,rt_vc
 #endif
   implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'
+#endif
   integer::ilevel,ngrid
   integer,dimension(1:nvector)::ind_grid
   !-------------------------------------------------------------------
   !-------------------------------------------------------------------
-  integer::i,ind,iskip,idim,nleaf,nx_loc,ix,iy,iz
+  integer::i,ind,iskip,idim,nleaf,nx_loc,ix,iy,iz,info
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(kind=8)::dtcool,nISM,nCOM,damp_factor,cooling_switch,t_blast
   real(dp)::polytropic_constant
-  integer,dimension(1:nvector),save::ind_cell,ind_leaf
+  integer,dimension(1:nvector),save::ind_cell,ind_leaf,ind_leaf_loc
   real(kind=8),dimension(1:nvector),save::nH,T2,T2_new,delta_T2,ekk,err,emag
   real(kind=8),dimension(1:nvector),save::T2min,Zsolar,boost
   real(dp),dimension(1:3)::skip_loc
   real(kind=8)::dx,dx_loc,scale,vol_loc
   integer::irad
 #ifdef RT
-  integer::ig,iNp,il  !,ii
+  integer::ig,iNp,il
   real(kind=8),dimension(1:nvector),save:: ekk_new
   logical,dimension(1:nvector),save::cooling_on=.true.
   real(dp)::scale_Np,scale_Fp,work,Npc,fred,Npnew, kScIR, EIR, TR
@@ -142,24 +129,12 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   real(dp),dimension(nDim):: flux 
 #endif
 
-#ifdef grackle     
-  real(kind=8) gr_density(nvector), gr_energy(nvector), &
-  &     gr_x_velocity(nvector), gr_y_velocity(nvector), &
-  &     gr_z_velocity(nvector), gr_metal_density(nvector), & 
-  &     gr_poly(nvector), gr_floor(nvector)
-  integer::iresult, solve_chemistry_table, gr_rank
-  integer,dimension(1:3)::gr_dimension,gr_start,gr_end
-  real(dp)::density_units,length_units,time_units,velocity_units,temperature_units,a_units=1.0,a_value=1.0,gr_dt
-  if(cosmo) then
-     a_value=aexp
-  endif
-#endif
-
   real(dp) :: barotrop1D,mincolumn_dens
   real(dp)                                   :: x0, y0, z0,coeff_chi,cst2, coef
-  double precision                           :: v_extinction
+  double precision                           :: v_extinction,extinct
   integer::uleidx,uleidy,uleidz,uleidh,igrid,ii,indc2,iskip2,ind_ll
 
+  real(dp),dimension(1:twotondim,1:3)        :: xc                                               !xc: coordinates of center/center grid
 
   !-------------- SPHERICAL DIRECTIONS ------------------------------------------------!
 !  real(dp),dimension(1:nvector,1:ndir)                 :: col_dens                     !
@@ -223,6 +198,75 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   call rt_units(scale_Np, scale_Fp)
 #endif
 
+  !Valeska
+  !--- Set position of cell centers relative to grid center ---
+  do ind=1,twotondim
+     iz=(ind-1)/4                               !0 for ind=1,2,3,4; 1 for ind=5,6,7,8
+     iy=(ind-1-4*iz)/2
+     ix=(ind-1-2*iy-4*iz)
+     if(ndim>0)xc(ind,1)=(dble(ix)-0.5_dp)*dx   
+     if(ndim>1)xc(ind,2)=(dble(iy)-0.5_dp)*dx
+     if(ndim>2)xc(ind,3)=(dble(iz)-0.5_dp)*dx
+  end do
+
+!******************************************************
+!--- GEOMETRICAL CORRECTIONS:  Internal and Local -----
+!  do ind=1,twotondim
+!     xpos(1) = xc(ind,1)
+!     xpos(2) = xc(ind,2)
+!     xpos(3) = xc(ind,3)
+!     
+!     do index_m = 1,NdirExt_m
+!        do index_n = 1,NdirExt_n
+!           call get_dx(xpos,xpos,index_m,index_n,dx,dx_cross_int)        
+!           Mdx_cross_int2(index_m,index_n) = dx_cross_int/2.0_dp
+!        end do
+!     end do
+!     
+!     do ii=1,twotondim
+!        if(ii .NE. ind) then
+!           xcell(1) = xc(ii,1)
+!           xcell(2) = xc(ii,2)
+!           xcell(3) = xc(ii,3)
+!           call get_mn(xpos,xcell, m,n)
+!           Mdirection2(ind,ii) = m
+!           Ndirection2(ind,ii) = n
+!           
+!           do index_m=1,NdirExt_m  
+!              do index_n=1,NdirExt_n
+!                 call get_dx(xpos,xcell,index_m,index_n,dx,dx_cross_loc)
+!                 Mdx_cross_loc2(ind,ii,index_m,index_n) = dx_cross_loc
+!              end do
+!           end do
+!        end if
+!     end do
+!
+!  end do
+!----------------------------------------------------
+!******************************************************
+
+
+  !---  PRECALCULATION of  m, n loop limits  ------------------------------------------
+  ! each cell can contribute to the column density in several directions, then
+  ! we define here the limits for the loop around the direction to the cell center.
+  ! For the vertical directions (m =1, NdirExt_m), the azimuthal angle has to cover 2*pi,
+  ! for other directions we use +/- 1/8 of the total directions 
+  !-------------------------------------------------------------------------------------
+  if(extinction)then
+     do m = 1, NdirExt_m
+        if(m .EQ. 1 .OR. m .EQ. NdirExt_m) then
+           deltan1(m) = INT(NdirExt_n/2.0_dp)
+           deltan2(m) = deltan1(m) -1
+        else
+           deltan1(m) = INT(NdirExt_n/8)
+           deltan2(m) = deltan1(m)
+        end if
+     end do
+     deltam = INT((NdirExt_m-1)/4.)
+  end if
+  !-------------------------------------------------------------------------------------
+  !Valeska
+
   ! Typical ISM density in H/cc
   nISM = n_star; nCOM=0d0
   if(cosmo)then
@@ -241,7 +285,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   if(rt_isIRtrap) then
      ! For conversion from photon number density to photon energy density:
      Np2Ep = scale_Np * group_egy(iIR) * ev_to_erg                       &
-          * rt_c_cgs/c_cgs * rt_pressBoost / scale_d / scale_v**2
+           * rt_pressBoost / scale_d / scale_v**2
   endif
 #endif
   aexp_loc=aexp
@@ -263,6 +307,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         if(son(ind_cell(i))==0)then
            nleaf=nleaf+1
            ind_leaf(nleaf)=ind_cell(i)
+           ind_leaf_loc(nleaf)=i       !index within local group of cells
         end if
      end do
      if(nleaf.eq.0)cycle
@@ -271,6 +316,147 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      do i=1,nleaf
         nH(i)=MAX(uold(ind_leaf(i),1),smallr)
      end do
+
+#if NEXTINCT>0
+     do i=1,nleaf                                  !loop over leaf cells 
+        ind_ll=ind_leaf_loc(i)
+        
+        igrid=ind_grid(ind_leaf_loc(i))            !index father  
+        
+        xpos(1) = xg(igrid,1) + xc(ind,1)          !grid position + leaf position relative to grid center
+        xpos(2) = xg(igrid,2) + xc(ind,2)
+        xpos(3) = xg(igrid,3) + xc(ind,3)
+               
+        if(extinction) then
+           
+           !------     +  INTERNAL CONTRIBUTION        ------
+           ! Here we sum up the contribution due to the cell itself. Its 1/2 in each direction.
+           
+           do index_n=1,NdirExt_n      !loop over directions to compute the screaning of half the cells on itself 
+              do index_m=1,NdirExt_m 
+                 
+                 column_dens_loc(ind_ll,index_m,index_n) = column_dens(ind_ll,index_m,index_n) + dx*Mdx_cross_int(index_m,index_n)*nH(i)
+#if NSCHEM != 0
+                 H2column_dens_loc(ind_ll,index_m,index_n) = H2column_dens(ind_ll,index_m,index_n) + dx*Mdx_cross_int(index_m,index_n)*nH2(i)
+                 !if(isnan(H2column_dens_loc(ind_ll,mloop,nl))) write(*,*) "WARNING: INT",H2column_dens(ind_ll,index_m,index_n), nH2(i), Mdx_cross_int(index_m,index_n), dx, index_m, index_n
+#endif                 
+                 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~         
+                 ! column_dens_loc(ind_ll,index_m,index_n) = dx*Mdx_cross_int(index_m,index_n)*nH(i) !if just internal contribution is needed
+                 ! column_dens_loc(ind_ll,index_m,index_n) = column_dens(ind_ll,index_m,index_n)  !if just the external component is needed
+                 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+              end do
+           end do
+           
+           !-------     + LOCAL CONTRIBUTION     -----
+           ! and here we add the contributon due to its siblings (in the same oct).
+           
+           do ii=1,twotondim    !1-8 the cell in the oct! 
+              if(ii .NE. ind) then
+                 
+                 iskip2  = ncoarse+(ii-1)*ngridmax 
+                 indc2   = iskip2+ ind_grid(ind_ll) !indice for the cell crossed along the direction ind_dir
+                 
+                 !--------------------------------------------------  
+                 !  !we calculate the position of the cell crossed
+                 !  xcell(1)= xg(igrid,1) + xc(ii,1)
+                 !  xcell(2)= xg(igrid,2) + xc(ii,2)
+                 !  xcell(3)= xg(igrid,3) + xc(ii,3)
+                 !  call get_mn(xpos, xcell, m, n)
+                 !  if(m .NE. Mdirection(ind,ii) .OR. n .NE. Ndirection(ind,ii)) write(*,*) ind,ii
+                 !  if(myid .EQ.1 .AND. ii .EQ. 8  ) write(*,*) ind, i, ii, "     m,n:", m, n
+                 !-------------------------------------------------
+                 
+
+                 ! knowing the index of the target cell and the sibling cell we can find 
+                 ! the closest direction from the target cell center to the sibling cell center.
+                
+!                 if(isnan(uold(indc2,neulS+1))) write(*,*) "WARNING LOC: nH2 is NaN: ", xpos/dx    !i, ii, uold(indc2,1), uold(indc2,neulS+1), xpos
+                 m = Mdirection(ind,ii)
+                 n = Ndirection(ind,ii)
+                 
+                 ! Here we make a loop around the direction m,n in order to treat all the 
+                 ! concerned directions by the sibling cell
+                 
+                 do mloop = max(1, m-deltam), min(NdirExt_m, m+deltam)  !avoid forbidden intervals
+                    do nloop = -deltan1(mloop) -1, deltan2(mloop) -1
+                       ! the value of nloop is cyclic
+                       nl = 1+ mod(n+ nloop+ NdirExt_n, NdirExt_n)
+                       
+                       ! Here we sum up the contribution to the column density. The distance crossed
+                       ! through the cell can be found using the corrective factor Mdx_cross_loc, that
+                       ! depends on the relative positions in the oct and on the direction
+                       
+                       column_dens_loc(ind_ll,mloop,nl) = column_dens_loc(ind_ll,mloop,nl) + dx*Mdx_cross_loc(ind,ii,mloop,nl)*uold(indc2,1)        
+#if NSCHEM != 0
+!                       if(isnan(uold(indc2,neulS+1))) write(*,*) "WARNING LOC: nH2 is NaN: ", uold(indc2,1), uold(indc2,neulS+1), Mdx_cross_loc(ind,ii,mloop,nl) 
+!                       if(Mdx_cross_loc(ind,ii,mloop,nl) .NE. 0.0) H2column_dens_loc(ind_ll,mloop,nl) = H2column_dens_loc(ind_ll,mloop,nl) + dx*Mdx_cross_loc(ind,ii,mloop,nl)*uold(indc2,neulS+1)  
+                       if(Mdx_cross_loc(ind,ii,mloop,nl) .NE. 0.0) H2column_dens_loc(ind_ll,mloop,nl) = H2column_dens_loc(ind_ll,mloop,nl) + dx*Mdx_cross_loc(ind,ii,mloop,nl)*uold(indc2,1)        
+!                       if(isnan(H2column_dens_loc(ind_ll,mloop,nl))) write(*,*) "WARNING: LOC", uold(indc2,neulS+1), Mdx_cross_loc(ind,ii,mloop,nl), mloop, nloop, nl, dx, ind, ii
+!                       if(isnan(uold(indc2,neulS+1)) .AND. Mdx_cross_loc(ind,ii,mloop,nl) .NE. 0.0) write(*,*) "WARNING LOC: nH2 is NaN and Mdx ne 0 !!!", uold(indc2,1), uold(indc2,neulS+1), Mdx_cross_loc(ind,ii,mloop,nl) 
+#endif
+                    end do
+                 end do
+                 
+              end if      !ii ne ind
+           end do         !ii
+  
+           !--- HERE THE VALUE IN COLUMN_DENS_LOC IS THE TOTAL VALUE ---
+
+           !-- WRITE FILES for a test ---        
+           if(writing .and. mod(nstep_coarse,foutput)==0) then
+              
+              ! we calculate here the value of the extinction just to write the files. This value is not used here and its calculated after.
+              coef = 2.d-21 *scale_l* boxlen
+              v_extinction=0.
+              do index_m=1,NdirExt_m
+                 do index_n=1,NdirExt_n
+                    v_extinction= v_extinction+ exp(-column_dens_loc(ind_ll,index_m,index_n)*coef)
+                 end do
+              end do
+              v_extinction= v_extinction/(NdirExt_m*NdirExt_n)
+              
+              ! we calculate the closest directions to the +/- cartesian directions 
+              mmmm=NINT((NdirExt_m-1.)/2.)+1     ! (5-1)/2 +1 = 3 ok
+              nnnn=NINT(NdirExt_n/2.)+1          !     8/2 +1 = 5 ok  
+
+              if(abs(xpos(1)-x0) .LT. 0.5*dx) write(uleidx,296) ilevel, xpos(2), xpos(3), column_dens_loc(ind_ll,mmmm,1), column_dens_loc(ind_ll,mmmm,NdirExt_n/2+1), v_extinction   !Write column density
+              if(abs(xpos(2)-y0) .LT. 0.5*dx) write(uleidy,296) ilevel, xpos(1), xpos(3), column_dens_loc(ind_ll,mmmm,NdirExt_n/4+1), column_dens_loc(ind_ll,mmmm,3*NdirExt_n/4+1), v_extinction
+              if(abs(xpos(3)-z0) .LT. 0.5*dx) write(uleidz,296) ilevel, xpos(1), xpos(2), column_dens_loc(ind_ll,1,1), column_dens_loc(ind_ll,NdirExt_m,nnnn), v_extinction 
+              
+           end if
+
+           do index_m=1,NdirExt_m
+              do index_n=1,NdirExt_n
+                 vcolumn_dens(index_m,index_n)=column_dens_loc(ind_ll,index_m,index_n)          
+              end do
+           end do
+
+           !---  we calculate the extinction using the column density   ----
+           extinct=0.0_dp
+           coef = 1.0d0!2.d-21 *sc_l* boxlen       !cm^2; Eq.34 Glover & Mac Low 2007
+           
+           !! Loop in theta and phi 
+           do index_m=1,NdirExt_m
+              do index_n=1,NdirExt_n
+                 
+                 ! now take the exponential and sum over directions 
+                 extinct = extinct + vcolumn_dens(index_m,index_n)!exp(-vcolumn_dens(index_m,index_n)*coef) 
+              end do
+           end do
+           coeff_chi  = extinct/(NdirExt_m*NdirExt_n)
+           !G0 = G0*coeff_chi  
+           
+           !call calc_temp(nH(i),Temp,dt_ilev,vcolumn_dens,coeff_chi)    
+           
+           ! if extinction => The value of G0 has changed
+           ! G0=G0*extinc/Ndirtot for i    Ndirtot=NdirExt_m*NdirExt_n
+           
+           uold(ind_leaf(i),firstindex_extinct+1) = coeff_chi
+!print*,coeff_chi
+        end if  !EXTINCTION
+     end do
+!NEXTINCT>0
+#endif
 
      ! Compute metallicity in solar units
      if(metal)then
@@ -373,6 +559,14 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      ! Compute T2=T/mu in Kelvin
      do i=1,nleaf
         T2(i)=T2(i)/nH(i)*scale_T2
+
+!        if(ind .eq. 1 .and. abs(xg(ind_grid(i),1)-0.5) .le. dx .and. abs(xg(ind_grid(i),2)-0.5) .le. dx) then
+!           write(*,*) 'T2, nH, scale_T2',T2(i),nH(i),scale_T2
+!        do ii=0,nIons-1
+!            write(*,*) 'iions', ii, uold(ind_leaf(i),iIons+ii)/uold(ind_leaf(i),1)
+!        end do
+!        endif
+
      end do
 
      ! Compute nH in H/cc
@@ -407,7 +601,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         end do
      else
         do i=1,nleaf
-           T2min(i) = T2_star*(nH(i)/nISM)**(g_star-1.0)
+           T2min(i) = 0. !T2_star*(nH(i)/nISM)**(g_star-1.0)
         end do
      endif
      !==========================================
@@ -495,61 +689,85 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 
      ! grackle tabular cooling
 #ifdef grackle
-     if(cosmo) then
-        a_value=aexp
-     endif
-     gr_rank = 3
-     do i = 1, gr_rank
-        gr_dimension(i) = 1
-        gr_start(i) = 0
-        gr_end(i) = 0
-     enddo
-     gr_dimension(1) = nvector
-     gr_end(1) = nleaf - 1
-     ! set units
-     density_units=scale_d
-     length_units=scale_l
-     time_units=scale_t
-     velocity_units=scale_v
-     temperature_units=scale_T2
-     do i = 1, nleaf
-        gr_density(i) = max(uold(ind_leaf(i),1),smallr)
-        if(metal)then
-           gr_metal_density(i) = uold(ind_leaf(i),imetal)
-        else
-           gr_metal_density(i) = uold(ind_leaf(i),1)*0.02*z_ave
+     if(use_grackle==1)then
+        gr_rank = 3
+        do i = 1, gr_rank
+           gr_dimension(i) = 1
+           gr_start(i) = 0
+           gr_end(i) = 0
+        enddo
+        gr_dimension(1) = nvector
+        gr_end(1) = nleaf - 1
+   
+        if(cosmo)then
+           my_grackle_units%a_value = MAX(aexp,0.0625)
+           my_grackle_units%density_units = scale_d
+           my_grackle_units%length_units = scale_l
+           my_grackle_units%time_units = scale_t
+           my_grackle_units%velocity_units = scale_v
         endif
-        gr_x_velocity(i) = uold(ind_leaf(i),2)/max(uold(ind_leaf(i),1),smallr)
-        gr_y_velocity(i) = uold(ind_leaf(i),3)/max(uold(ind_leaf(i),1),smallr)
-        gr_z_velocity(i) = uold(ind_leaf(i),4)/max(uold(ind_leaf(i),1),smallr)
-        gr_floor(i)  = 1.0*nH(i)/scale_nH/scale_T2/(gamma-1.0)
-        gr_poly(i)   = T2min(i)*nH(i)/scale_nH/scale_T2/(gamma-1.0)
-        gr_energy(i) = uold(ind_leaf(i),ndim+2)-ekk(i)-gr_poly(i)
-        gr_energy(i) = MAX(gr_energy(i),gr_floor(i))
-        gr_energy(i) = gr_energy(i)/max(uold(ind_leaf(i),1),smallr)
-     enddo
-
-     gr_dt = dtnew(ilevel)
-    
-     iresult = solve_chemistry_table(    &
-     &     grackle_comoving_coordinates, &
-     &     density_units, length_units,  &
-     &     time_units, velocity_units,   &
-     &     a_units, a_value, gr_dt,      &
-     &     gr_rank, gr_dimension,        &
-     &     gr_start, gr_end,             &
-     &     gr_density, gr_energy,        &
-     &     gr_x_velocity, gr_y_velocity, gr_z_velocity, &
-     &     gr_metal_density)
-
-     do i = 1, nleaf
-        T2_new(i) = gr_energy(i)*scale_T2*(gamma-1.0)
-     end do
-     delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
+   
+        do i = 1, nleaf
+           gr_density(i) = uold(ind_leaf(i),1)
+           if(metal)then
+              gr_metal_density(i) = uold(ind_leaf(i),imetal)
+           else
+              gr_metal_density(i) = uold(ind_leaf(i),1)*0.02*z_ave
+           endif
+           gr_energy(i) = T2(i)/(scale_T2*(gamma-1.0))
+           gr_HI_density(i) = X*gr_density(i)
+           gr_HeI_density(i) = (1.0-X)*gr_density(i)
+           gr_DI_density(i) = 2.0*3.4e-5*gr_density(i)
+        enddo
+        ! Update grid properties
+        my_grackle_fields%grid_rank = gr_rank
+        my_grackle_fields%grid_dx = dx_loc
+  
+        iresult = solve_chemistry(my_grackle_units, my_grackle_fields, dtnew(ilevel))
+        if(iresult.eq.0)then
+            write(*,*) 'Grackle: error in solve_chemistry'
+#ifndef WITHOUTMPI
+            call MPI_ABORT(MPI_COMM_WORLD,1,info)
 #else
-     ! Compute net cooling at constant nH
+            stop
+#endif
+        endif
+   
+        do i = 1, nleaf
+           T2_new(i) = gr_energy(i)*scale_T2*(gamma-1.0)
+        end do
+        delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
+     else
+        ! Compute net cooling at constant nH
+        if(cooling.and..not.neq_chem)then
+           call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+
+        endif
+     endif
+#else
+!     ! Compute net cooling at constant nH
+
+!commented by PH to make it compatible with "FRIG" version 19/02/2017
+!     if(cooling.and..not.neq_chem)then
+!        call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+!     endif
+!#endif
+!#ifdef RT
+!     if(neq_chem) then
+!        T2_new(1:nleaf) = T2(1:nleaf)
+!        call rt_solve_cooling(T2_new, xion, Np, Fp, p_gas, dNpdt, dFpdt  &
+!                         , nH, cooling_on, Zsolar, dtcool, aexp_loc,nleaf)
+!        delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
+!     endif
+!#endif
+!end of commented by PH
+
      if(cooling.and..not.neq_chem)then
-        call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+!        call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+! USE Audit & Hennebelle cooling function
+        call solve_cooling_frig(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+
+!           write(*,*) 'solve cooling no RT'
      endif
 #endif
 #ifdef RT
@@ -558,8 +776,20 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         call rt_solve_cooling(T2_new, xion, Np, Fp, p_gas, dNpdt, dFpdt  &
                          , nH, cooling_on, Zsolar, dtcool, aexp_loc,nleaf)
         delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
+
+!     do i=1,nleaf
+!        if(ind .eq. 1 .and. abs(xg(ind_grid(i),1)-0.5) .le. dx .and. abs(xg(ind_grid(i),2)-0.5) .le. dx) then
+!           write(*,*) 'a T2, nH, scale_T2',T2(i),nH(i),scale_T2
+!           write(*,*) 'a T2new, nH, scale_T2',T2_new(i),nH(i),scale_T2
+!        endif
+!     end do
+
      endif
 #endif
+
+
+
+
 
 #ifdef RT
      if(.not. static) then
@@ -714,13 +944,13 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      endif  !rt_isIRtrap     
 #endif
 #endif
-
      if(barotrop)then
         do i=1,nleaf
            uold(ind_leaf(i),2+ndim) = T2min(i) + ekk(i) + err(i) + emag(i)
            uold(ind_leaf(i),nvar  ) = T2min(i)
         end do
      end if
+
 
   end do
   ! End loop over cells

@@ -291,7 +291,7 @@ subroutine backup_hydro(filename)
 #if NEXTINCT>0
               ! Write extinction if activated
               do i=1,ncache
-                 xdp(i)=uold(ind_grid(i)+iskip,firstindex_nextinct+1)
+                 xdp(i)=uold(ind_grid(i)+iskip,firstindex_extinct+1)
               end do
               write(ilun)xdp
 #endif

@@ -314,6 +314,6 @@ module hydro_parameters
   integer ::interpol_var_cond=0
   integer ::interpol_type_cond=0
   integer ::interpol_mag_type_cond=-1
-
+  real(dp)::frac_pcr=0.1
 
 end module hydro_parameters
