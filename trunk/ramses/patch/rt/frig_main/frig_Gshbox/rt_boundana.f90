@@ -32,7 +32,7 @@ subroutine rt_boundana(x,u,dx,ibound,ncell,ilevel)
   integer::ivar,i,idi,ilevel
   real(dp)::diff,w1,w2
 
-  dx = 0.5**boxlen
+  dx = 0.5**ilevel
   
   ! CC 01/2017
 
