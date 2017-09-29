@@ -10,8 +10,8 @@ module feedback_module
   logical::sn_feedback_cr=.false.     !Add CR component to the SN feedback
 
   !mass, energy and momentum of supernova for forcing by sinks
-  ! sn_e in erg, sn_p in g cm/s , sn_mass in Ms
-  real(dp):: sn_e=1.d51 , sn_p=4.d43 , sn_mass=1.
+  ! sn_e in erg, sn_p in g cm/s , sn_mass in g
+  real(dp):: sn_e=1.d51 , sn_p=4.d43 , sn_mass=2.e33
   real(dp):: sn_e_ref , sn_p_ref , sn_mass_ref
 
   !limit speed and temperatue in supernova remnants, minimum radius for the SN remnant
@@ -158,7 +158,7 @@ SUBROUTINE read_feedback_params(nml_ok)
       !normalise the supernova quantities
       sn_p_ref = sn_p / (scale_d * scale_v * scale_l**3)
       sn_e_ref = sn_e / (scale_d * scale_v**2 * scale_l**3)
-      sn_mass_ref = sn_mass / (scale_d * scale_l**3) !10 solar mass ejected
+      sn_mass_ref = sn_mass / (scale_d * scale_l**3) !1 solar mass ejected
 
       !normalise Vsat which is assumed to be in KM/S
       Vsat = Vsat * 1.e5 / scale_v
@@ -275,7 +275,7 @@ subroutine make_sn_stellar
   sn_r = 3.0d0*(0.5d0**levelmin)*scale
   if(sn_r_sat .ne. 0) sn_r = max(sn_r, sn_r_sat * pc) !impose a minimum size of 12 pc for the radius
 !  sn_r = 2.*(0.5**levelmin)*scale
-  sn_m = sn_mass_ref
+  sn_m = sn_mass_ref !note this is replaced later
   sn_p = sn_p_ref
   sn_e = sn_e_ref
   sn_rp = 0.
@@ -293,7 +293,16 @@ subroutine make_sn_stellar
     if(t - tstellar(istellar) < ltstellar(istellar)) cycle
     mark_del(istellar) = .true.
 
-    
+
+    !!!PH 16/09/2016
+    ! the mass of the massive stars 
+    sn_m = mstellar(istellar) 
+
+    !remove the mass that is dumped in the grid
+    msink(id_stellar(istellar)) = msink(id_stellar(istellar)) - sn_m
+    !!!PH 16/09/2016
+
+
     !the velocity dispersion times the life time of the object
     rad_sn = ltstellar(istellar)*Vdisp
 
