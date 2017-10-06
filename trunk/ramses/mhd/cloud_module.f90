@@ -23,6 +23,7 @@ module cloud_module
   real(dp):: crit=0.0d0
   real(dp):: delta_rho=0.0d0
   real(dp):: Mach=0.0d0
+  real(dp):: r0_box=4.0d0
 
   ! PMS evolution related stuff
   logical :: rt_feedback=.false.       ! take into account RT feedback

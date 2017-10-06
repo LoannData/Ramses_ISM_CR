@@ -52,7 +52,7 @@ subroutine read_hydro_params(nml_ok)
        & ,A_region,B_region,C_region &
        & ,alpha_dense_core,beta_dense_core,crit,delta_rho,mass_c,rap,cont &
        & ,ff_sct,ff_rt,ff_act,ff_vct,theta_mag,bb_test &
-       & ,contrast,Mach,uniform_bmag
+       & ,contrast,Mach,uniform_bmag,r0_box
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &
        & ,niter_riemann,slope_type,slope_mag_type,switch_solv,switch_solv_dens &
 #if NENER>0

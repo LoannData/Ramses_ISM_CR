@@ -837,7 +837,7 @@ subroutine calc_boxlen
     
     if(bb_test)then
        r_0 = (alpha_dense_core*2.*6.67d-8*mass_c*mu_gas*mH/(5.*kB*Tr_floor))/scale_l* scale_m 
-       boxlen = r_0 * 4.
+       boxlen = r_0 * r0_box
        
        if (myid == 1) then 
           write(*,*) '** Cloud parameters estimated in calc-boxlen **' 
