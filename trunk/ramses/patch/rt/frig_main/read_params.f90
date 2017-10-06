@@ -106,7 +106,7 @@ subroutine read_params
   if(IOGROUPSIZE>0.or.IOGROUPSIZECONE>0.or.IOGROUPSIZEREP>0)write(*,*)' '
 
   ! Write information about git version
-  call write_gitinfo
+!  call write_gitinfo
 
   ! Read namelist filename from command line argument
   narg = iargc()
@@ -270,10 +270,6 @@ subroutine read_params
   call rt_read_hydro_params(nml_ok)
 #endif
   if (sink)call read_sink_params
-  rewind(1)
-#if USE_TURB==1
-  call read_turb_params(nml_ok)
-#endif
   if (clumpfind .or. sink)call read_clumpfind_params
   if (movie)call set_movie_vars
 

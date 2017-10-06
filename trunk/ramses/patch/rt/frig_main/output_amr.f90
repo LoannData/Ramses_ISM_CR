@@ -46,7 +46,15 @@ subroutine dump_all
         call PXFMKDIR(TRIM(filedirini),LEN(TRIM(filedirini)),O'755',info)
         call PXFMKDIR(TRIM(filedir),LEN(TRIM(filedir)),O'755',info)
 #else
-        call system(filecmd)
+        call EXECUTE_COMMAND_LINE(filecmd,exitstat=ierr,wait=.true.)
+        if(ierr.ne.0 .and. ierr.ne.127)then
+           write(*,*) 'Error - Could not create ',trim(filedir),' error code=',ierr
+#ifndef WITHOUTMPI
+           call MPI_ABORT(MPI_COMM_WORLD,1,info)
+#else
+           stop
+#endif
+        endif
 #endif
      endif
      
@@ -68,7 +76,7 @@ subroutine dump_all
         filename=TRIM(filedir)//'info_'//TRIM(nchar)//'.txt'
         call output_info(filename)
         filename=TRIM(filedir)//'makefile.txt'
-        call output_makefile(filename)
+!        call output_makefile(filename)
         filename=TRIM(filedir)//'patches.txt'
 !        call output_patch(filename)
         if(hydro)then
@@ -413,9 +421,12 @@ subroutine output_info(filename)
   use radiation_parameters,only: mu_gas
   use units_commons
   implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'
+#endif
   character(LEN=80)::filename
 
-  integer::nx_loc,ny_loc,nz_loc,ilun,icpu,idom
+  integer::nx_loc,ny_loc,nz_loc,ilun,icpu,idom,ierr
   real(dp)::scale
 !  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   character(LEN=80)::fileloc
@@ -437,7 +448,15 @@ subroutine output_info(filename)
 
   ! Open file
   fileloc=TRIM(filename)
-  open(unit=ilun,file=fileloc,form='formatted')
+  open(unit=ilun,file=fileloc,form='formatted',iostat=ierr)
+  if(ierr .ne. 0)then
+     write(*,*) 'Error - Could not write ',fileloc
+#ifndef WITHOUTMPI
+     call MPI_ABORT(MPI_COMM_WORLD,1,ierr)
+#else
+     stop
+#endif
+  endif
   
   ! Write run parameters
   write(ilun,'("ncpu        =",I11)')ncpu
@@ -489,6 +508,11 @@ subroutine output_info(filename)
      write(ilun,'("eos         =",I11)')1
   else
      write(ilun,'("eos         =",I11)')0
+  endif
+  if(write_conservative) then
+     write(ilun,'("write_cons  =",I11)')1
+  else
+     write(ilun,'("write_cons  =",I11)')0
   endif
 
   close(ilun)

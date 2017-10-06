@@ -17,6 +17,8 @@ USE_FLD=0
 USE_M_1=0
 NGRP=0
 
+USE_TURB=0
+
 NEXTINCT = 0
 NPSCAL = 0
 
@@ -78,7 +80,7 @@ GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR=$(NVAR) -DNENER=$(NENER) \
           -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL) -DNIMHD=$(NIMHD) \
-	  -DNEXTINCT=$(NEXTINCT) -DNCR=$(NCR) #-DQUADHILBERT=$(QUADHILBERT)
+	  -DNEXTINCT=$(NEXTINCT) -DNCR=$(NCR) -DUSE_TURB=$(USE_TURB) #-DQUADHILBERT=$(QUADHILBERT)
 ifneq ($(NIONS)$(NGROUPS),00)
 DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)
 endif
@@ -184,7 +186,7 @@ endif
 #############################################################################
 # Sources directories are searched in this exact order
 BINDIR = .
-VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../cr:../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
+VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../turb::../cr:../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o 
@@ -228,16 +230,19 @@ ifeq ($(NIMHD),1)
 HYDROOBJ += uplmde_sts_ohm.o uplmde_sts_ohm_dtu.o
 endif
 # Turbulence objects
-#MODOBJ += turb_parameters.o turb_commons.o
-#TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
-#          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
-#          add_turb_forcing.o write_pymses.o libfftw3.a
+ifeq ($(USE_TURB),1)
+MODOBJ += turb_parameters.o turb_commons.o
+TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
+          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
+          add_turb_forcing.o libfftw3.a
+endif
+
 # Patch objects
 FortranFiles = $(wildcard $(addsuffix /*.f90,$(shell [ -z $(PATCH) ] || find $(PATCH)/* -type d)))
 PATCHOBJ = $(notdir $(patsubst %.f90, %.o, $(FortranFiles)))
 
 # All objects
-AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(RTOBJ) # $(TURBOBJ)
+AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(RTOBJ) $(TURBOBJ)
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
 ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o $(BINDIR)/../aton/atonlib/libaton.a
