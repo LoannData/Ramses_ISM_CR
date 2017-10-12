@@ -482,9 +482,13 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            do jr=1,ngrp
               e_r=e_r+uold(indp(j,ind),firstindex_er+jr)
            enddo
-#endif
            ftpr(j) = ftpr(j) + vol(j,ind)*((e_r*scale_v**2.*scale_d)/aR)**0.25
-           if(extinction) fext(j) = fext(j) + uold(indp(j,ind),8+ngrp+nextinct) * vol(j,ind)
+
+#endif
+#if NEXTINCT>0
+           fext(j) = fext(j) + uold(indp(j,ind),firstindex_extinct+1) &
+                & * vol(j,ind)*scale*scale_d*scale_l 
+#endif
            fbfield(j,1) = fbfield(j,1) + A * vol(j,ind)*sqrt(4.0d0*pi*scale_d*scale_v**2)
            fbfield(j,2) = fbfield(j,2) + B * vol(j,ind)*sqrt(4.0d0*pi*scale_d*scale_v**2)
            fbfield(j,3) = fbfield(j,3) + C * vol(j,ind)*sqrt(4.0d0*pi*scale_d*scale_v**2)

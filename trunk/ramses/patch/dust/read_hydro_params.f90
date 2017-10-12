@@ -57,10 +57,11 @@ subroutine read_hydro_params(nml_ok)
        & ,err_grad_dust &
 #if NENER>0
        & ,err_grad_prad &
-#endif
 #if NPSCAL>0
        & ,err_grad_var &
-#endif       
+#endif
+#endif
+       
        & ,floor_d,floor_u,floor_p,floor_dust,ivar_refine,var_cut_refine &
        & ,floor_A,floor_B,floor_C,floor_B2,floor_E &
        & ,interpol_var,interpol_type,sink_refine,interpol_mag_type&

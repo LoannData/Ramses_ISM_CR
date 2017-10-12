@@ -21,14 +21,14 @@ USE_TURB=0
 
 NEXTINCT = 0
 NPSCAL = 0
-
+NDUST  = 0
 NENER = $(NENT)+$(NGRP)
 
 #for RT
 NGROUPS = 0
 NIONS = 0
 
-PATCH =
+PATCH = 
 
 GRACKLE = 0
 EXEC = ramses
@@ -39,9 +39,9 @@ COMP = "GNU"
 
 
 ifeq ($(NIMHD),1)
-   NPSCAL := $(NPSCAL)+$(NIONS)+4 # for internal energy + current
+   NPSCAL := $(NPSCAL)+$(NIONS)+$(NDUST)+4 # for internal energy + current
 else
-   NPSCAL := $(NPSCAL)+$(NIONS)+1 # for internal energy
+   NPSCAL := $(NPSCAL)+$(NIONS)+$(NDUST)+1 # for internal energy
 endif
 NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
 ifeq ($(USE_M_1),1)
@@ -58,7 +58,8 @@ endif
 ## 9:9+ncr : cosmic rays energy density (ncr groups of energy)
 ## 9+ncr:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
 ## 9+nener9+nener+1:9+nener+nextinct : for extinction (look at definition of firstindex_pscal in mhd/read_hydro_param)
-## 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine) 
+## 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine)
+## 9+nener+nextinct+nions+1:9+nener+nextinct+nions+ndust : dust species 
 ## note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
 ## then in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
 ## nvar-4:nvar-1 : current (used in godfine1 if IMHD==1) unew(....,nvar-4+idim)
@@ -80,7 +81,7 @@ GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR=$(NVAR) -DNENER=$(NENER) \
           -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL) -DNIMHD=$(NIMHD) \
-	  -DNEXTINCT=$(NEXTINCT) -DNCR=$(NCR) -DUSE_TURB=$(USE_TURB) #-DQUADHILBERT=$(QUADHILBERT)
+	  -DNEXTINCT=$(NEXTINCT) -DNCR=$(NCR) -DUSE_TURB=$(USE_TURB) -DNDUST=$(NDUST) #-DQUADHILBERT=$(QUADHILBERT)
 ifneq ($(NIONS)$(NGROUPS),00)
 DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)
 endif
@@ -194,7 +195,7 @@ ifeq ($(GRACKLE),1)
 MODOBJ += grackle_parameters.o
 endif
 MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
-         clfind_commons.o gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o
+         clfind_commons.o gadgetreadfile.o write_makefile.o write_gitinfo.o #write_patch.o 
 
 MODOBJ += radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
 	  rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o \
@@ -225,7 +226,8 @@ HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_f
 RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o rt_output_hydro.o rt_godunov_fine.o \
         rt_interpol_hydro.o rt_godunov_utils.o rt_condinit.o rt_hydro_flag.o rt_hydro_boundary.o rt_boundana.o \
         rt_read_hydro_params.o rt_units.o
-
+#Dust objects
+DUSTOBJ = dust_diffusion_fine.o dustdiff_split.o init_dust.o
 ifeq ($(NIMHD),1)
 HYDROOBJ += uplmde_sts_ohm.o uplmde_sts_ohm_dtu.o
 endif
@@ -242,7 +244,7 @@ FortranFiles = $(wildcard $(addsuffix /*.f90,$(shell [ -z $(PATCH) ] || find $(P
 PATCHOBJ = $(notdir $(patsubst %.f90, %.o, $(FortranFiles)))
 
 # All objects
-AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(RTOBJ) $(TURBOBJ)
+AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(RTOBJ) $(DUSTOBJ) $(TURBOBJ)
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
 ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o $(BINDIR)/../aton/atonlib/libaton.a

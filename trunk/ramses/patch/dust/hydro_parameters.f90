@@ -1,4 +1,4 @@
-emodule hydro_parameters
+module hydro_parameters
 
 #ifdef grackle
   use grackle_parameters
@@ -247,11 +247,13 @@ emodule hydro_parameters
 
   ! Dust related parameters
   real(dp) :: rho_grain = 1.0_dp !Density of the grain
-  real(dp) :: size_grain= 1.0e-7_dp!Size of the smallest grain specie
+  real(dp) :: size_grain= 1.0e-7_dp!Size of the smallest grain specie, is the grain size when considering only one specie
+  real(dp) :: size_grain_max = 1.0e-6!Size of the largest grain specie
   real(dp) :: temp_dust = 20.0_dp! gas temp when there is dust
   real(dp) :: min_dust  = 1.0e-16_dp !minimum dust ratio
   real(dp) :: D_lin_dust = 1.0e-2_dp !linear diffusion coeff
-
+  real(dp) :: powerlaw_dust= 3.5_dp ! Exposant of the power law for the dust distrib, -3.5 is the MRN
+  
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2

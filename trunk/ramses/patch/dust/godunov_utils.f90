@@ -396,7 +396,6 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
          end do
       end if
    end do
-#endif
 
 #if NVAR>8+NENER
    do irad = 9+nener,nvar
@@ -411,7 +410,8 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
       end if
    end do
 #endif
-   
+#endif
+  
 #if USE_M_1==1
   if(err_grad_F >= 0.)then
      do idim=1,ndim
