@@ -6,7 +6,7 @@ NVECTOR = 32
 QUADHILBERT = 16
 NPRE = 8
 
-NDIM = 1
+NDIM = 3
 SOLVER = mhd
 NIMHD=0
 
@@ -187,7 +187,7 @@ endif
 #############################################################################
 # Sources directories are searched in this exact order
 BINDIR = .
-VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../turb::../cr:../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
+VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../turb:../cr:../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o 
@@ -227,7 +227,12 @@ RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o rt_output_h
         rt_interpol_hydro.o rt_godunov_utils.o rt_condinit.o rt_hydro_flag.o rt_hydro_boundary.o rt_boundana.o \
         rt_read_hydro_params.o rt_units.o
 #Dust objects
+ifneq ($(NDUST),0)
 DUSTOBJ = dust_diffusion_fine.o dustdiff_split.o init_dust.o
+else
+DUSTOBJ =
+endif
+
 ifeq ($(NIMHD),1)
 HYDROOBJ += uplmde_sts_ohm.o uplmde_sts_ohm_dtu.o
 endif
