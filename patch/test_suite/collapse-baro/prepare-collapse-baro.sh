@@ -1,5 +1,5 @@
 #!/bin/bash
 
-ln -s ../../collapse/lib/* .
+ln -s ../../../../lib_ramses_ism/* .
 
 exit;
