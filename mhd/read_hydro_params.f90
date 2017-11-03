@@ -99,7 +99,7 @@ subroutine read_hydro_params(nml_ok)
        & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm
   namelist/pseudovisco_params/nvisco,visco
   ! fin modif nimhd
-  
+
   ! Read namelist file
   rewind(1)
   read(1,NML=init_params,END=101)

@@ -112,7 +112,7 @@ TOTALSTARTTIME=$(date +%s);
 #######################################################################
 if $CLEAN_ALL ; then
    cd ${TEST_DIRECTORY};
-   rm -r */output_* */*.log */data*.dat */time.dat */resdiff* */*.pdf */*.ps */*.o */*.mod */build* */ramses_* completed_tests.txt test_results.* test_suite.log */barotropic_eos.dat */Hosokawa_track.dat */vaytet_grey_opacities*.bin */groups.dat */init_turb.data */tab_eos.dat */res*.dat */submit*.sh;
+   rm -r */output_* */*.log */data*.dat */time.dat */resdiff* */*.pdf */*.ps */*.o */*.mod */build* */ramses_* completed_tests.txt test_results.* test_suite.log */barotropic_eos.dat */Hosokawa_track.dat */vaytet_grey_opacities*.bin */groups.dat */init_turb.data */tab_eos.dat */res*.dat */ic_part */Vaytet*.bin */generate_part.pro */marchand2016_table.dat */submit*.sh;
    cd ${BIN_DIRECTORY};
    make clean;
    rm ${EXECNAME}*;

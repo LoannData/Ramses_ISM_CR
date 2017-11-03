@@ -403,6 +403,9 @@ subroutine update_time(ilevel)
   ! fin modif nimhd
 #endif
   
+=======
+ 
+>>>>>>> 68874026905921e2d5db4f1099177ac5e2790d1e
 end subroutine update_time
 
 subroutine clean_stop
