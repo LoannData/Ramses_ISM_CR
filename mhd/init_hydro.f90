@@ -41,7 +41,11 @@ subroutine init_hydro
      allocate(pstarnew(1:ncell))
      pstarold=0.0d0; pstarnew=0.0d0
   endif
+#if NIMHD==1
   if(pressure_fix .or. nambipolar2.eq.1 .or.nmagdiffu2.eq.1)then
+#else
+  if(pressure_fix)then
+#endif     
      allocate(divu(1:ncell))
      allocate(enew(1:ncell))
      divu=0.0d0; enew=0.0d0

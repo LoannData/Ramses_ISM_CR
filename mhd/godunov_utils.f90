@@ -12,19 +12,23 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   use amr_parameters
   use hydro_parameters
   use const
+#if NIMHD==1
   use hydro_commons,ONLY:default_ionisrate
+#endif 
   implicit none
   integer::ncell,ht
   real(dp)::dx,dt
+#if NIMHD==1  
   ! modif nimhd
-  real(dp)::dtambdiff,dtohmdiss,dthallbis    ! temps de diffusion ambipolaire, ohmique et de l'effet Hall
+  real(dp)::dtambdiff,dtohmdiss,dthallbis    ! ambipolar, Ohmic and Hall diffusiom times
   real(dp)::dtambdiffb,dtohmdissb,dthallb
-  real(dp),dimension(1:nvector),save::bsqrt  ! correspond en fait a sqrt(B*B)
+  real(dp),dimension(1:nvector),save::bsqrt  ! corresponds to sqrt(B*B)
   real(dp)::xx,betaadbricolo,betaad
   real(dp),dimension(1:nvector),save::rhoad,xpress
   real(dp)::etaohmdiss,reshall,barotrop1D
   integer :: ntest
   ! fin modif nimhd
+#endif
   real(dp),dimension(1:nvector,1:nvar+3)::uu
   real(dp),dimension(1:nvector,1:ndim)::gg
   real(dp),dimension(1:nvector),save::a2,B2,rho,ctot
@@ -133,7 +137,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
 #if NIMHD==1
   ! modif nimhd : time step for non-ideal mhd
 
-  ! Hall effect
+  ! Hall effect - WARNING not working yet
   if(nhall.eq.0) then
      dthallbis=1.d34
   else

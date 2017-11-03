@@ -73,9 +73,11 @@ module amr_parameters
   logical::clumpfind=.false.  ! Enable clump finder
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
   logical::FLD     =.false.   ! FLD module activated
+#if NIMHD==1  
   logical::DTU     =.false.   ! Unique time-step activated for niMHD diffusion routines
   logical :: radiative_nimhdheating=.false. ! Enable niMHD heating as a source term in radiative transfer
-
+#endif
+  
   ! Mesh parameters
   integer::geom=1             ! 1: cartesian, 2: cylindrical, 3: spherical
   integer::nx=1,ny=1,nz=1     ! Number of coarse cells in each dimension

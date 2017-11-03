@@ -302,7 +302,6 @@ module hydro_parameters
   real(dp)::nu_sts=0.001
 ! fin modif nimhd
 
-
   !Cosmic rays related variables
   real(dp)::k_perp=0.01       ! Perpendicular diffusion coefficient (k_perp*kspitzer_para)
   real(dp)::R_length = 1.0d0

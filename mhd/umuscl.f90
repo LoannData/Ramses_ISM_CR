@@ -560,7 +560,7 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
 ! #endif
   USE amr_parameters
   USE hydro_parameters
-  USE hydro_commons,only:default_ionisrate
+!  USE hydro_commons,only:default_ionisrate
   use radiation_parameters,only:small_er
   use units_commons
   USE const

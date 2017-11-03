@@ -287,10 +287,13 @@ subroutine update_time(ilevel)
            if(cooling.or.pressure_fix)then
               write(*,778)nstep_coarse,mcons,econs,epot_tot,ekin_tot,eint_tot
            else
+#if NIMHD==1
               ! modif nimhd
-!               write(*,777)nstep_coarse,mcons,econs,epot_tot,ekin_tot
               write(*,779)nstep_coarse,econs,epot_tot,ekin_tot,eint_tot,emag_tot
               ! fin modif nimhd
+#else
+              write(*,777)nstep_coarse,mcons,econs,epot_tot,ekin_tot
+#endif
            end if
 #ifdef SOLVERmhd
            write(*,'(" emag=",ES9.2)') emag_tot
@@ -391,13 +394,15 @@ subroutine update_time(ilevel)
          & ' a=',1pe10.3,' mem=',0pF4.1,'% ',0pF4.1,'%')
 999 format(' Level ',I2,' has ',I10,' grids (',3(I8,','),')')
 
+#if NIMHD==1
   ! modif nimhd
 779 format(' Main step=',i6,' econs=',1pe9.2, &
          & ' epot=',1pe9.2,' ekin=',1pe9.2,' eint=',1pe9.2,' emag=',1pe9.2)
 889 format(' ambip diff time=',1pe10.3,' mag diff time=',1pe10.3,&
          & ' Hall effect time=',1pe10.3,' time ideal mhd=',1pe10.3,' time new=',1pe10.3)
   ! fin modif nimhd
- 
+#endif
+  
 end subroutine update_time
 
 subroutine clean_stop

@@ -691,25 +691,29 @@ subroutine cmp_matrixA (ilevel,compute,igroup)
                  ohm_heating=zero
                  nimhd_heating=zero
 
-!!$                 if((nmagdiffu .eq. 1 .or. nambipolar .eq.1 .or. nmagdiffu2 .eq. 1 .or. nambipolar2 .eq.1) .and. radiative_nimhdheating)then
-!!$                    bx=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-!!$                    by=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-!!$                    bz=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-!!$                    bcell2=(bx**2+by**2+bz**2)
-!!$                    jx=uold(ind_cell(i),nvar-3)
-!!$                    jy=uold(ind_cell(i),nvar-2)
-!!$                    jz=uold(ind_cell(i),nvar-1)
-!!$                    jsquare=(jx**2+jy**2+jz**2)
-!!$                    
-!!$                    if(nmagdiffu .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told)*dt_imp*vol_loc
-!!$                    
-!!$                    if(nambipolar .eq. 1 )then
-!!$                       ambi_heating = (jy*bz-jz*by)**2+(jz*bx-jx*bz)**2+(jx*by-jy*bx)**2
-!!$                       ambi_heating = ambi_heating * betaad(rho,bcell2,Told)*dt_imp*vol_loc
-!!$                    endif
-!!$                    nimhd_heating=nimhd_heating+ohm_heating
-!!$                 end if
-  
+#if NIMHD==1
+                 bx=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+                 by=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+                 bz=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+                 bcell2=(bx**2+by**2+bz**2)
+                 jx=uold(ind_cell(i),nvar-3)
+                 jy=uold(ind_cell(i),nvar-2)
+                 jz=uold(ind_cell(i),nvar-1)
+                 jsquare=(jx**2+jy**2+jz**2) 
+                 ionisrate=default_ionisrate
+                 
+                 if((nmagdiffu .eq. 1 .or. nambipolar .eq.1 .or. nmagdiffu2 .eq. 1 .or. nambipolar2 .eq.1) .and. radiative_nimhdheating)then
+                    
+                    if(nmagdiffu .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told,ionisrate)*dt_imp*vol_loc
+                    
+                    if(nambipolar .eq. 1 )then
+                       ambi_heating = (jy*bz-jz*by)**2+(jz*bx-jx*bz)**2+(jx*by-jy*bx)**2
+                       ambi_heating = ambi_heating * betaad(rho,bcell2,Told,ionisrate)*dt_imp*vol_loc
+                    endif
+                    nimhd_heating=nimhd_heating+ohm_heating
+                 end if
+#endif  
+                 
                  rhs=0.0d0
                  lhs=0.0d0
                  do igrp=1,ngrp
