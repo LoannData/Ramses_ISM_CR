@@ -47,7 +47,7 @@ subroutine read_hydro_params(nml_ok)
        & ,gamma_rad &
 #endif
 #if NDUST>0       
-       &,temp_dust,rho_grain, size_grain,min_dust, D_lin_dust &
+       &,temp_dust,rho_grain, size_grain,min_dust, D_lin_dust, K_dust, K_drag &
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
   namelist/refine_params/x_refine,y_refine,z_refine,r_refine &
@@ -599,8 +599,6 @@ subroutine read_hydro_params(nml_ok)
      do j=1,ndust
      boundary_var(i,firstindex_ndust+j)=(d_bound(i)+sum_dust*d_bound(i))*dust_bound(i,j)
      end do
-
-#endif
 if(dust_barr)then
      boundary_var(i,1) =MAX(d_bound(i),smallr)
      boundary_var(i,2)=d_bound(i)*u_bound(i)
@@ -609,6 +607,8 @@ if(dust_barr)then
      do j=1,ndust
         boundary_var(i,firstindex_ndust+j)=d_bound(i)*dust_bound(i,j)
      end do
+     boundary_var(i,5) =(1.0_dp-sum_dust)*(d_bound(i))/(gamma-1.0d0)
+#endif
   else
      boundary_var(i,1) =d_bound(i)+sum_dust*d_bound(i)
      boundary_var(i,2)=(d_bound(i)+sum_dust*d_bound(i))*u_bound(i)
@@ -632,6 +632,8 @@ if(dust_barr)then
      !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
 
      call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)+sum_dust*d_bound(i)),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
+     if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht)
+
      do j=1,ngrp
         boundary_var(i,firstindex_er+j)=radiation_source(T_bound(i),j)/(scale_d*scale_v**2)
         er_bound=er_bound+boundary_var(i,firstindex_er+j)
@@ -650,15 +652,13 @@ if(dust_barr)then
      
 
 #if NDUST>0
-if(dust_barr)then
-     boundary_var(i,5) =(1.0_dp-sum_dust)*(d_bound(i))*kb*temp_dust/mu_gas/mH/scale_v**2/(gamma-1.0d0)
-  end if
+    if(dust_barr)then
+        boundary_var(i,5) =(1.0_dp-sum_dust)*(d_bound(i))/(gamma-1.0d0)
+     end if
 #endif
 
   end do
-  
-!  print *,  boundary_var(1,5)*(gamma-1.0d0), boundary_var(2,5)*(gamma-1.0d0)
-!  print*,  boundary_var(1,firstindex_ndust+1),boundary_var(2,firstindex_ndust+1)
+
   !-----------------------------------
   ! Rearrange level dependent arrays
   !-----------------------------------

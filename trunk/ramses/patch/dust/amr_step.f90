@@ -387,7 +387,7 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDUST>0
   ! Dust diffusion step
   if(dust_diffusion)then
-     call set_f_dust_new(ilevel)
+     call set_dflux_dust_new(ilevel)
   end if
 #endif
 
@@ -483,7 +483,6 @@ recursive subroutine amr_step(ilevel,icount)
      ! Set uold equal to unew
                                call timer('hydro - set uold','start')
      call set_uold(ilevel)
-
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step 
                                call timer('poisson','start')
@@ -582,19 +581,19 @@ recursive subroutine amr_step(ilevel,icount)
      if(simple_boundary)call make_boundary_hydro(ilevel)
   endif
 
-#if NDUST>0
   ! Dust diffusion step
+#if NDUST>0
   if(dust_diffusion)then
-                              call timer('dust - diffusion','start')
+                             call timer('dust - diffusion','start')
      call dust_diffusion_fine(ilevel)
      call set_uold_dust(ilevel)
      ! Restriction operator
                                call timer('hydro upload fine','start')
      call upload_fine(ilevel)
      do idust=1,ndust
-        call make_virtual_reverse_dp(f_dust(1,idust),ilevel)
+        call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
      end do
-!      Update boundaries
+     ! Update boundaries
                               call timer('hydro - ghostzones','start')
 #ifdef SOLVERmhd
   do ivar=1,nvar+3
@@ -610,7 +609,6 @@ recursive subroutine amr_step(ilevel,icount)
   if(simple_boundary)call make_boundary_hydro(ilevel)
   end if
 #endif
-
 
 
 #ifdef SOLVERmhd

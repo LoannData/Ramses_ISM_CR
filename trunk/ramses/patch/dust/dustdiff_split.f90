@@ -117,10 +117,9 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdx
 
-  real(dp)::dPdx1,dx_loc
+  real(dp)::dPdx1,dx_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
-  real(dp)::interpol_khix ! il faudrait penser à l'enlever pour gagner une étape de calcule mais ca va pas clarifier les choses
-  ! Local scalar variables
   integer::i,j,k,l,ivar, idust
   integer::jlo,jhi,klo,khi
 
@@ -131,18 +130,28 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   do j=jlo,jhi
   do i=if1,if2
      do l = 1, ngrid
+        dx_loc=max(ffdx(l,i-1,j,k),ffdx(l,i,j,k))
         dPdx1=(uin(l,i,j,k,2*ndust+2)-uin(l,i-1,j,k,2*ndust+2))/dx
-        if(dust_lin)dPdx1=0.0_dp
-        dx_loc=max(ffdx(l,i,j,k),ffdx(l,i-1,j,k))
-        
+        Tksleft     = 0.0_dp
+        Tksright    = 0.0_dp
+        Tksleft_tot = 0.0_dp
+        Tksright_tot= 0.0_dp        
         do idust= 1, ndust
-          interpol_khix= 0.5d0*(uin(l,i,j,k,ndust+idust)*uin(l,i,j,k,idust)+uin(l,i-1,j,k,ndust+idust)*uin(l,i-1,j,k,idust))
-          fx(idust) = interpol_khix*dPdx1/dx_loc
-          if(dust_lin) fx(idust) = -D_lin_dust*(uin(l,i,j,k,idust)-uin(l,i-1,j,k,idust))/dx/dx_loc
-       end do
+           Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)
+        end do
+        do idust= 1, ndust
+           Tksleft(idust)=  uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
+           Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
+        end do
+        do idust= 1, ndust
+           fx(idust) = 0.5d0*(uin(l,i-1,j,k,idust)*Tksleft(idust)+uin(l,i,j,k,idust)*Tksright(idust))*dPdx1/dx_loc
+           if(dust_lin) fx(idust) = -D_lin_dust*(uin(l,i,j,k,idust)-uin(l,i-1,j,k,idust))/dx/dx_loc
+
+        end do
         do idust= 1, ndust
            myflux(l,i,j,k,idust)=fx(idust)*dt/dx
-        end do  
+        end do
     enddo
   enddo
   enddo
@@ -171,9 +180,9 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdy
 
-  real(dp)::dPdy1,dy_loc
+  real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fy
-  real(dp)::interpol_khiy
   
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust
@@ -181,16 +190,28 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
 
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
- 
+
+
   do k=klo,khi
   do j=jf1,jf2
   do i=ilo,ihi
      do l = 1, ngrid
+        dy_loc=max(ffdy(l,i,j-1,k),ffdy(l,i,j,k))
         dPdy1=(uin(l,i,j,k,2*ndust+2)-uin(l,i,j-1,k,2*ndust+2))/dy
-        dy_loc=max(ffdy(l,i,j,k),ffdy(l,i,j-1,k))
+        Tksleft     = 0.0_dp
+        Tksright    = 0.0_dp
+        Tksleft_tot = 0.0_dp
+        Tksright_tot= 0.0_dp
         do idust= 1, ndust
-           interpol_khiy= 0.5d0*(uin(l,i,j,k,ndust+idust)*uin(l,i,j,k,idust)+uin(l,i,j-1,k,ndust+idust)*uin(l,i,j-1,k,idust))
-           fy(idust) = interpol_khiy*dPdy1/dy_loc
+           Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)
+        end do
+        do idust= 1, ndust
+           Tksleft(idust)=  uin(l,i,j-1,k,ndust+idust)+Tksleft_tot
+           Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
+        end do
+        do idust= 1, ndust
+           fy(idust) =0.5d0*(uin(l,i,j-1,k,idust)*Tksleft(idust)+uin(l,i,j,k,idust)*Tksright(idust))*dPdy1/dy_loc
         end do
         do idust= 1, ndust
            myflux(l,i,j,k,idust)=fy(idust)*dt/dy
@@ -223,9 +244,9 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdz
 
-  real(dp)::dPdz1,dz_loc
+  real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fz
-  real(dp)::interpol_khiz
 
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust
@@ -242,10 +263,21 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
      do l = 1, ngrid
         dPdz1=(uin(l,i,j,k,2*ndust+2)-uin(l,i,j,k-1,2*ndust+2))/dz
         dz_loc=max(ffdz(l,i,j,k),ffdz(l,i,j,k-1))
+        Tksleft     = 0.0_dp
+        Tksright    = 0.0_dp
+        Tksleft_tot = 0.0_dp
+        Tksright_tot= 0.0_dp
         do idust= 1, ndust
-           interpol_khiz=0.5d0*(uin(l,i,j,k,ndust+idust)*uin(l,i,j,k,idust)+uin(l,i,j,k-1,ndust+idust)*uin(l,i,j,k-1,idust))
-           fz(idust) = interpol_khiz*dPdz1/dz_loc 
+           Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)
         end do
+        do idust= 1, ndust
+           Tksleft(idust)=  uin(l,i,j,k-1,ndust+idust)+Tksleft_tot
+           Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
+        end do
+        do idust= 1, ndust
+           fz(idust) =0.5d0*(uin(l,i,j,k-1,idust)*Tksleft(idust)+uin(l,i,j,k,idust)*Tksright(idust))*dPdz1/dz_loc
+        end do        
         do idust= 1, ndust
            myflux(l,i,j,k,idust)=fz(idust)*dt/dz
         end do  
