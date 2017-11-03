@@ -210,6 +210,7 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   real(dp),dimension(1:nvector),save::eking,ekinm,ekind
   real(dp),dimension(1:nvector),save::emagg,emagm,emagd
   real(dp)::dg,dm,dd,pg,pm,pd,vg,vm,vd,cg,cm,cd,error,emag_loc,ethres,Eg,Em,Ed,Fg,Fm,Fd,ddg,ddm,ddd
+
   
   ! Convert to primitive variables
   do k = 1,nn
@@ -284,6 +285,7 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
              & ABS((dm-dg)/(dm+dg+floor_d)) )
         ok(k) = ok(k) .or. error > err_grad_d
      end do
+
   end if
 
   if(err_grad_p >= 0.)then
@@ -309,6 +311,7 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   end if
   end do
 #endif
+
   if(err_grad_b2 >= 0.)then
      do k=1,nn
         pg=emagg(k); pm=emagm(k); pd=emagd(k)

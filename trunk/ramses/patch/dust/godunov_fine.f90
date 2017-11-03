@@ -138,6 +138,7 @@ subroutine set_uold(ilevel)
   real(dp)::sum_dust
   real(dp)::cv,dd,ee,TP_loc, testcs
 
+
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
@@ -157,8 +158,7 @@ subroutine set_uold(ilevel)
 #if NDUST>0
    call add_dust_terms(ilevel)
 #endif
-  
-  
+
   ! Set uold to unew for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
@@ -234,7 +234,7 @@ subroutine set_uold(ilevel)
               uold(ind_cell,nvar)=e_prim
            end if
 #endif
-         
+
            if(energy_fix)then
               uold(ind_cell,5)=e_prim+e_kin+e_mag
               uold(ind_cell,nvar)=e_prim
@@ -352,6 +352,7 @@ subroutine add_pdv_source_terms(ilevel)
   real(dp) :: nuQr,nuQl,Qr_nu
 #endif
   real(dp) :: nuPrDivu,nuPr,nuPl,Pr_nu
+
   !  EOS
   real(dp) :: dd,ee,cmp_Cv_eos
   integer  :: ht
@@ -366,7 +367,7 @@ subroutine add_pdv_source_terms(ilevel)
 
   velg=0.0; veld=0.0d0
   sum_dust=0.0d0
-  
+
   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
   iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
@@ -429,6 +430,7 @@ subroutine add_pdv_source_terms(ilevel)
 #endif
             endif 
       enddo
+
            id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
            ih2=ncoarse+(id2-1)*ngridmax
            do i=1,ngrid
@@ -466,7 +468,7 @@ subroutine add_pdv_source_terms(ilevel)
                  gradEr(i,j,igroup) = (Erd(i,j,igroup)-Erg(i,j,igroup))/(dx_g(i,j)+dx_d(i,j))
               enddo
 #endif
-         
+
            enddo
         end do
 
@@ -488,7 +490,8 @@ subroutine add_pdv_source_terms(ilevel)
                  eold=eold-uold(ind_cell(i),8+irad)
               end do
 #endif
-              ! Add -pdV term and coupling with dust
+
+              ! Add -pdV term
               do idim=1,ndim
                  enew(ind_cell(i))=enew(ind_cell(i)) &
                       & -(gamma-1.0d0)*eold*divu_loc(i,idim,idim)*dtnew(ilevel)
@@ -599,6 +602,7 @@ subroutine add_pdv_source_terms(ilevel)
               do j=1,ndim
                  do k=1,ndim
                  
+
                     ! compute Pr:divU term
                     Pgdivu    = Pgdivu    + Pg(j,k,igroup)*divu_loc(i,j,k)
                     PgmErdivu = PgmErdivu + Pg(j,k,igroup)*divu_loc(i,j,k)
@@ -810,7 +814,6 @@ subroutine add_pdv_source_terms(ilevel)
 111 format('   Entering add_pdv_source_terms for level ',i2)
 
 end subroutine add_pdv_source_terms
-
 
 !###########################################################
 !###########################################################

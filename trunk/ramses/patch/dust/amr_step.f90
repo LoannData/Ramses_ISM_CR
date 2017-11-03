@@ -483,6 +483,8 @@ recursive subroutine amr_step(ilevel,icount)
      ! Set uold equal to unew
                                call timer('hydro - set uold','start')
      call set_uold(ilevel)
+
+
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step 
                                call timer('poisson','start')
@@ -609,6 +611,7 @@ recursive subroutine amr_step(ilevel,icount)
   if(simple_boundary)call make_boundary_hydro(ilevel)
   end if
 #endif
+
 
 
 #ifdef SOLVERmhd

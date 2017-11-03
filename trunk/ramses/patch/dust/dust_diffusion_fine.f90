@@ -205,7 +205,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   real(dp)::sum_dust,sum_dust_new,sum_dust_old
   real(dp)::d,u,v,w,A,B,C,enint,e_kin,e_mag,pressure,cs
   real(dp)::rho_gas,rho_grain_loc,size_grain_loc, pi, t_stop
-  
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   if(verbosed) write(*,*) 'dt_dust =', dtnew(ilevel)
@@ -371,7 +370,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
            if(dust_barr)  cs = 1.0_dp
            if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
-
            uuuloc(ind_exist(i),i3,j3,k3,2)=u
            uuuloc(ind_exist(i),i3,j3,k3,3)=v
            uuuloc(ind_exist(i),i3,j3,k3,4)=w

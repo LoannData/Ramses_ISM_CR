@@ -2,7 +2,7 @@
 !  MAG_UNSPLIT Unsplit second order Godunov integrator for
 !              polytropic magnetized gas dynamics using 
 !              MUSCL-HANCOCK scheme
-!              with various Riemann solvers and slope limiters.
+!             with various Riemann solvers and slope
 !              The sheme follows closely the paper by
 !              Londrillo & Del Zanna ApJ 2000, 530, 508, 
 !
@@ -2484,6 +2484,7 @@ do k=min(1,ku1+1),max(1,ku2-1)
                   rhoz=u(l,i,j,k,1)
                   sum_dust=0.0_dp
 #if NDUST>0
+
                   do idust = 1, n_dust
                      sum_dust =sum_dust + u(l,i,j,k,firstindex_ndust+idust)/u(l,i,j,k,1)
                   end do
@@ -2650,6 +2651,7 @@ do k=min(1,ku1+1),max(1,ku2-1)
                  else
                  sum_dust=0.0_dp   
 #if NDUST>0
+
                  do idust = 1, n_dust
                    sum_dust =sum_dust + u(l,i,j,k,firstindex_ndust+idust)/u(l,i,j,k,1)
                  end do
@@ -5015,6 +5017,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
   smalle = smallc**2/gamma/(gamma-one)
   smallp = smallr*smallc**2/gamma
   cstest = 0.0D0
+
   ! Store face centered magnetic field
   do k = ku1, ku2
      do j = ju1, ju2
@@ -5119,6 +5122,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
             sum_dust=0.0_dp
 
 #if NDUST>0
+
               do idust = 1, Ndust
                  sum_dust= sum_dust + q(l,i,j,k,firstindex_ndust+idust)
               end do
@@ -5130,6 +5134,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
               call pressure_eos((1.0_dp-sum_dust)*uin(l,i,j,k,1),eint,pp_eos)
               call soundspeed_eos((1.0_dp-sum_dust)*uin(l,i,j,k,1),eint,cstest)
               write(*,*) 'BLA', cstest, eint, uin(l,i,j,k,1), pp_eos, sqrt(pp_eos/((1.0_dp-sum_dust)*uin(l,i,j,k,1)))
+
               q(l,i,j,k,5)=MAX(pp_eos,smallp)
            end do
 

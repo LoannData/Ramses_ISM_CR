@@ -120,6 +120,7 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp)::dPdx1,dx_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
+
   integer::i,j,k,l,ivar, idust
   integer::jlo,jhi,klo,khi
 
@@ -183,6 +184,7 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fy
+
   
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust
@@ -190,7 +192,6 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
 
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
-
 
   do k=klo,khi
   do j=jf1,jf2
@@ -243,10 +244,10 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   ! Primitive variables
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdz
-
   real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fz
+
 
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust

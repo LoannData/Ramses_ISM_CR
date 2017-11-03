@@ -599,16 +599,10 @@ subroutine read_hydro_params(nml_ok)
      do j=1,ndust
      boundary_var(i,firstindex_ndust+j)=(d_bound(i)+sum_dust*d_bound(i))*dust_bound(i,j)
      end do
-if(dust_barr)then
-     boundary_var(i,1) =MAX(d_bound(i),smallr)
-     boundary_var(i,2)=d_bound(i)*u_bound(i)
-     boundary_var(i,3)=d_bound(i)*v_bound(i)
-     boundary_var(i,4)=d_bound(i)*w_bound(i)
-     do j=1,ndust
-        boundary_var(i,firstindex_ndust+j)=d_bound(i)*dust_bound(i,j)
-     end do
-     boundary_var(i,5) =(1.0_dp-sum_dust)*(d_bound(i))/(gamma-1.0d0)
+
+
 #endif
+
   else
      boundary_var(i,1) =d_bound(i)+sum_dust*d_bound(i)
      boundary_var(i,2)=(d_bound(i)+sum_dust*d_bound(i))*u_bound(i)
