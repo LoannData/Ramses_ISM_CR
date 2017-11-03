@@ -1,11 +1,6 @@
 change 8+ in firstindex_er for a bunch of routines !!!! (except umuscl)
 
 
-! Test suite
-!-----------
-- python scripts to be done for: collapse-rhd, collapse-baro, collapse-ohm
-!-----------
-
 cooling_fine.f90: ajout modules de Valeska pour l'extinction et la chimie. Voir avec Valeska si il faut updater.
 
 
