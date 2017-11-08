@@ -2,7 +2,7 @@
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine set_f_dust_new(ilevel)
+subroutine set_dflux_dust_new(ilevel)
   use amr_commons
   use hydro_commons
   implicit none
@@ -19,7 +19,7 @@ subroutine set_f_dust_new(ilevel)
      iskip=ncoarse+(ind-1)*ngridmax
      do idust=1,ndust
         do i=1,active(ilevel)%ngrid
-           f_dust(active(ilevel)%igrid(i)+iskip,idust) = 0.0d0
+           dflux_dust(active(ilevel)%igrid(i)+iskip,idust) = 0.0d0
         end do
      end do
   end do
@@ -30,15 +30,15 @@ subroutine set_f_dust_new(ilevel)
      iskip=ncoarse+(ind-1)*ngridmax
      do idust=1,ndust
         do i=1,reception(icpu,ilevel)%ngrid
-          f_dust(reception(icpu,ilevel)%igrid(i)+iskip,idust)= 0.0d0
+          dflux_dust(reception(icpu,ilevel)%igrid(i)+iskip,idust)= 0.0d0
         end do
      end do
   end do
   end do
 
-111 format('   Entering set_f_dust for level ',i2)
+111 format('   Entering set_dflux_dust for level ',i2)
 
-end subroutine set_f_dust_new
+end subroutine set_dflux_dust_new
 !###########################################################
 !###########################################################
 !###########################################################
@@ -146,7 +146,7 @@ subroutine dust_diffusion_fine(ilevel)
   end do
 
   do idust=1,ndust
-      call make_virtual_reverse_dp(f_dust(1,idust),ilevel)
+      call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
   end do
 
 111 format('   Entering diffusion_fine for level ',i2)
@@ -204,7 +204,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp)::sum_dust,sum_dust_new,sum_dust_old
   real(dp)::d,u,v,w,A,B,C,enint,e_kin,e_mag,pressure,cs
-  real(dp)::rho_gas,rho_grain_loc,size_grain_loc, pi
+  real(dp)::rho_gas,rho_grain_loc,size_grain_loc, pi, t_stop
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   if(verbosed) write(*,*) 'dt_dust =', dtnew(ilevel)
@@ -367,24 +367,32 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               sum_dust = sum_dust + uold(ind_cell(i),firstindex_ndust+idust)/uold(ind_cell(i),1)
            end do
            call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pressure)
-           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*kb*temp_dust/mu_gas/mh/scale_v**2
            call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
-           if(dust_barr)  cs = SQRT (gamma*kb*temp_dust/mu_gas/mh)/scale_v
-            
-
+           if(dust_barr)  cs = 1.0_dp
+           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
            uuuloc(ind_exist(i),i3,j3,k3,2)=u
            uuuloc(ind_exist(i),i3,j3,k3,3)=v
            uuuloc(ind_exist(i),i3,j3,k3,4)=w
            uuuloc(ind_exist(i),i3,j3,k3,5)=enint+e_mag
+           
            !We fill uloc with the quantities required to compute the fluxes (d, P, epsilon, ts/d)
            uloc(ind_exist(i),i3,j3,k3,2*ndust+1)=d
            uloc(ind_exist(i),i3,j3,k3,2*ndust+2)=pressure
            do idust = 1, ndust
-              uloc(ind_exist(i),i3,j3,k3,ndust+idust)= rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d!/d
-              if(sum_dust*uloc(ind_exist(i),i3,j3,k3,ndust+idust).gt. dtnew(ilevel))then
-                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?'
-                 stop
-              endif   
+              ! different prescriptions for t-stop
+              t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d!/d
+              if(K_drag) t_stop = sum_dust*(1-sum_dust)*d/K_dust
+              if(dust_barr) t_stop = 0.1_dp
+              
+              uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - uold(ind_cell(i),firstindex_ndust+idust)/uold(ind_cell(i),1))
+              if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.K_drag)then
+                write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel)
+               stop
+            endif
+            if( dtnew(ilevel) .gt. dx*dx/sum_dust/t_stop/cs/cs.and. dust_barr)  then
+               write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?' , dtnew(ilevel), dx*dx/sum_dust/t_stop/cs/cs
+               stop
+            endif
            !(price&laibe 2015)
            end do   
         if(verbosed)write(*,*)'dt, ts',sum_dust,d,enint,e_mag,e_kin,uold(ind_cell(i),5)
@@ -425,15 +433,21 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               sum_dust = sum_dust + u2(i,ind_son,firstindex_ndust+idust)!/u2(i,ind_son,1)
            end do
            call pressure_eos((1.0_dp-sum_dust)*d,enint,pressure)
-           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*kb*temp_dust/mu_gas/mh/scale_v**2
            call soundspeed_eos((1.0_dp-sum_dust)*d,enint,cs)
-           if(dust_barr) cs = SQRT (gamma*kb*temp_dust/mu_gas/mh)/scale_v
+           
+           if(dust_barr) cs = 1.0_dp
+           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+1)=d
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+2)=pressure
-           do idust = 1, ndust           
-              uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d!/d
-              if(sum_dust*uloc(ind_nexist(i),i3,j3,k3,ndust+idust).gt. dtnew(ilevel))then
-                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?'
+           do idust = 1, ndust
+              ! different prescriptions for t-stop
+              t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d!/d
+              if(K_drag)  t_stop = sum_dust*(1-sum_dust)*d/K_dust
+              if(dust_barr) t_stop = 0.1_dp
+
+              uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp - u2(i,ind_son,firstindex_ndust+idust))
+              if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
+                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', sum_dust*t_stop,dtnew(ilevel)
                  stop
               endif    
               !(price&laibe 2015)
@@ -497,8 +511,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            if(son(ind_cell(i))==0)then        
                    uuloc(i,i3,j3,k3,idust)= uuloc(i,i3,j3,k3,idust)&
                    &+(flux(i,i3,j3,k3,idust,idim)&
-                   &-flux(i,i3+i0,j3+j0,k3+k0,idust,idim))!/uold(ind_cell(i),1)
-                   !print*,uuloc(i,i3,j3,k3,idust),flux(i,i3,j3,k3,idust,idim),flux(i,i3+i0,j3+j0,k3+k0,idust,idim),f_dust(ind_cell(i),idust)
+                   &-flux(i,i3+i0,j3+j0,k3+k0,idust,idim))
              end if
              end do
         end do
@@ -530,7 +543,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
             do idust=1,ndust
                  !Update epsilon taking in account small fluxes from refined interfaces
                  unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+(uold(ind_cell(i),firstindex_ndust+idust)& 
-                                                                                &+f_dust(ind_cell(i),idust))!/uold(ind_cell(i),1)
+                                                                                &+dflux_dust(ind_cell(i),idust))!/uold(ind_cell(i),1)
             enddo   
               sum_dust_new=0.0_dp              
               do idust=1,ndust
@@ -543,7 +556,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
           
                else
                  !If we test barenblatt we only update P
-                 unew(ind_cell(i),5)=(1.0_dp-sum_dust_new)*uold(ind_cell(i),1)*kb*temp_dust/mu_gas/mh/scale_v**2/(gamma-1.0_dp)
+                  unew(ind_cell(i),5)=(1.0_dp-sum_dust_new)*uold(ind_cell(i),1)/(gamma-1.0_dp)
                endif
            end if
         end do
@@ -616,7 +629,7 @@ end do
         do j3=j3min,j3max-j0
         do i3=i3min,i3max-i0
            do i=1,nb_noneigh
-              f_dust(ind_buffer(i),idust)=f_dust(ind_buffer(i),idust) &
+              dflux_dust(ind_buffer(i),idust)=dflux_dust(ind_buffer(i),idust) &
                    &-flux(ind_cell(i),i3,j3,k3,idust,idim)*oneontwotondim            
            end do
         end do
@@ -644,7 +657,7 @@ end do
         do j3=j3min+j0,j3max
         do i3=i3min+i0,i3max
            do i=1,nb_noneigh
-              f_dust(ind_buffer(i),idust)=f_dust(ind_buffer(i),idust) &
+              dflux_dust(ind_buffer(i),idust)=dflux_dust(ind_buffer(i),idust) &
                    &+flux(ind_cell(i),i3+i0,j3+j0,k3+k0,idust,idim)*oneontwotondim
            end do
         end do
@@ -655,3 +668,218 @@ end do
   ! End loop over dimensions
   end if
 end subroutine dustdifffine1
+
+subroutine add_dust_terms(ilevel)
+  use amr_commons
+  use hydro_commons
+  use cooling_module,ONLY:clight
+  use radiation_parameters,ONLY:eray_min,nu_min_hz,nu_max_hz,stellar_photon
+  use units_commons
+  implicit none
+  integer::ilevel
+  !---------------------------------------------------------
+  ! This routine adds the source terms due to dust to the internal
+  ! energy equation and to the non-thermal energy equations of the gas.
+  !---------------------------------------------------------
+  integer::i,j,k,ivar,irad,ind,iskip,nx_loc,ind_cell1,idust
+  integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2
+  integer,dimension(1:3,1:2,1:8)::iii,jjj
+  real(dp)::scale,dx,dx_loc,d,u,v,w,eold,A,B,C
+
+  integer ,dimension(1:nvector),save::ind_grid,ind_cell
+  integer ,dimension(1:nvector,0:twondim),save::igridn
+  integer ,dimension(1:nvector,1:ndim),save::ind_left,ind_right
+  real(dp),dimension(1:nvector,1:ndim,1:ngrp),save::Erg,Erd
+  real(dp),dimension(1:nvector,1:ndim),save::dx_g,dx_d
+
+  real(dp) ,dimension(1:nvector,1:ndim,1:ngrp)::gradEr
+
+  integer::igroup
+  real(dp)::usquare,emag,erad_loc,ekin,eps,sum_dust
+  real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,fact,e_r
+  real(dp)::Pgdivu,u_square,d_loc,Tp_loc,Tr_loc,cal_Teg
+  real(dp) ,dimension(1:ndim       )::u_loc
+  real(dp),dimension(1:nvector,1:ndim),save::Pleft,Pright, Enintleft, Enintright
+  real(dp) ,dimension(1:nvector)       ::gradEintgradP
+  real(dp)  :: t_stop,cs,pi, rho_grain_loc,size_grain_loc
+  real(dp) :: dd,ee,cmp_Cv_eos
+  integer  :: ht
+
+  if(numbtot(1,ilevel)==0)return
+  if(verbose)write(*,111)ilevel
+
+  nx_loc=icoarse_max-icoarse_min+1
+  scale=boxlen/dble(nx_loc)
+  dx=0.5d0**ilevel
+  dx_loc=dx*scale
+
+  sum_dust=0.0d0
+  Pleft=0.0; Pright=0.0; Enintleft=0.0; Enintright=0.0
+  gradEintgradP=0.0d0
+  t_stop=0.0d0;  pi =3.14159265358979323846_dp
+  rho_grain_loc=rho_grain/scale_d
+  size_grain_loc=size_grain/scale_l
+  
+  iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
+  iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
+  iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
+  iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
+  iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
+  iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
+
+  ! Loop over myid grids by vector sweeps
+  ncache=active(ilevel)%ngrid
+  do igrid=1,ncache,nvector
+   
+     ! Gather nvector grids
+     ngrid=MIN(nvector,ncache-igrid+1)
+     do i=1,ngrid
+        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+     end do
+     
+     ! Gather neighboring grids
+     do i=1,ngrid
+        igridn(i,0)=ind_grid(i)
+     end do
+     do idim=1,ndim
+        do i=1,ngrid
+           ind_left (i,idim)=nbor(ind_grid(i),2*idim-1)
+           ind_right(i,idim)=nbor(ind_grid(i),2*idim  )
+           igridn(i,2*idim-1)=son(ind_left (i,idim))
+           igridn(i,2*idim  )=son(ind_right(i,idim))
+        end do
+     end do
+     
+     ! Loop over cells
+     do ind=1,twotondim
+        
+        ! Compute central cell index
+        iskip=ncoarse+(ind-1)*ngridmax
+        do i=1,ngrid
+           ind_cell(i)=iskip+ind_grid(i)
+        end do
+        
+        ! Gather all neighboring velocities
+        do idim=1,ndim
+           id1=jjj(idim,1,ind); ig1=iii(idim,1,ind)
+           ih1=ncoarse+(id1-1)*ngridmax
+           do i=1,ngrid
+              dx_d(i,idim)=dx_loc
+
+              if(energy_fix)then
+               eold=uold(ind_left(i,idim),nvar)
+              else
+              ! Gather left thermal energy
+              d=max(uold(ind_left(i,idim),1),smallr)
+              u=0.0; v=0.0; w=0.0
+              if(ndim>0)u=uold(ind_left(i,idim),2)/d
+              if(ndim>1)v=uold(ind_left(i,idim),3)/d
+              if(ndim>2)w=uold(ind_left(i,idim),4)/d
+              A=0.5d0*(uold(ind_left(i,idim),6)+uold(ind_left(i,idim),nvar+1))
+              B=0.5d0*(uold(ind_left(i,idim),7)+uold(ind_left(i,idim),nvar+2))
+              C=0.5d0*(uold(ind_left(i,idim),8)+uold(ind_left(i,idim),nvar+3))
+              eold=uold(ind_left(i,idim),5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
+#if NENER>0
+              do irad=1,nener
+                 eold=eold-uold(ind_left(i,idim),8+irad)
+              end do
+#endif
+              endif    
+              Enintleft(i,idim)=eold
+              sum_dust=0.0d0
+              do idust = 1, Ndust
+                 sum_dust=sum_dust+uold(ind_left(i,idim),firstindex_ndust+idust)/d
+              end do
+              call pressure_eos((1.0_dp-sum_dust)*d,eold,Pleft(i,idim))
+      enddo
+           id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
+           ih2=ncoarse+(id2-1)*ngridmax
+           do i=1,ngrid             
+              dx_g(i,idim)=dx_loc
+
+              if(energy_fix)then
+              eold=uold(ind_left(i,idim),nvar)
+              else
+              ! Gather right thermal energy
+              d=max(uold(ind_right(i,idim),1),smallr)
+              u=0.0; v=0.0; w=0.0
+              if(ndim>0)u=uold(ind_right(i,idim),2)/d
+              if(ndim>1)v=uold(ind_right(i,idim),3)/d
+              if(ndim>2)w=uold(ind_right(i,idim),4)/d
+              A=0.5d0*(uold(ind_right(i,idim),6)+uold(ind_right(i,idim),nvar+1))
+              B=0.5d0*(uold(ind_right(i,idim),7)+uold(ind_right(i,idim),nvar+2))
+              C=0.5d0*(uold(ind_right(i,idim),8)+uold(ind_right(i,idim),nvar+3))
+              eold=uold(ind_right(i,idim),5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
+#if NENER>0
+              do irad=1,nener
+                 eold=eold-uold(ind_right(i,idim),8+irad)
+              end do
+#endif
+              endif                  
+              Enintright(i,idim)=eold
+              sum_dust=0.0d0
+              do idust = 1, Ndust
+                 sum_dust=sum_dust+uold(ind_right(i,idim),firstindex_ndust+idust)/d
+              end do
+              call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))
+
+
+           enddo
+        end do
+        do i=1,ngrid
+           do j=1,ndim
+            gradEintgradP(i) = gradEintgradP(i)+(Pright(i,j)-Pleft(i,j))*(Enintright(i,j)-Enintleft(i,j))/(dx_g(i,j)+dx_d(i,j))/(dx_g(i,j)+dx_d(i,j))
+           enddo
+        end do
+
+
+        !update internal energy in unew(nvar)
+        do i=1,ngrid
+
+           usquare=0.0
+           do idim=1,ndim
+              usquare=usquare+(uold(ind_cell(i),idim+1)/uold(ind_cell(i),1))**2
+           end do
+           
+           ! Compute total magnetic energy
+           emag = 0.0d0
+           do ivar=1,3
+              emag = emag + 0.125d0*(uold(ind_cell(i),5+ivar) &
+                   &  +uold(ind_cell(i),nvar+ivar))**2
+           end do
+           erad_loc=0.0D0
+#if NENER>0
+           do igroup=1,nener
+              erad_loc = erad_loc + uold(ind_cell(i),8+igroup)
+           end do
+#endif
+
+           d     = uold(ind_cell(i),1)
+           ekin  = d*usquare/2.0
+           ! Compute gas pressure in cgs
+           eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
+           if(energy_fix)eps   = uold(ind_cell(i),nvar)
+           sum_dust=0.0d0
+            do idust = 1, Ndust
+                 sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
+            end do
+            call soundspeed_eos((1.0_dp-sum_dust)*d,eps, cs)
+            t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d
+            if(K_drag) t_stop = sum_dust*(1-sum_dust)*d/K_dust
+            if(dust_barr) t_stop = 0.1_dp
+           do idim=1,ndim
+              unew(ind_cell(i),5) = unew(ind_cell(i),5) &
+                   & +  gradEintgradP(i)*t_stop * sum_dust/(1.0_dp+sum_dust)*dtnew(ilevel)/d
+           end do
+        end do
+
+     enddo
+     ! End loop over cells
+  end do
+  ! End loop over grids
+
+  return
+
+111 format('   Entering add_drag_source_terms for level ',i2)
+
+end subroutine add_dust_terms

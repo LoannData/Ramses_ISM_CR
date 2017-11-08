@@ -206,10 +206,11 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   real(dp)::ud(1:nvector,1:nvar+3)
   logical ::ok(1:nvector)
   
-  integer::j,k,idim
+  integer::j,k,idim,idust
   real(dp),dimension(1:nvector),save::eking,ekinm,ekind
   real(dp),dimension(1:nvector),save::emagg,emagm,emagd
-  real(dp)::dg,dm,dd,pg,pm,pd,vg,vm,vd,cg,cm,cd,error,emag_loc,ethres,Eg,Em,Ed,Fg,Fm,Fd
+  real(dp)::dg,dm,dd,pg,pm,pd,vg,vm,vd,cg,cm,cd,error,emag_loc,ethres,Eg,Em,Ed,Fg,Fm,Fd,ddg,ddm,ddd
+
   
   ! Convert to primitive variables
   do k = 1,nn
@@ -284,8 +285,7 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
              & ABS((dm-dg)/(dm+dg+floor_d)) )
         ok(k) = ok(k) .or. error > err_grad_d
      end do
-     do k=1,nn
-     end do
+
   end if
 
   if(err_grad_p >= 0.)then
@@ -297,6 +297,20 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
         ok(k) = ok(k) .or. error > err_grad_p
      end do
   end if
+#if NDUST>0
+   do idust = 1,Ndust
+    if(err_grad_dust(idust) >= 0.)then
+     do k=1,nn
+        ddg=ug(k,firstindex_ndust+idust); ddm=um(k,firstindex_ndust+idust); ddd=ud(k,firstindex_ndust+idust)
+        error=2.0d0*MAX( &
+             & ABS((ddd-ddm)/(ddd+ddm+floor_dust)) , &
+             & ABS((ddm-ddg)/(ddm+ddg+floor_dust)) )
+        ok(k) = ok(k) .or. error > err_grad_dust(idust)
+        
+     end do
+  end if
+  end do
+#endif
 
   if(err_grad_b2 >= 0.)then
      do k=1,nn

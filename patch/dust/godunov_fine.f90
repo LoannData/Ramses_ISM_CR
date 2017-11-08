@@ -136,7 +136,8 @@ subroutine set_uold(ilevel)
   real(dp)::scale,d,u,v,w,A,B,C
   real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,dx,fact,d_old
   real(dp)::sum_dust
-  real(dp)::cv,dd,ee,TP_loc
+  real(dp)::cv,dd,ee,TP_loc, testcs
+
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
@@ -154,6 +155,9 @@ subroutine set_uold(ilevel)
   if(pressure_fix.OR.nener>0)then
      call add_pdv_source_terms(ilevel)
   endif
+#if NDUST>0
+   call add_dust_terms(ilevel)
+#endif
 
   ! Set uold to unew for myid cells
   do ind=1,twotondim
@@ -230,6 +234,7 @@ subroutine set_uold(ilevel)
               uold(ind_cell,nvar)=e_prim
            end if
 #endif
+
            if(energy_fix)then
               uold(ind_cell,5)=e_prim+e_kin+e_mag
               uold(ind_cell,nvar)=e_prim
@@ -362,6 +367,7 @@ subroutine add_pdv_source_terms(ilevel)
 
   velg=0.0; veld=0.0d0
   sum_dust=0.0d0
+
   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
   iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
@@ -422,8 +428,9 @@ subroutine add_pdv_source_terms(ilevel)
                     Erg(i,idim,igroup) = max(uold(ind_left(i,idim),firstindex_er+igroup),eray_min/(scale_d*scale_v**2))
                  end do
 #endif
-              end if
-           enddo
+            endif 
+      enddo
+
            id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
            ih2=ncoarse+(id2-1)*ngridmax
            do i=1,ngrid
@@ -461,6 +468,7 @@ subroutine add_pdv_source_terms(ilevel)
                  gradEr(i,j,igroup) = (Erd(i,j,igroup)-Erg(i,j,igroup))/(dx_g(i,j)+dx_d(i,j))
               enddo
 #endif
+
            enddo
         end do
 
@@ -482,6 +490,7 @@ subroutine add_pdv_source_terms(ilevel)
                  eold=eold-uold(ind_cell(i),8+irad)
               end do
 #endif
+
               ! Add -pdV term
               do idim=1,ndim
                  enew(ind_cell(i))=enew(ind_cell(i)) &
@@ -593,7 +602,8 @@ subroutine add_pdv_source_terms(ilevel)
               do j=1,ndim
                  do k=1,ndim
                  
-                    ! compure Pr:divU term
+
+                    ! compute Pr:divU term
                     Pgdivu    = Pgdivu    + Pg(j,k,igroup)*divu_loc(i,j,k)
                     PgmErdivu = PgmErdivu + Pg(j,k,igroup)*divu_loc(i,j,k)
                     
@@ -743,13 +753,10 @@ subroutine add_pdv_source_terms(ilevel)
            ! Compute gas pressure in cgs
            eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
            if(energy_fix)eps   = uold(ind_cell(i),nvar)
-           sum_dust= 0.0_dp
-#if NDUST>0
-           do idust=1,ndust
-              sum_dust= sum_dust+ uold(ind_cell(i),firstindex_ndust+idust)/d
-           enddo
-
-#endif
+           sum_dust=0.0d0
+            do idust = 1, Ndust
+                 sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
+            end do
            call pressure_eos((1.0_dp-sum_dust)*d,eps,pp_eos)
            do idim=1,ndim
               unew(ind_cell(i),nvar) = unew(ind_cell(i),nvar) &
@@ -807,6 +814,7 @@ subroutine add_pdv_source_terms(ilevel)
 111 format('   Entering add_pdv_source_terms for level ',i2)
 
 end subroutine add_pdv_source_terms
+
 !###########################################################
 !###########################################################
 !###########################################################

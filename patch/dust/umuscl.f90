@@ -2,7 +2,7 @@
 !  MAG_UNSPLIT Unsplit second order Godunov integrator for
 !              polytropic magnetized gas dynamics using 
 !              MUSCL-HANCOCK scheme
-!              with various Riemann solvers and slope limiters.
+!             with various Riemann solvers and slope
 !              The sheme follows closely the paper by
 !              Londrillo & Del Zanna ApJ 2000, 530, 508, 
 !
@@ -2483,7 +2483,8 @@ do k=min(1,ku1+1),max(1,ku2-1)
                   rhoy=u(l,i,j,k,1)
                   rhoz=u(l,i,j,k,1)
                   sum_dust=0.0_dp
-#if Ndust >0
+#if NDUST>0
+
                   do idust = 1, n_dust
                      sum_dust =sum_dust + u(l,i,j,k,firstindex_ndust+idust)/u(l,i,j,k,1)
                   end do
@@ -2649,7 +2650,8 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     tcell=1.0d0
                  else
                  sum_dust=0.0_dp   
-#if Ndust >0
+#if NDUST>0
+
                  do idust = 1, n_dust
                    sum_dust =sum_dust + u(l,i,j,k,firstindex_ndust+idust)/u(l,i,j,k,1)
                  end do
@@ -5006,7 +5008,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
   real(dp),dimension(1:nvector,iu1:iu2+1,ju1:ju2+1,ku1:ku2+1,1:3)::bf  
 
   integer ::i, j, k, l, n, idim, irad,idust
-  real(dp)::eint, smalle, smallp, etot,sum_dust
+  real(dp)::eint, smalle, smallp, etot,sum_dust,cstest
   real(dp),dimension(1:nvector),save::eken,emag,erad
 
   ! EOS
@@ -5014,6 +5016,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
 
   smalle = smallc**2/gamma/(gamma-one)
   smallp = smallr*smallc**2/gamma
+  cstest = 0.0D0
 
   ! Store face centered magnetic field
   do k = ku1, ku2
@@ -5116,17 +5119,22 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
            
            ! Compute thermal pressure through EOS
            do l = 1, ngrid
-              etot = uin(l,i,j,k,5) - emag(l) -erad(l)
-              eint = etot/q(l,i,j,k,1)-eken(l)
-              eint = eint*q(l,i,j,k,1)   ! volumic
-              if(energy_fix)eint=uin(l,i,j,k,nvar)
-              sum_dust=0.0_dp
-#if NDUST > 0
+            sum_dust=0.0_dp
+
+#if NDUST>0
+
               do idust = 1, Ndust
                  sum_dust= sum_dust + q(l,i,j,k,firstindex_ndust+idust)
               end do
 #endif
+              etot = uin(l,i,j,k,5) - emag(l) -erad(l)
+              eint = etot-eken(l)*q(l,i,j,k,1)
+              if(energy_fix)eint=uin(l,i,j,k,nvar)
+
               call pressure_eos((1.0_dp-sum_dust)*uin(l,i,j,k,1),eint,pp_eos)
+              call soundspeed_eos((1.0_dp-sum_dust)*uin(l,i,j,k,1),eint,cstest)
+              write(*,*) 'BLA', cstest, eint, uin(l,i,j,k,1), pp_eos, sqrt(pp_eos/((1.0_dp-sum_dust)*uin(l,i,j,k,1)))
+
               q(l,i,j,k,5)=MAX(pp_eos,smallp)
            end do
 

@@ -1,0 +1,34 @@
+--------------------------------------------------------------------------
+[[30712,1],0]: A high-performance Open MPI point-to-point messaging module
+was unable to find any relevant network interfaces:
+
+Module: OpenFabrics (openib)
+  Host: class0
+
+Another transport will be used instead, although this may result in
+lower performance.
+--------------------------------------------------------------------------
+ _/_/_/       _/_/     _/    _/    _/_/_/   _/_/_/_/    _/_/_/  
+ _/    _/    _/  _/    _/_/_/_/   _/    _/  _/         _/    _/ 
+ _/    _/   _/    _/   _/ _/ _/   _/        _/         _/       
+ _/_/_/     _/_/_/_/   _/    _/     _/_/    _/_/_/       _/_/   
+ _/    _/   _/    _/   _/    _/         _/  _/               _/ 
+ _/    _/   _/    _/   _/    _/   _/    _/  _/         _/    _/ 
+ _/    _/   _/    _/   _/    _/    _/_/_/   _/_/_/_/    _/_/_/  
+                         Version 3.0                            
+        written by Romain Teyssier (University of Zurich)       
+                (c) CEA 1999-2007, UZH 2008-2014                
+  
+ Working with nproc =    1 for ndim = 1
+ Using solver = mhd with nvar = 10
+  
+ compile date = 10/20/17-12:23:10
+ patch dir    = ../patch/dust
+ remote repo  = https://ulebreui@bitbucket.org/bcommerc/ramses_ism.git
+ local branch = fld
+ last commit  = 8035425ab8a17ab96a40bf6d570ad00c80fa075a
+  
+ File dust_diff1d.nml does not exist
+
+     seconds         %    STEP (rank=      1)
+       0.000     100.0    TOTAL

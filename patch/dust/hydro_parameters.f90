@@ -253,7 +253,9 @@ module hydro_parameters
   real(dp) :: min_dust  = 1.0e-16_dp !minimum dust ratio
   real(dp) :: D_lin_dust = 1.0e-2_dp !linear diffusion coeff
   real(dp) :: powerlaw_dust= 3.5_dp ! Exposant of the power law for the dust distrib, -3.5 is the MRN
-  
+  logical  :: K_drag = .false.
+  real(dp) :: K_dust = 1.0_dp
+   
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2
