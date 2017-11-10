@@ -229,6 +229,7 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   real(dp)::dg,dm,dd,pg,pm,pd,vg,vm,vd,cg,cm,cd,error,emag_loc,ethres,Eg,Em,Ed,Fg,Fm,Fd
 #if NDUST>0
   integer::idust
+  real:: ddg,ddm,ddd
 #endif
 
   ! Convert to primitive variables

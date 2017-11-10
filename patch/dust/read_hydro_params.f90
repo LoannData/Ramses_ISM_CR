@@ -59,7 +59,9 @@ subroutine read_hydro_params(nml_ok)
        & ,err_grad_prad &
 #endif       
 #if NPSCAL>0
+#if USE_M_1==0       
        & ,err_grad_var &
+#endif       
 #endif
        
        & ,floor_d,floor_u,floor_p,floor_dust,ivar_refine,var_cut_refine &
@@ -599,16 +601,11 @@ subroutine read_hydro_params(nml_ok)
      do j=1,ndust
      boundary_var(i,firstindex_ndust+j)=(d_bound(i)+sum_dust*d_bound(i))*dust_bound(i,j)
      end do
-
-
 #endif
-
-  else
      boundary_var(i,1) =d_bound(i)+sum_dust*d_bound(i)
      boundary_var(i,2)=(d_bound(i)+sum_dust*d_bound(i))*u_bound(i)
      boundary_var(i,3)=(d_bound(i)+sum_dust*d_bound(i))*v_bound(i)
      boundary_var(i,4)=(d_bound(i)+sum_dust*d_bound(i))*w_bound(i)
-  end if
      boundary_var(i,6)=A_bound(i)
      boundary_var(i,7)=B_bound(i)
      boundary_var(i,8)=C_bound(i)

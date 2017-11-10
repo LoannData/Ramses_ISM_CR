@@ -2,6 +2,7 @@ module hydro_commons
   use amr_parameters
   use hydro_parameters
   real(dp),allocatable,dimension(:,:)::uold,unew ! State vector and its update
+  real(dp),allocatable,dimension(:)  :: pstarold,pstarnew ! Stellar momentum and its update
   real(dp),allocatable,dimension(:)  ::divu,enew ! Non conservative variables
   real(dp),allocatable,dimension(:,:)::Rho_eos,Ener_eos,Temp_eos,P_eos,Cs_eos,S_eos,eint_eos
   real(dp),allocatable,dimension(:,:)::xH_eos, xH2_eos, xHe_eos,xHep_eos,Cv_eos,Dc_eos

@@ -2662,7 +2662,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
               if(energy_fix)eint=uin(l,i,j,k,nvar)
               sum_dust=0.0d0
 #if NDUST>0              
-              do idust
+              do idust = 1, ndust
                  sum_dust=sum_dust+q(l,i,j,k,firstindex_ndust+idust)
               end do
 #endif              

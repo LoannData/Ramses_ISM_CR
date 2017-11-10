@@ -155,7 +155,7 @@ module hydro_parameters
   real(dp),dimension(1:NENER)::err_grad_prad=-1.0
 #endif
 #if NPSCAL>0
-#if USE_M_1==1
+#if USE_M_1==0
   real(dp),dimension(1:NVAR-8-NENER)::err_grad_var=-1.0
 #endif
 #if USE_M_1==1
