@@ -15,7 +15,10 @@ subroutine make_boundary_diffusion(ilevel,igroup)
   integer,intent(IN)::ilevel,igroup
   integer::ibound,boundary_dir,idim,inbor
   integer::i,ncache,ivar,igrid,ngrid,ind,ht
-  integer::iskip,iskip_ref,nx_loc,ix,iy,iz,igrp,idust
+  integer::iskip,iskip_ref,nx_loc,ix,iy,iz,igrp
+#if NDUST>0  
+  integer::idust
+#endif  
   integer,dimension(1:8)::ind_ref
   integer,dimension(1:nvector),save::ind_grid,ind_grid_ref
   integer,dimension(1:nvector),save::ind_cell,ind_cell_ref
@@ -224,7 +227,10 @@ subroutine make_boundary_diffusion_tot(ilevel)
   ! -------------------------------------------------------------------
   integer,intent(IN)::ilevel
   integer::ibound,boundary_dir,idim,inbor,igroup,ht
-  integer::i,ncache,ivar,igrid,ngrid,ind,idust
+  integer::i,ncache,ivar,igrid,ngrid,ind
+#if NDUST>0
+  integer::idust
+#endif  
   integer::iskip,iskip_ref,gdim,nx_loc,ix,iy,iz,igrp,irad
   integer,dimension(1:8)::ind_ref
   integer,dimension(1:nvector),save::ind_grid,ind_grid_ref

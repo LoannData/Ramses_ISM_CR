@@ -1056,9 +1056,13 @@ subroutine set_unew_sts(ilevel,iupdate,dtohm,dtad)
   ! This routine sets array unew to its initial value uold before calling
   ! the hydro scheme. unew is set to zero in virtual boundaries.
   !--------------------------------------------------------------------------
-  integer::i,j,ivar,ind,icpu,iskip,ht,iupdate,idust
+  integer::i,j,ivar,ind,icpu,iskip,ht,iupdate
+  real(dp)::sum_dust
+#if NDUST>0  
+  integer::idust
+#endif  
   real(dp)::d,u,v,w,e,A,B,C,e_r,Cv,dtohm,dtad,dx,dtohmb,dtadb
-  real(dp)::xx,tcell,B2,betaad,barotrop1D,eps,scale,etaohmdiss,sum_dust
+  real(dp)::xx,tcell,B2,betaad,barotrop1D,eps,scale,etaohmdiss
   real(dp),dimension(1:3)::skip_loc
 
   if(numbtot(1,ilevel)==0)return
@@ -1196,7 +1200,11 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
   ! This routine sets array uold to its new value unew after the
   ! hydro step.
   !--------------------------------------------------------------------------
-  integer::i,j,k,ivar,ind,iskip,nx_loc,info,iend,jdim,icpu,idust
+  integer::i,j,k,ivar,ind,iskip,nx_loc,info,iend,jdim,icpu
+  real(dp)::sum_dust
+#if NDUST>0  
+  integer::idust
+#endif  
   real(dp)::scale,d,u,v,w,A,B,C,d_old
   real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,dx,fact,e_r
 
@@ -1212,7 +1220,7 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
 
   integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2,igroup
   integer  ,dimension(1:3,1:2,1:8)::iii,jjj
-  real(dp)::dx_loc,surf_loc,vol_loc,usquare,emag,erad_loc,ekin,eps,cv,pp_eos,sum_dust
+  real(dp)::dx_loc,surf_loc,vol_loc,usquare,emag,erad_loc,ekin,eps,cv,pp_eos
   real(dp)::kappa_R,gradEr_norm,gradEr_norm2,R,lambda,lambda_fld,chi,PgmErdivu,gradEru
   real(dp) ,dimension(1:3)::skip_loc
   real(dp) ,dimension(1:ndim,1:nrad)::gradEr

@@ -37,13 +37,14 @@ subroutine init_flow_fine(ilevel)
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  integer::info,info2,dummy_io
 #endif
   integer::ilevel
   
   integer::i,icell,igrid,ncache,iskip,ngrid,ilun
   integer::ind,idim,ivar,ix,iy,iz,nx_loc
   integer::i1,i2,i3,i1_min,i1_max,i2_min,i2_max,i3_min,i3_max
-  integer::buf_count,info,nvar_in
+  integer::buf_count
   integer ,dimension(1:nvector),save::ind_grid,ind_cell
 
   real(dp)::dx,rr,vx,vy,vz,bx,by,bz,ek,ei,em,pp,xx1,xx2,xx3,dx_loc,scale
@@ -483,10 +484,16 @@ subroutine region_condinit(x,q,dx,nn)
   real(dp)::dx
   real(dp),dimension(1:nvector,1:nvar+3)::q
   real(dp),dimension(1:nvector,1:ndim)::x
-
-  integer::i,j,ivar,k
-  real(dp)::vol,r,xn,yn,zn,en,sum_dust
   real(dp)::radiation_source
+  integer::i,j,k
+  real(dp)::vol,r,xn,yn,zn,en
+  real(dp)::sum_dust
+#if NDUST>0
+  integer::idust
+#endif
+#if NVAR>8
+  integer::ivar
+#endif
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   ! Set some (tiny) default values in case n_region=0
@@ -572,18 +579,18 @@ subroutine region_condinit(x,q,dx,nn)
                  q(i,firstindex_pscal+ivar)=var_region(k,ivar)
               end do
 #endif
+             sum_dust =0.0_dp
+
 #if NDUST>0
-              sum_dust =0.0_dp
-              do ivar=1,ndust
-                 q(i,firstindex_ndust+ivar)= dust_region(k,ivar)
-                 sum_dust = sum_dust+dust_region(k,ivar)
+             do idust=1,ndust
+                q(i,firstindex_ndust+idust)= dust_region(k,idust)
+                sum_dust = sum_dust+dust_region(k,idust)
               end do
               if(dust_barr .eqv. .false.) then
-                 !q(i,5) =  q(i,5)+d_region(k)*kb*temp_dust/mu_gas/mh/scale_v**2
-                 q(i,1) = q(i,1)+sum_dust*d_region(k)
-
+                !q(i,5) =  q(i,5)+d_region(k)*kb*temp_dust/mu_gas/mh/scale_v**2
+                q(i,1) = q(i,1)+sum_dust*d_region(k)
                else
-                  q(i,5) = (1.0_dp-sum_dust)*d_region(k)*kb*temp_dust/mu_gas/mh/scale_v**2
+                 q(i,5) = (1.0_dp-sum_dust)*d_region(k)*kb*temp_dust/mu_gas/mh/scale_v**2
                end if
                
 #endif
@@ -633,9 +640,8 @@ subroutine region_condinit(x,q,dx,nn)
               q(i,firstindex_pscal+ivar)=var_region(k,ivar)
            end do
 #endif
-           
+           sum_dust = 0.0_dp           
 #if NDUST>0
-           sum_dust = 0.0_dp
            do ivar=1,ndust
               q(i,firstindex_ndust+ivar) = q(i,firstindex_ndust+ivar) + dust_region(k,ivar)
               sum_dust                   = sum_dust + q(i,firstindex_ndust+ivar)

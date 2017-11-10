@@ -18,14 +18,22 @@ module amr_parameters
 #endif
   integer,parameter::MAXOUT=1000
   integer,parameter::MAXLEVEL=100
-  
+ 
   ! Define integer types (for particle IDs mostly)
-  integer,parameter::i4b=4
+  ! Warning: compiler needs to accept fortran standard 2003.
+  ! Specific numbers for fortran kinds are, in principle, implementation
+  ! dependent, so "i8b=8" with "integer(i8b)" is implementation-dependent.
+  ! See portability note for non-gcc compilers: (boud 2016-11-29) -
+  ! https://gcc.gnu.org/onlinedocs/gfortran/ISO_005fFORTRAN_005fENV.html
+  ! The selected_int_kind approach below is more likely to be portable:
+  integer,parameter::i4b=selected_int_kind(9) ! since log(2*10^9)/log(2)=30.9
 #ifndef LONGINT
-  integer,parameter::i8b=4  ! default long int are short int
+  !integer,parameter::i8b=4  ! default long int are 4-byte int
+  integer,parameter::i8b=selected_int_kind(9) ! since log(2*10^9)/log(2)=30.9
 #else
-  integer,parameter::i8b=8  ! long int are long int
-#endif
+   integer, parameter :: i8b=selected_int_kind(18) ! since log(2*10^18)/log(2)=60.8
+   !integer,parameter::i8b=8  ! long int are 8-byte int
+#endif /* LONGINT */
 
   ! Number of dimensions
 #ifndef NDIM
@@ -68,10 +76,13 @@ module amr_parameters
   logical::clumpfind=.false.  ! Enable clump finder
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
   logical::FLD     =.false.   ! FLD module activated
+#if NIMHD==1
   logical::DTU     =.false.   ! Unique time-step activated for niMHD diffusion routines
   logical :: radiative_nimhdheating=.false. ! Enable niMHD heating as a source term in radiative transfer
+#endif
+#if NDUST>0  
   logical::dust_diffusion=.false. ! Enable dust diffusion (Price and Laibe 2015)
-
+#endif
   ! Mesh parameters
   integer::geom=1             ! 1: cartesian, 2: cylindrical, 3: spherical
   integer::nx=1,ny=1,nz=1     ! Number of coarse cells in each dimension
@@ -98,6 +109,7 @@ module amr_parameters
   integer::ncontrol=1         ! Write control variables
   integer::fbackup=1000000    ! Backup data to disk
   integer::nremap=0           ! Load balancing frequency (0: never)
+  integer,allocatable,dimension(:)::remap_pscalar
 
   ! Output parameters
   integer::iout=1             ! Increment for output times
@@ -110,6 +122,8 @@ module amr_parameters
   logical::output_now=.false. ! write output next step
   logical::writing=.false.    ! Write column density and save files
   logical::write_conservative=.false. ! if .true., uold is dumped in outputs
+  real(dp)::walltime_hrs=-1.  ! Wallclock time for submitted job
+  real(dp)::minutes_dump=1.   ! Dump an output minutes before walltime ends
 
   ! Column density module (Valdivia & Hennebelle 2014)
   integer::NdirExt_m=10       ! Theta directions for screening
@@ -173,6 +187,7 @@ module amr_parameters
   real(dp)::larson_lifetime=5000! lifetime of first larson core in years
   logical ::iso_jeans=.false. ! activate isothermal sound speed Jeans length refinement criterion
   real(dp)::Tp_jeans = 10.0d0 ! Default temperature to activate iso_jeans
+  logical::momentum_feedback=.false. ! Use supernovae momentum feedback if cooling radius not resolved
 
   logical ::self_shielding=.false.
   logical ::pressure_fix=.false.
@@ -231,6 +246,7 @@ module amr_parameters
   real(dp),dimension(1:MAXOUT)::tout=0.0       ! Output times
 
   ! Movie
+  integer,parameter::NMOV=5
   integer::imovout=0             ! Increment for output times
   integer::imov=1                ! Initialize
   real(kind=8)::tstartmov=0.,astartmov=0.
@@ -240,38 +256,38 @@ module amr_parameters
   integer::nw_frame=512 ! prev: nx_frame, width of frame in pixels
   integer::nh_frame=512 ! prev: ny_frame, height of frame in pixels
   integer::levelmax_frame=0
-  real(kind=8),dimension(1:20)::xcentre_frame=0d0
-  real(kind=8),dimension(1:20)::ycentre_frame=0d0
-  real(kind=8),dimension(1:20)::zcentre_frame=0d0
-  real(kind=8),dimension(1:10)::deltax_frame=0d0
-  real(kind=8),dimension(1:10)::deltay_frame=0d0
-  real(kind=8),dimension(1:10)::deltaz_frame=0d0
-  real(kind=8),dimension(1:5)::dtheta_camera=0d0
-  real(kind=8),dimension(1:5)::dphi_camera=0d0
-  real(kind=8),dimension(1:5)::theta_camera=0d0
-  real(kind=8),dimension(1:5)::phi_camera=0d0
-  real(kind=8),dimension(1:5)::tstart_theta_camera=0d0
-  real(kind=8),dimension(1:5)::tstart_phi_camera=0d0
-  real(kind=8),dimension(1:5)::tend_theta_camera=0d0
-  real(kind=8),dimension(1:5)::tend_phi_camera=0d0
-  real(kind=8),dimension(1:5)::focal_camera=0d0
-  real(kind=8),dimension(1:5)::dist_camera=0d0
-  real(kind=8),dimension(1:5)::ddist_camera=0d0
-  real(kind=8),dimension(1:5)::smooth_frame=1d0
-  real(kind=8),dimension(1:5)::varmin_frame=0d0
-  real(kind=8),dimension(1:5)::varmax_frame=1d60
-  integer,dimension(1:5)::ivar_frame=0
-  logical,dimension(1:5)::perspective_camera=.false.
-  logical,dimension(1:5)::zoom_only_frame=.false.
-  character(LEN=5)::proj_axis='z' ! x->x, y->y, projection along z
-  character(LEN=6),dimension(1:5)::shader_frame='square'
-  character(LEN=10),dimension(1:5)::method_frame='mean_mass'
+  real(kind=8),dimension(1:4*NMOV)::xcentre_frame=0d0
+  real(kind=8),dimension(1:4*NMOV)::ycentre_frame=0d0
+  real(kind=8),dimension(1:4*NMOV)::zcentre_frame=0d0
+  real(kind=8),dimension(1:2*NMOV)::deltax_frame=0d0
+  real(kind=8),dimension(1:2*NMOV)::deltay_frame=0d0
+  real(kind=8),dimension(1:2*NMOV)::deltaz_frame=0d0
+  real(kind=8),dimension(1:NMOV)::dtheta_camera=0d0
+  real(kind=8),dimension(1:NMOV)::dphi_camera=0d0
+  real(kind=8),dimension(1:NMOV)::theta_camera=0d0
+  real(kind=8),dimension(1:NMOV)::phi_camera=0d0
+  real(kind=8),dimension(1:NMOV)::tstart_theta_camera=0d0
+  real(kind=8),dimension(1:NMOV)::tstart_phi_camera=0d0
+  real(kind=8),dimension(1:NMOV)::tend_theta_camera=0d0
+  real(kind=8),dimension(1:NMOV)::tend_phi_camera=0d0
+  real(kind=8),dimension(1:NMOV)::focal_camera=0d0
+  real(kind=8),dimension(1:NMOV)::dist_camera=0d0
+  real(kind=8),dimension(1:NMOV)::ddist_camera=0d0
+  real(kind=8),dimension(1:NMOV)::smooth_frame=1d0
+  real(kind=8),dimension(1:NMOV)::varmin_frame=-1d60
+  real(kind=8),dimension(1:NMOV)::varmax_frame=1d60
+  integer,dimension(1:NMOV)::ivar_frame=0
+  logical,dimension(1:NMOV)::perspective_camera=.false.
+  logical,dimension(1:NMOV)::zoom_only_frame=.false.
+  character(LEN=NMOV)::proj_axis='z' ! x->x, y->y, projection along z
+  character(LEN=6),dimension(1:NMOV)::shader_frame='square'
+  character(LEN=10),dimension(1:NMOV)::method_frame='mean_mass'
 #ifdef SOLVERmhd
-  integer,dimension(0:NVAR+6)::movie_vars=0
-  character(len=5),dimension(0:NVAR+6)::movie_vars_txt=''
+  integer,dimension(0:NVAR+7)::movie_vars=0
+  character(len=5),dimension(0:NVAR+7)::movie_vars_txt=''
 #else
-  integer,dimension(0:NVAR+2)::movie_vars=0
-  character(len=5),dimension(0:NVAR+2)::movie_vars_txt=''
+  integer,dimension(0:NVAR+3)::movie_vars=0
+  character(len=5),dimension(0:NVAR+3)::movie_vars_txt=''
 #endif
 
   ! Refinement parameters for each level

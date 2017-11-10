@@ -5,19 +5,25 @@ subroutine init_hydro
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  integer::dummy_io,info,info2
 #endif
-  integer::ncell,ncache,iskip,igrid,i,ilevel,ind,ivar,irad,idust
-  integer::nvar2,ilevel2,numbl2,ilun,ibound,istart,info
+  integer::ncell,ncache,iskip,igrid,i,ilevel,ind,ivar
+#if NENER>0
+  integer::irad
+#endif
+  integer::nvar2,ilevel2,numbl2,ilun,ibound,istart
   integer::ncpu2,ndim2,nlevelmax2,nboundary2
   integer ,dimension(:),allocatable::ind_grid
   real(dp),dimension(:),allocatable::xx
   real(dp)::gamma2
-  real(dp)::d,u,v,w,A,B,C,e,sum_dust
+  real(dp)::d,u,v,w,A,B,C,e
   character(LEN=80)::fileloc
   character(LEN=5)::nchar,ncharcpu
   integer,parameter::tag=1108
-  integer::dummy_io,info2
-
+  real(dp)::sum_dust
+#if NDUST>0
+  integer::idust
+#endif  
   if(verbose)write(*,*)'Entering init_hydro'
 
   !------------------------------------------------------
@@ -26,7 +32,6 @@ subroutine init_hydro
   ncell=ncoarse+twotondim*ngridmax
   allocate(uold(1:ncell,1:nvar+3))
   allocate(unew(1:ncell,1:nvar+3))
-
   uold=0.0d0; unew=0.0d0
   if(fld)then
      allocate(rad_flux(1:ncell,1:nvar_bicg))
@@ -34,7 +39,16 @@ subroutine init_hydro
      allocate(frad(1:ncell,1:ndim))
      rad_flux=0.0d0; urad=0.0d0; frad=0.0d0
   endif
+  if(momentum_feedback)then
+     allocate(pstarold(1:ncell))
+     allocate(pstarnew(1:ncell))
+     pstarold=0.0d0; pstarnew=0.0d0
+  endif
+#if NIMHD==1
   if(pressure_fix .or. nambipolar2.eq.1 .or.nmagdiffu2.eq.1)then
+#else
+  if(pressure_fix)then
+#endif     
      allocate(divu(1:ncell))
      allocate(enew(1:ncell))
      divu=0.0d0; enew=0.0d0
@@ -43,7 +57,6 @@ subroutine init_hydro
   allocate(dflux_dust(1:ncell,1:ndust))
   allocate(delta_vdust(1:ncell,1:ndust,1:ndim))
   dflux_dust =0.0d0; delta_vdust=0.0d0
-
 #endif
   ! Variables for BICG scheme
   ! 1 : r
@@ -85,7 +98,7 @@ subroutine init_hydro
      endif
      call title(myid,nchar)
      fileloc=TRIM(fileloc)//TRIM(nchar)
-     ! Wait for the token                                                                                    
+     ! Wait for the token
 #ifndef WITHOUTMPI
      if(IOGROUPSIZE>0) then
         if (mod(myid-1,IOGROUPSIZE)/=0) then
@@ -231,7 +244,7 @@ subroutine init_hydro
                  do ivar=1,nextinct
                     read(ilun)xx ! Read extinction if activated
                     do i=1,ncache
-                       uold(ind_grid(i)+iskip,firstindex_nextinct+ivar) = xx(i)
+                       uold(ind_grid(i)+iskip,firstindex_extinct+ivar) = xx(i)
                     end do
                  end do
 #endif
@@ -264,7 +277,7 @@ subroutine init_hydro
                           if(energy_fix) then
                              e=uold(ind_grid(i)+iskip,nvar)
                           else
-                           sum_dust= 0.0_dp
+                             sum_dust= 0.0_dp
 #if NDUST>0
                            do idust=1,ndust
                                sum_dust= sum_dust+ uold(ind_grid(i)+iskip,firstindex_ndust+idust)/d
@@ -298,7 +311,7 @@ subroutine init_hydro
         end do
      end do
      close(ilun)
-     ! Send the token                                                                                                                                  
+     ! Send the token
 #ifndef WITHOUTMPI
      if(IOGROUPSIZE>0) then
         if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then

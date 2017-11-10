@@ -4,11 +4,12 @@ subroutine write_screen
   use pm_commons
   use poisson_commons
   implicit none
+#if NDIM==1  
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  integer::info
 #endif
-  !
-  integer::igrid,jgrid,ind,icpu,info,irad
+  integer::igrid,jgrid,ind,icpu
   integer::i,j,icell,ncell,ilevel,ncache
   integer::icellmin,nx_loc
   real(dp)::dx,scale,smallp,ddd,ppp
@@ -23,6 +24,9 @@ subroutine write_screen
 #if NENER>NGRP
   real(kind=8),dimension(:,:),allocatable::prad_all,prad
 #endif
+#if NENER>0
+  integer::irad
+#endif  
 #if NGRP>0
   real(kind=8),dimension(:),allocatable::er,er_all
   real(kind=8),dimension(:,:),allocatable::EE,EE_all
@@ -36,7 +40,7 @@ subroutine write_screen
 #endif
 
   integer,dimension(1:ncpu)::iskip,ncell_loc,ncell_all
-
+#endif  
   if(ndim>1)return
 
 #if NDIM==1
@@ -317,8 +321,7 @@ subroutine write_screen
      do i=1,ncell
         ddd=MAX(dd(ind_sort(i)),smallr)
         ppp=MAX((gamma-1.0)*ei(ind_sort(i)),ddd*smallp)
-        !remplacer la deuxieme * par 113
-        write(*,*) &
+        write(*,113) &
              & ll(ind_sort(i)),  &
              & (rr(i)-dble(icoarse_min))*scale, &
              & ddd , &

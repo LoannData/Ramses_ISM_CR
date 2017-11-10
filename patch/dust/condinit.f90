@@ -5,9 +5,6 @@
 subroutine condinit(x,u,dx,nn)
   use amr_parameters
   use hydro_parameters
-  use poisson_parameters
-  use cooling_module      , only : kb,mh
-  use radiation_parameters,only:mu_gas
   implicit none
   integer ::nn                              ! Number of cells
   real(dp)::dx                              ! Cell size
@@ -27,7 +24,15 @@ subroutine condinit(x,u,dx,nn)
   ! scalars in the hydro solver.
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
-  integer::ivar, idust
+#if NDUST>0
+  integer::idust
+#endif
+#if NENER>0
+  integer::irad
+#endif
+#if NVAR>8+NENER
+  integer::ivar
+#endif  
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
   real(dp),dimension(1:nvector) :: sum_dust
 
@@ -93,8 +98,8 @@ subroutine condinit(x,u,dx,nn)
 #endif
 #if NDUST>0
      ! dust
-     do ivar=1,ndust
-        u(1:nn,firstindex_ndust+ivar)=q(1:nn,1)*q(1:nn,firstindex_ndust+ivar)
+     do idust=1,ndust
+        u(1:nn,firstindex_ndust+idust)=q(1:nn,1)*q(1:nn,firstindex_ndust+idust)
      end do
 #endif
  
@@ -118,10 +123,11 @@ subroutine velana(x,v,dx,t,ncell)
   ! v(i,1:3) is the imposed 3-velocity in user units.
   !================================================================
   integer::i
-  real(dp)::xx,yy,zz,vx,vy,vz,rr,tt,omega,aa,twopi
-
+  real(dp)::xx,yy=0.,zz=0.,vx,vy,vz,aa,twopi
+!!$  real(dp)::rr,tt,omega
+  
   ! Add here, if you wish, some user-defined initial conditions
-  aa=1.0
+  aa=1.0+0.*t
   twopi=2d0*ACOS(-1d0)
   do i=1,ncell
 

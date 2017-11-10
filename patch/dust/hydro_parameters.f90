@@ -50,7 +50,7 @@ module hydro_parameters
 #else
   integer,parameter::ncr=NCR
 #endif
-  
+
   integer,parameter::nent=nener-ngrp      ! Number of non-thermal energies
 #if USE_M_1==0
   integer,parameter::nfr = 0              ! Number of radiative fluxes for M1
@@ -135,8 +135,8 @@ module hydro_parameters
   real(dp)::err_grad_B=-1.0  ! By gradient
   real(dp)::err_grad_C=-1.0  ! Bz gradient
   real(dp)::err_grad_B2=-1.0 ! B L2 norm gradient
-  real(dp)::err_grad_E=-1.0     ! Radiative energy norm gradient
-  real(dp)::err_grad_F=-1.0     ! Radiative flux norm gradient
+  real(dp)::err_grad_E=-1.0  ! Radiative energy norm gradient
+  real(dp)::err_grad_F=-1.0  ! Radiative flux norm gradient
 #if NDUST>0
   real(dp),dimension(1:NDUST)::err_grad_dust=-1.0  ! Dust concentration gradient
 #endif
@@ -155,7 +155,7 @@ module hydro_parameters
   real(dp),dimension(1:NENER)::err_grad_prad=-1.0
 #endif
 #if NPSCAL>0
-#if USE_FLD==1
+#if USE_M_1==1
   real(dp),dimension(1:NVAR-8-NENER)::err_grad_var=-1.0
 #endif
 #if USE_M_1==1

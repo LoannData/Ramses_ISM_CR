@@ -57,15 +57,15 @@ subroutine read_hydro_params(nml_ok)
        & ,err_grad_dust &
 #if NENER>0
        & ,err_grad_prad &
+#endif       
 #if NPSCAL>0
        & ,err_grad_var &
-#endif
 #endif
        
        & ,floor_d,floor_u,floor_p,floor_dust,ivar_refine,var_cut_refine &
        & ,floor_A,floor_B,floor_C,floor_B2,floor_E &
        & ,interpol_var,interpol_type,sink_refine,interpol_mag_type&
-      & ,interpol_var_cond,interpol_type_cond,interpol_mag_type_cond
+       & ,interpol_var_cond,interpol_type_cond,interpol_mag_type_cond
 
   namelist/boundary_params/nboundary,bound_type &
        & ,ibound_min,ibound_max,jbound_min,jbound_max &
@@ -91,7 +91,7 @@ subroutine read_hydro_params(nml_ok)
        & ,m_star,t_star,n_star,T2_star,g_star,del_star,eps_star,jeans_ncells &
        & ,eta_sn,yield,rbubble,f_ek,ndebris,f_w,mass_gmc,kappa_IR &
        & ,J21,a_spec,z_ave,z_reion,eta_mag,delayed_cooling,T2max &
-       & ,self_shielding,smbh,agn,B_ave,t_diss &
+       & ,self_shielding,smbh,agn,B_ave,t_diss,momentum_feedback &
 !       & ,rsink_max,msink_max,merge_stars &
        & ,units_density,units_time,units_length,neq_chem,ir_feedback,ir_eff &
        & ,larson_lifetime,flux_accretion,t_diss &
@@ -694,8 +694,8 @@ subroutine read_hydro_params(nml_ok)
   endif
   if (interpol_mag_type == -1) then
     interpol_mag_type = interpol_type
- endif
-   if (interpol_mag_type_cond == -1) then
+  endif
+  if (interpol_mag_type_cond == -1) then
     interpol_mag_type_cond = interpol_type_cond
   endif
 

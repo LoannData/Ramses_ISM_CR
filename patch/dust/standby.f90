@@ -5,7 +5,7 @@ subroutine hydro_flag(ilevel)
   integer::ilevel
   ! -------------------------------------------------------------------
   ! This routine flag for refinement cells that satisfies
-  ! some user-defined physical criteria at the level ilevel.
+  ! some user-defined physical criteria at the level ilevel. 
   ! -------------------------------------------------------------------
   integer::i,j,ncache,nok,ix,iy,iz,iskip
   integer::igrid,ind,idim,ngrid,ivar
@@ -106,7 +106,7 @@ subroutine hydro_flag(ilevel)
            end do
            call hydro_refine(uug,uum,uud,ok,ngrid,ilevel)
         end do
-
+     
         if(poisson.and.jeans_refine(ilevel)>0.0)then
            call jeans_length_refine(ind_cell,ok,ngrid,ilevel)
         endif
@@ -125,7 +125,7 @@ subroutine hydro_flag(ilevel)
                  xx(i,idim)=(xx(i,idim)-skip_loc(idim))*scale
               end do
            end do
-           call geometry_refine(xx,ok,ngrid,ilevel)
+           call geometry_refine(xx,ind_cell,ok,ngrid,ilevel)
         end if
 
         ! Count newly flagged cells
@@ -135,15 +135,15 @@ subroutine hydro_flag(ilevel)
               nok=nok+1
            end if
         end do
-
+     
         do i=1,ngrid
            if(ok(i))flag1(ind_cell(i))=1
         end do
-
+        
         nflag=nflag+nok
      end do
      ! End loop over cells
-
+     
   end do
   ! End loop over grids
 
@@ -160,10 +160,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
   use cooling_module, ONLY: twopi
   use units_commons
   implicit none
-  integer::ncell,ilevel
-#if NENER>0
-  integer::irad
-#endif
+  integer::ncell,ilevel,irad
   integer,dimension(1:nvector)::ind_cell
   logical,dimension(1:nvector)::ok
   !-------------------------------------------------
@@ -171,15 +168,11 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
   ! user-defined physical criterion for refinement.
   ! P. Hennebelle 03/11/2005
   !-------------------------------------------------
-  integer::i,indi
+  integer::i,indi,idust
   real(dp)::lamb_jeans,tail_pix,pi,n_jeans
-  real(dp)::dens,tempe,emag,etherm,factG
+  real(dp)::dens,tempe,emag,etherm,factG,sum_dust
   real(dp)::iso_etherm,iso_cs,iso_cs2,rho_star,rho_iso,tempe2
 
-  real(dp)::sum_dust
-#if NDUST>0
-  integer::idust
-#endif  
   rho_iso  = 1.0e-08_dp
   rho_star = 1.0e-05_dp
   
@@ -193,7 +186,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
      indi = ind_cell(i)
      ! the thermal energy
      dens = max(uold(indi,1),smallr)
-     etherm = uold(indi,5)
+     etherm = uold(indi,5) 
      etherm = etherm - 0.5d0*uold(indi,2)**2/dens
      etherm = etherm - 0.5d0*uold(indi,3)**2/dens
      etherm = etherm - 0.5d0*uold(indi,4)**2/dens
@@ -202,7 +195,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
      emag = emag + (uold(indi,7)+uold(indi,nvar+2))**2
      emag = emag + (uold(indi,8)+uold(indi,nvar+3))**2
      emag = emag / 8.d0
-     etherm = (etherm - emag)
+     etherm = (etherm - emag) 
 #if NENER>0
      do irad=1,nener
         etherm=etherm-uold(indi,8+irad)
@@ -244,7 +237,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
         if(dens*scale_d .gt. rho_iso)then
            ! Here we increase back the sound speed once 2nd collapse has started
            ! Cs_eos does not depend so much on density, so we start back at cs_iso
-           !!call soundspeed_eos((1.0_dp-sum_dust)*dens,etherm,tempe)
+           !!call soundspeed_eos(dens,etherm,tempe)
 !           dens_max=1.d-8/scale_d
 !           call soundspeed_eos((1.0_dp-sum_dust)*dens_max,etherm,tempe2)
            iso_cs=10.0_dp**(log10(tempe2) - (log10(tempe2)-log10(iso_cs))*((log10(rho_star) - log10(dens*scale_d))/(log10(rho_star) - log10(rho_iso))))
@@ -254,7 +247,10 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
      endif
 
      ! compute the Jeans length (remember G=1)
-     lamb_jeans = sqrt( tempe * pi / dens / factG )
+     !tododust modifier lamb_jeans
+     !lamb_jeans = sqrt( tempe * pi*(1.0_dp-sum_dust)/ dens / factG )
+     lamb_jeans = sqrt( tempe * pi/ dens / factG )  
+
      ! the Jeans length must be smaller
      ! than n_jeans times the size of the pixel
      ok(i) = ok(i) .or. ( n_jeans*tail_pix >= lamb_jeans )

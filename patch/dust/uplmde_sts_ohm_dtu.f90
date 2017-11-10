@@ -1156,8 +1156,12 @@ subroutine ctoprim_sts(uin,q,ngrid)
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::uin
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q  
 
-   integer ::i, j, k, l, n, idim,idust
-   real(dp)::eint, smalle, smallp, etot,sum_dust
+   integer ::i, j, k, l, n, idim
+   real(dp)::sum_dust
+#if NDUST>0   
+   integer idust
+#endif   
+   real(dp)::eint, smalle, smallp, etot
    real(dp),dimension(1:nvector),save::eken,emag
 #if USE_FLD==1
    real(dp),dimension(1:nvector),save::erad_loc

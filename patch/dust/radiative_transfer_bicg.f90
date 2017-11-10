@@ -2298,8 +2298,12 @@ function cmp_temp(this)
   use units_commons
   implicit none
   integer,intent(in) ::this
-  integer ::idim,ivar,igrp,ht,idust
-  real(dp)::usquare,eps,ekin,emag,rho,erad_loc,sum_dust
+  integer ::idim,ivar,igrp,ht
+  real(dp)::sum_dust
+#if NDUST>0  
+  integer::idust
+#endif  
+  real(dp)::usquare,eps,ekin,emag,rho,erad_loc
   real(dp)::cmp_temp
 
   rho   = uold(this,1)
@@ -2326,7 +2330,7 @@ function cmp_temp(this)
   eps = uold(this,5)-ekin-emag-erad_loc
   if(energy_fix)eps = uold(this,nvar) ! use energy fix for collapse
   sum_dust =0
-#if Ndust>0
+#if NDUST>0
   do idust = 1, ndust
      sum_dust = sum_dust + uold(this,firstindex_ndust+idust)/uold(this,1)
   end do
