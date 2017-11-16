@@ -5370,7 +5370,7 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     rhof=0.5d0*(u(l,i,j,k,   1)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),   1))
                     sum_dust= 0.0d0
 #if NDUST>0
-                    sum_dust=sum_dust+0.5d0**(u(l,i,j,k,firstindex_ndust+idust)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),firstindex_ndust+idust))/rhof
+                    sum_dust=sum_dust+0.5d0*(u(l,i,j,k,firstindex_ndust+idust)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),firstindex_ndust+idust))/rhof
 #endif                    
 !                 epsf=u(l,i,j,k,3)
                     epsf=0.5d0*(u(l,i,j,k,nvar)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),nvar))

@@ -608,6 +608,7 @@ recursive subroutine amr_step(ilevel,icount)
                              call timer('dust - diffusion','start')
      call dust_diffusion_fine(ilevel)
      call set_uold_dust(ilevel)
+
      ! Restriction operator
                                call timer('hydro upload fine','start')
      call upload_fine(ilevel)

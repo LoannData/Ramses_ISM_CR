@@ -13,9 +13,8 @@ subroutine cooling_fine(ilevel)
   !-------------------------------------------------------------------
   ! Compute cooling for fine levels
   !-------------------------------------------------------------------
-  integer::ncache,i,igrid,ngrid,info
+  integer::ncache,i,igrid,ngrid
   integer,dimension(1:nvector),save::ind_grid
-  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   ! files
   character(LEN=5)                    :: nsort, nocpu
   character(LEN = 80)                 :: filenamex,filenamey,filenamez
@@ -65,14 +64,14 @@ subroutine cooling_fine(ilevel)
 #ifdef grackle
      if(use_grackle==0)then
         if(myid==1)write(*,*)'Computing new cooling table'
-        call set_table(dble(aexp)) 
+        call set_table(dble(aexp))
      endif
 #else
      if(myid==1)write(*,*)'Computing new cooling table'
      call set_table(dble(aexp))
 #endif
   endif
-  
+
 111 format('   Entering cooling_fine for level',i2)
 
 end subroutine cooling_fine
@@ -90,43 +89,54 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 #ifdef ATON
   use radiation_commons, ONLY: Erad
 #endif
+  use radiation_parameters,only:mu_gas
+
 #ifdef RT
   use rt_parameters, only: nGroups, iGroups
   use rt_hydro_commons
   use rt_cooling_module, only: rt_solve_cooling,iIR,rt_isIRtrap &
-       ,rt_pressBoost,iIRtrapVar,kappaSc,a_r,is_kIR_T,rt_vc
+       ,rt_pressBoost,iIRtrapVar,kappaSc,kappaAbs, a_r,is_kIR_T,rt_vc
 #endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
 #endif
+#if defined(grackle) && !defined(WITHOUTMPI)
+  integer::info
+#endif
   integer::ilevel,ngrid
   integer,dimension(1:nvector)::ind_grid
   !-------------------------------------------------------------------
   !-------------------------------------------------------------------
-  integer::i,ind,iskip,idim,nleaf,nx_loc,ix,iy,iz,info
+  integer::i,ind,iskip,idim,nleaf,nx_loc
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(kind=8)::dtcool,nISM,nCOM,damp_factor,cooling_switch,t_blast
-  real(dp)::polytropic_constant
+  real(dp)::polytropic_constant=1.
   integer,dimension(1:nvector),save::ind_cell,ind_leaf
-  real(kind=8),dimension(1:nvector),save::nH,T2,T2_new,delta_T2,ekk,err,emag
+  real(kind=8),dimension(1:nvector),save::nH,T2,delta_T2,ekk,err,emag
   real(kind=8),dimension(1:nvector),save::T2min,Zsolar,boost
   real(dp),dimension(1:3)::skip_loc
   real(kind=8)::dx,dx_loc,scale,vol_loc
-  integer::irad
 #ifdef RT
   integer::ig,iNp,il
   real(kind=8),dimension(1:nvector),save:: ekk_new
   logical,dimension(1:nvector),save::cooling_on=.true.
-  real(dp)::scale_Np,scale_Fp,work,Npc,fred,Npnew, kScIR, EIR, TR
+  real(dp)::scale_Np,scale_Fp,work,Npc,Npnew, kIR, E_rad, TR
   real(dp),dimension(1:ndim)::Fpnew
   real(dp),dimension(nIons, 1:nvector),save:: xion
   real(dp),dimension(nGroups, 1:nvector),save:: Np, Np_boost=0d0, dNpdt=0d0
-  real(dp),dimension(ndim, nGroups, 1:nvector),save:: Fp, Fp_boost, dFpdt
+  real(dp),dimension(ndim, nGroups, 1:nvector),save:: Fp, Fp_boost=0d0, dFpdt
   real(dp),dimension(ndim, 1:nvector),save:: p_gas, u_gas
   real(kind=8)::f_trap, NIRtot, EIR_trapped, unit_tau, tau, Np2Ep, aexp_loc
   real(dp),dimension(nDim, nDim):: tEdd ! Eddington tensor
-  real(dp),dimension(nDim):: flux 
+  real(dp),dimension(nDim):: flux
+  real(kind=8),dimension(1:nvector),save::T2_new
+#endif
+#ifdef grackle
+  real(kind=8),dimension(1:nvector),save::T2_new
+#endif
+#if NENER>0
+  integer::irad
 #endif
 
   real(dp) :: barotrop1D,mincolumn_dens
@@ -282,24 +292,35 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 
      if(rt_vc) then      ! Add/remove radiation work on gas. Eq A6 in RT15
         iNp=iGroups(iIR)
-        do i=1,nleaf 
+        do i=1,nleaf
            il=ind_leaf(i)
            NIRtot = rtuold(il,iNp)
-           kScIR  = kappaSc(iIR)  
-           if(is_kIR_T) then                      !      k_IR depends on T
-              EIR = group_egy(iIR) * ev_to_erg * NIRtot *scale_Np
-              TR = max(T2_min_fix,(EIR*rt_c_cgs/c_cgs/a_r)**0.25)
-              kScIR  = kappaSc(iIR)  * (TR/10d0)**2
+           kIR  = kappaSc(iIR)
+           if(is_kIR_T) then                        ! kIR depends on T_rad
+              ! For rad. temperature,  weigh the energy in each group by
+              ! its opacity over IR opacity (derived from IR temperature)
+              E_rad = group_egy(iIR) * ev_to_erg * NIRtot * scale_Np
+              TR = max(0d0,(E_rad*rt_c_fraction/a_r)**0.25)     ! IR temp.
+              kIR = kappaAbs(iIR) * (TR/10d0)**2
+              do ig=1,nGroups
+                 if(i .ne. iIR)                                          &
+                      E_rad = E_rad + kappaAbs(ig) / kIR                 &
+                            * max(rtuold(il,iGroups(ig)),smallNp)        &
+                            * ev_to_erg * scale_Np
+              end do
+              TR = max(0d0,(E_rad*rt_c_fraction/a_r)**0.25)   ! Rad. temp.
+              ! Set the IR opacity according to the rad. temperature:
+              kIR  = kappaSc(iIR)  * (TR/10d0)**2 * exp(-TR/1d3)
            endif
-           kScIR = kScIR*scale_d*scale_l
+           kIR = kIR*scale_d*scale_l           !  Convert to code units
            flux = rtuold(il,iNp+1:iNp+ndim)
-           work = scale_v/c_cgs * kScIR * sum(uold(il,2:ndim+1)*flux) &
+           work = scale_v/c_cgs * kIR * sum(uold(il,2:ndim+1)*flux) &
                 * Zsolar(i) * dtnew(ilevel)       ! Eq A6
-           
+
            uold(il,ndim+2) = uold(il,ndim+2) &    ! Add work to gas energy
                 + work * group_egy(iIR) &
                 * ev_to_erg / scale_d / scale_v**2 / scale_l**3
-           
+
            rtuold(il,iNp) = rtuold(il,iNp) - work !Remove from rad density
            rtuold(il,iNp) = max(rtuold(il,iNp),smallnp)
            call reduce_flux(rtuold(il,iNp+1:iNp+ndim),rtuold(il,iNp)*rt_c)
@@ -307,7 +328,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      endif
 #endif
 #endif
-        
+
      ! Compute thermal pressure
      do i=1,nleaf
         T2(i)=uold(ind_leaf(i),ndim+2)
@@ -389,7 +410,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         end do
      else
         do i=1,nleaf
-           T2min(i) = 0. !T2_star*(nH(i)/nISM)**(g_star-1.0)
+           T2min(i) = mu_gas*mH/kB !T2_star*(nH(i)/nISM)**(g_star-1.0)
         end do
      endif
      !==========================================
@@ -443,7 +464,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         end if
         if(isothermal)cooling_on(1:nleaf)=.false.
      endif
-     
+
      if(rt_vc) then ! Do the Lorentz boost. Eqs A4 and A5. in RT15
         do i=1,nleaf
            do ig=1,nGroups
@@ -473,15 +494,15 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         enddo
         gr_dimension(1) = nvector
         gr_end(1) = nleaf - 1
-   
+
         if(cosmo)then
-           my_grackle_units%a_value = MAX(aexp,0.0625)
+           my_grackle_units%a_value = aexp
            my_grackle_units%density_units = scale_d
            my_grackle_units%length_units = scale_l
            my_grackle_units%time_units = scale_t
            my_grackle_units%velocity_units = scale_v
         endif
-   
+
         do i = 1, nleaf
            gr_density(i) = uold(ind_leaf(i),1)
            if(metal)then
@@ -497,7 +518,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         ! Update grid properties
         my_grackle_fields%grid_rank = gr_rank
         my_grackle_fields%grid_dx = dx_loc
-  
+
         iresult = solve_chemistry(my_grackle_units, my_grackle_fields, dtnew(ilevel))
         if(iresult.eq.0)then
             write(*,*) 'Grackle: error in solve_chemistry'
@@ -507,7 +528,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
             stop
 #endif
         endif
-   
+
         do i = 1, nleaf
            T2_new(i) = gr_energy(i)*scale_T2*(gamma-1.0)
         end do
@@ -581,18 +602,18 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
                    + 0.5*uold(ind_leaf(i),idim+1)**2 / uold(ind_leaf(i),1)
            end do
         end do
-        do i=1,nleaf                                   
+        do i=1,nleaf
            ! Update the pressure variable with the new kinetic energy:
            uold(ind_leaf(i),ndim+2) = uold(ind_leaf(i),ndim+2)           &
                                     - ekk(i) + ekk_new(i)
         end do
-        do i=1,nleaf                                   
+        do i=1,nleaf
            ekk(i)=ekk_new(i)
         end do
-     
-#if NGROUPS>0 
+
+#if NGROUPS>0
         if(rt_vc) then ! Photon work: subtract from the IR ONLY radiation
-           do i=1,nleaf                                   
+           do i=1,nleaf
               Np(iIR,i) = Np(iIR,i) + (ekk(i) - ekk_new(i))              &
                    /scale_d/scale_v**2 / group_egy(iIR) / ev_to_erg
            end do
@@ -643,7 +664,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      ! Update total fluid energy
      if(isothermal)then
         do i=1,nleaf
-           uold(ind_leaf(i),ndim+2) = T2min(i) + ekk(i) + err(i) + emag(i)
+           uold(ind_leaf(i),ndim+2) =  uold(ind_leaf(i),1) + ekk(i) + err(i) + emag(i)
         end do
      else if(cooling .or. neq_chem)then
         do i=1,nleaf
@@ -656,7 +677,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         t_blast=t_diss*1d6*(365.*24.*3600.)
         damp_factor=exp(-dtcool/t_blast)
         do i=1,nleaf
-           uold(ind_leaf(i),idelay)=uold(ind_leaf(i),idelay)*damp_factor
+           uold(ind_leaf(i),idelay)=max(uold(ind_leaf(i),idelay)*damp_factor,0d0)
         end do
      endif
 
@@ -669,7 +690,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            end do
         end do
      endif
-#if NGROUPS>0 
+#if NGROUPS>0
      if(rt) then
         ! Update photon densities and flux magnitudes
         do ig=1,nGroups
@@ -691,18 +712,29 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         endif
         iNp=iGroups(iIR)
         unit_tau = 1.5d0 * dx_loc * scale_d * scale_l
-        do i=1,nleaf                                                    
-           il=ind_leaf(i)                                               
+        do i=1,nleaf
+           il=ind_leaf(i)
            NIRtot =max(rtuold(il,iNp),smallNp)      ! Total photon density
-           kScIR  = kappaSc(iIR)                                          
-           if(is_kIR_T) then                        !    k_IR depends on T
-              EIR = group_egy(iIR) * ev_to_erg * NIRtot *scale_Np  
-              TR = max(T2_min_fix,(EIR*rt_c_cgs/c_cgs/a_r)**0.25)
-              kScIR  = kappaSc(iIR) * (TR/10d0)**2               
-           endif                                                        
-           tau = nH(i) * Zsolar(i) * unit_tau * kScIR                  
+           kIR  = kappaSc(iIR)
+           if(is_kIR_T) then                        ! kIR depends on T_rad
+              ! For rad. temperature,  weigh the energy in each group by
+              ! its opacity over IR opacity (derived from IR temperature)
+              E_rad = group_egy(iIR) * ev_to_erg * NIRtot * scale_Np
+              TR = max(0d0,(E_rad*rt_c_fraction/a_r)**0.25)     ! IR temp.
+              kIR = kappaAbs(iIR) * (TR/10d0)**2
+              do ig=1,nGroups
+                 if(i .ne. iIR)                                          &
+                      E_rad = E_rad + kappaAbs(ig) / kIR                 &
+                            * max(rtuold(il,iGroups(ig)),smallNp)        &
+                            * ev_to_erg * scale_Np
+              end do
+              TR = max(0d0,(E_rad*rt_c_fraction/a_r)**0.25)   ! Rad. temp.
+              ! Set the IR opacity according to the rad. temperature:
+              kIR  = kappaSc(iIR)  * (TR/10d0)**2 * exp(-TR/1d3)
+           endif
+           tau = nH(i) * Zsolar(i) * unit_tau * kIR
            f_trap = 0d0             ! Fraction IR photons that are trapped
-           if(tau .gt. 0d0) f_trap = min(max(exp(-1d0/tau), 0d0), 1d0) 
+           if(tau .gt. 0d0) f_trap = min(max(exp(-1d0/tau), 0d0), 1d0)
            ! Update streaming photons, trapped photons, and tot energy:
            rtuold(il,iNp) = max(smallnp,(1d0-f_trap) * NIRtot) ! Streaming
            rtuold(il,iNp+1:iNp+ndim) = &            ! Limit streaming flux
@@ -714,9 +746,9 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            uold(il,iIRtrapVar) = EIR_trapped
 
            call reduce_flux(rtuold(il,iNp+1:iNp+ndim),rtuold(il,iNp)*rt_c)
-        end do ! i=1,nleaf                                                 
+        end do ! i=1,nleaf
 
-     endif  !rt_isIRtrap     
+     endif  !rt_isIRtrap
 #endif
 #endif
 
@@ -728,7 +760,7 @@ end subroutine coolfine1
 #ifdef RT
 !************************************************************************
 subroutine cmp_Eddington_tensor(Npc,Fp,T_Edd)
-  
+
 ! Compute Eddington tensor for given radiation variables
 ! Npc     => Photon number density times light speed
 ! Fp     => Photon number flux
@@ -738,7 +770,7 @@ subroutine cmp_Eddington_tensor(Npc,Fp,T_Edd)
   implicit none
   real(dp)::Npc
   real(dp),dimension(1:ndim)::Fp ,u
-  real(dp),dimension(1:ndim,1:ndim)::T_Edd 
+  real(dp),dimension(1:ndim,1:ndim)::T_Edd
   real(dp)::iterm,oterm,Np_c_sq,Fp_sq,fred_sq,chi
   integer::p,q
 !------------------------------------------------------------------------
@@ -746,11 +778,11 @@ subroutine cmp_Eddington_tensor(Npc,Fp,T_Edd)
      write(*,*)'negative photon density in cmp_Eddington_tensor. -EXITING-'
      call clean_stop
   endif
-  T_Edd(:,:) = 0.d0   
-  Np_c_sq = Npc**2        
+  T_Edd(:,:) = 0.d0
+  Np_c_sq = Npc**2
   Fp_sq = sum(Fp**2)              !  Sq. photon flux magnitude
   u(:) = 0.d0                           !           Flux unit vector
-  if(Fp_sq .gt. 0.d0) u(:) = Fp/sqrt(Fp_sq)  
+  if(Fp_sq .gt. 0.d0) u(:) = Fp/sqrt(Fp_sq)
   fred_sq = Fp_sq/Np_c_sq           !      Reduced flux, squared
   chi = max(4.d0-3.d0*fred_sq, 0.d0)   !           Eddington factor
   chi = (3.d0+ 4.d0*fred_sq)/(5.d0 + 2.d0*sqrt(chi))
@@ -762,7 +794,7 @@ subroutine cmp_Eddington_tensor(Npc,Fp,T_Edd)
      enddo
      T_Edd(p,p) = T_Edd(p,p) + iterm
   enddo
-  
+
 end subroutine cmp_Eddington_tensor
 #endif
 
@@ -781,7 +813,7 @@ subroutine pressure_eos(rho_temp,Enint_temp,Peos)
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Peos
 
-  Peos = (gamma-1.d0)*Enint_temp
+  Peos = rho_temp!(gamma-1.d0)*Enint_temp
 
   return
 
@@ -809,7 +841,7 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   rho   = rho_temp*scale_d
   Enint = Enint_temp*scale_d*scale_v**2 
 
-  Teos = Enint/(rho*kB/(mu_gas*mH*(gamma-1.0d0)))
+  Teos =mu_gas*mH/kB
 
   ht=1
 
@@ -838,7 +870,7 @@ subroutine enerint_eos(rho_temp,temp_temp,Eeos)
   rho  = rho_temp * scale_d
   temp = temp_temp
 
-  Eeos = rho*kB/(mu_gas*mH*(gamma-1.0))*temp/(scale_d*scale_v**2)
+  Eeos = rho/(gamma-1.0d0)!rho*kB/(mu_gas*mH*(gamma-1.0))*temp/(scale_d*scale_v**2)
 
   return
 
@@ -858,7 +890,7 @@ subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Cseos
 
-  Cseos = sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
+  Cseos = 1.0d0!sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
 
   return
 

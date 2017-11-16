@@ -59,9 +59,7 @@ subroutine read_hydro_params(nml_ok)
        & ,err_grad_prad &
 #endif       
 #if NPSCAL>0
-#if USE_M_1==0       
        & ,err_grad_var &
-#endif       
 #endif
        
        & ,floor_d,floor_u,floor_p,floor_dust,ivar_refine,var_cut_refine &

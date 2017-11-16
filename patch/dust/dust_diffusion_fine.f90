@@ -381,9 +381,9 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            do idust = 1, ndust
               ! different prescriptions for t-stop
               t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d!/d
-              if(K_drag) t_stop = sum_dust*(1-sum_dust)*d/K_dust
+              if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust
               if(dust_barr) t_stop = 0.1_dp
-              
+
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - uold(ind_cell(i),firstindex_ndust+idust)/uold(ind_cell(i),1))
               if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.K_drag)then
                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel)
@@ -441,10 +441,9 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+2)=pressure
            do idust = 1, ndust
               ! different prescriptions for t-stop
-              t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d!/d
-              if(K_drag)  t_stop = sum_dust*(1-sum_dust)*d/K_dust
+              t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d
+              if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust
               if(dust_barr) t_stop = 0.1_dp
-
               uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp - u2(i,ind_son,firstindex_ndust+idust))
               if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
                  write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', sum_dust*t_stop,dtnew(ilevel)
@@ -466,6 +465,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   ! Compute flux due to dust diffusion
   !-----------------------------------------------
   call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache,facdx)
+  
   !Reset fluxes at refined interfaces
   do idim=1,ndim
       i0=0; j0=0; k0=0
@@ -512,6 +512,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
                    uuloc(i,i3,j3,k3,idust)= uuloc(i,i3,j3,k3,idust)&
                    &+(flux(i,i3,j3,k3,idust,idim)&
                    &-flux(i,i3+i0,j3+j0,k3+k0,idust,idim))
+                   !write(*,*) flux(i,i3,j3,k3,idust,idim),flux(i,i3+i0,j3+j0,k3+k0,idust,idim),uuloc(i,i3,j3,k3,idust)
              end if
              end do
         end do
@@ -535,26 +536,29 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            if(son(ind_cell(i))==0)then
               sum_dust_old=0.0_dp
               do idust=1,ndust
-                 !We compute sum_dust_old in order to retrieve rho_gas
+                 !We compute sum_dust_old to compute rho_gas
                  sum_dust_old=sum_dust_old+uold(ind_cell(i),firstindex_ndust+idust)
               enddo
+              
               !we deduce rho_gas 
               rho_gas = uold(ind_cell(i),1)-sum_dust_old
-            do idust=1,ndust
+              do idust=1,ndust
                  !Update epsilon taking in account small fluxes from refined interfaces
-                 unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+(uold(ind_cell(i),firstindex_ndust+idust)& 
-                                                                                &+dflux_dust(ind_cell(i),idust))!/uold(ind_cell(i),1)
-            enddo   
+                 unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+uold(ind_cell(i),firstindex_ndust+idust)& 
+                      &+dflux_dust(ind_cell(i),idust)
+
+              enddo   
               sum_dust_new=0.0_dp              
               do idust=1,ndust
                !We compute sum_dust_new
-               sum_dust_new = sum_dust_new + unew(ind_cell(i),firstindex_ndust+idust)!*uold(ind_cell(i),1)
+               sum_dust_new = sum_dust_new + unew(ind_cell(i),firstindex_ndust+idust)
               enddo
+               !write(*,*) rho_gas, sum_dust_old, sum_dust_new, unew(ind_cell(i),firstindex_ndust+1),uold(ind_cell(i),firstindex_ndust+1),uuloc(i,i3,j3,k3,1),dflux_dust(ind_cell(i),1)
+   
               if(dust_barr.eqv. .false.) then
                  !Update all the quantities that depend on rho
-                 uuuloc(i,i3,j3,k3,1)= rho_gas + sum_dust_new! rho_gas*(1.0_dp + sum_dust_new)
-          
-               else
+                 uuuloc(i,i3,j3,k3,1)= rho_gas + sum_dust_new
+              else
                  !If we test barenblatt we only update P
                   unew(ind_cell(i),5)=(1.0_dp-sum_dust_new)*uold(ind_cell(i),1)/(gamma-1.0_dp)
                endif
@@ -588,10 +592,6 @@ end do
                  unew(ind_cell(i),3) = d*v
                  unew(ind_cell(i),4) = d*w
                  unew(ind_cell(i),5) = uuuloc(i,i3,j3,k3,5) + 0.5d0*d*(u**2+v**2+w**2)
-                 !do idust=1,ndust
-                 !Update rho epsilon 
-                 !unew(ind_cell(i),firstindex_ndust+idust)=d*unew(ind_cell(i),firstindex_ndust+idust)
-                 !enddo   
               end if
               end if
         end do

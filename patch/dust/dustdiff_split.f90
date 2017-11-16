@@ -121,7 +121,7 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
 
-  integer::i,j,k,l,ivar, idust
+  integer::i,j,k,l,ivar,idust
   integer::jlo,jhi,klo,khi
 
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
