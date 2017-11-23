@@ -321,7 +321,7 @@ def generate_fname(nout,ftype="",cpuid=1):
 # - min_variance: if the data differs by less than this value from the average value, it is set to the average
 def check_solution(data,test_name,tolerance=None,threshold=2.0e-14,norm_min=1.0e-30,min_variance=1.0e-14):
 
-    var_tol = {"all":2.0e-13}
+    var_tol = {"all":3.0e-13}
     try:
         for key in tolerance.keys():
             var_tol[key] = tolerance[key]
