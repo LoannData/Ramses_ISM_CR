@@ -100,8 +100,8 @@ module hydro_parameters
   real(dp),dimension(1:MAXBOUND)::A_bound=0.0d0
   real(dp),dimension(1:MAXBOUND)::B_bound=0.0d0
   real(dp),dimension(1:MAXBOUND)::C_bound=0.0d0
-  real(dp),dimension(1:MAXBOUND)::E_bound=0.0d0
   real(dp),dimension(1:MAXBOUND)::T_bound=0.0d0
+  real(dp),dimension(1:MAXBOUND,1:ngrp)::E_bound=0.0d0
   real(dp),dimension(1:MAXBOUND,1:ngrp)::fx_bound=0.0d0
   real(dp),dimension(1:MAXBOUND,1:ngrp)::fy_bound=0.0d0
   real(dp),dimension(1:MAXBOUND,1:ngrp)::fz_bound=0.0d0
@@ -154,8 +154,8 @@ module hydro_parameters
   real(dp),dimension(1:MAXREGION)::A_region=0.
   real(dp),dimension(1:MAXREGION)::B_region=0.
   real(dp),dimension(1:MAXREGION)::C_region=0.
-  real(dp),dimension(1:MAXREGION)::E_region=0.
   real(dp),dimension(1:MAXREGION)::T_region=0.
+  real(dp),dimension(1:MAXREGION,1:ngrp)::E_region=0.
   real(dp),dimension(1:MAXREGION,1:ngrp)::fx_region=0.0d0
   real(dp),dimension(1:MAXREGION,1:ngrp)::fy_region=0.0d0
   real(dp),dimension(1:MAXREGION,1:ngrp)::fz_region=0.0d0

@@ -1,0 +1,2 @@
+This is the space where you put the libraries needed by various tests.
+Link to them using "ln -s ../../lib/optional_directory/* ." in your 'prepare-my-test.sh' file.

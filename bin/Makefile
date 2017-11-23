@@ -119,7 +119,7 @@ ifeq ($(COMP),"INTEL")
       F90 = ifort
       FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
    endif
-   FFLAGS += -O3
+   FFLAGS += -O3 -fp-model source
 #   FFLAGS += -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds
 endif
 

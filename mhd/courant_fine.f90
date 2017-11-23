@@ -389,7 +389,7 @@ subroutine velocity_fine(ilevel)
 
         ! Impose induction variables
         do i=1,ngrid
-           uold(ind_cell(i),1)=1.0
+           uold(ind_cell(i),1)=1.0_dp
         end do
         do idim=1,3
            do i=1,ngrid
@@ -402,10 +402,10 @@ subroutine velocity_fine(ilevel)
            u=uold(ind_cell(i),2)/d
            v=uold(ind_cell(i),3)/d
            w=uold(ind_cell(i),4)/d
-           A=0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-           B=0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-           C=0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-           uold(ind_cell(i),neul)=1.0+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
+           A=0.5_dp*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+           B=0.5_dp*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+           C=0.5_dp*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+           uold(ind_cell(i),neul)=1.0_dp/(gamma-1.0_dp)+0.5_dp*d*(u**2+v**2+w**2)+0.5_dp*(A**2+B**2+C**2)
         end do
 
      end do
