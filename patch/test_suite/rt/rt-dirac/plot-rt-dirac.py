@@ -5,15 +5,6 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import visu_ramses
 
-# Compute analytical solution
-def analytical_solution(r,t):
-    # Compute analytical solution
-    chi=1.0e10
-    E0=1.0e5
-    ana2 = E0/(8.0*(chi*np.pi*t)**1.5)
-    E_ana = ana2*np.exp(-r**2/(4.0*t*chi)) + 1.0
-    return E_ana
-
 # Make figure
 fig = plt.figure()
 ratio = 0.75
