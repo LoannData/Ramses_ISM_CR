@@ -291,7 +291,7 @@ for ((i=0;i<$ntests;i++)); do
    cd ${TEST_DIRECTORY}/${testname[n]};
    $DELETE_RESULTS;
    RUN_TEST="${RUN_TEST_BASE}${ndim}d ${rawname[i]}.nml";
-   echo "Running test" | tee -a $LOGFILE;
+   echo -n "Running test:" | tee -a $LOGFILE;
    STARTTIME_TEST=$(python -c 'import time; print int(time.time()*1000)');
    prepname="prepare-${rawname[i]}.sh";
    if $VERBOSE ; then
@@ -305,7 +305,18 @@ for ((i=0;i<$ntests;i++)); do
       fi
       ${RUN_TEST} >> $LOGFILE 2>&1;
    fi
+   # Record test time
    ENDTIME_TEST=$(python -c 'import time; print int(time.time()*1000)');
+   milliseconds=$(($ENDTIME_TEST - $STARTTIME_TEST));
+   seconds=$(($milliseconds / 1000));
+   hours=$(($seconds / 3600));
+   seconds=$(($seconds % 3600));
+   minutes=$(($seconds / 60));
+   seconds=$(($seconds % 60));
+   hours_test[${i}]=$hours;
+   minutes_test[${i}]=$minutes;
+   seconds_test[${i}]=$seconds;
+   echo " ${hours_test[i]}h${minutes_test[i]}m${seconds_test[i]}s" | tee -a $LOGFILE;
 
    # Plot and analyse results
    echo "Plotting and analysing results" | tee -a $LOGFILE;
@@ -329,21 +340,8 @@ for ((i=0;i<$ntests;i++)); do
    
    echo $line | tee -a $LOGFILE;
 
-   # Get time at the end of test
-   ENDTIME_GLOB=$(python -c 'import time; print int(time.time()*1000)');
-   
-   # Record test time
-   milliseconds=$(($ENDTIME_TEST - $STARTTIME_TEST));
-   seconds=$(($milliseconds / 1000));
-   hours=$(($seconds / 3600));
-   seconds=$(($seconds % 3600));
-   minutes=$(($seconds / 60));
-   seconds=$(($seconds % 60));
-   hours_test[${i}]=$hours;
-   minutes_test[${i}]=$minutes;
-   seconds_test[${i}]=$seconds;
-   
    # Record global time including compilations
+   ENDTIME_GLOB=$(python -c 'import time; print int(time.time()*1000)');
    milliseconds=$(($ENDTIME_GLOB - $STARTTIME_GLOB));
    seconds=$(($milliseconds / 1000));
    hours=$(($seconds / 3600));
