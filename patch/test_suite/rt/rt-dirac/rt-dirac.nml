@@ -9,10 +9,10 @@ rt=.true.
 
 &AMR_PARAMS 
 levelmin=3 !6
-levelmax=7 !8
-ngridmax=10000
-nexpand=1
-boxlen=20.0
+levelmax=6 !8
+ngridmax=50000
+nexpand=10*1
+boxlen=5.0
 /
 
 &REFINE_PARAMS
@@ -23,12 +23,12 @@ err_grad_d=0.2
 &INIT_PARAMS
 nregion=1
 region_type(1)='square'
-x_center=1d1
-y_center=1d1
-z_center=1d1
-length_x=1d3
-length_y=1d3
-length_z=1d3
+x_center=2.5
+y_center=2.5
+z_center=2.5
+length_x=1.0e2
+length_y=1.0e2
+length_z=1.0e2
 exp_region=10.0
 d_region=1000.0
 u_region=0.0
@@ -69,19 +69,15 @@ rt_smooth=.true.
 rt_courant_factor=0.8           ! courant number for RT timesteps
 rt_c_fraction=1d-3            ! fraction of actual lightspeed set to RT lightspeed
 rt_otsa=.true.                                                                ! no OTSA
-!--------------------------------------------------------------------
-rt_nsource=3   
+rt_nsource=3
 rt_source_type=3*'point'
-rt_src_x_center=3*10.
-rt_src_y_center=3*10.
-rt_src_z_center=3*10.
+rt_src_x_center=3*2.5
+rt_src_y_center=3*2.5
+rt_src_z_center=3*2.5
 rt_src_length_x=3*1.0
 rt_src_length_y=3*1.0
 rt_src_length_z=3*1.0
 rt_src_group=1,2,3
-!rt_n_source=4.47d49, 4.94d49, 0.59d49          ! Total = 1E50 photons per s emitted
-!rt_src_start=0. !10*0.015533
-!TOTAL NSOURCE:   9.9796816e+47photons/s
 rt_n_source= 9.3651E+47, 6.1449E+46, 9.1489E+42
 /
 

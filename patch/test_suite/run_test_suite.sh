@@ -27,7 +27,7 @@
 #######################################################################
 
 # List of directories to scan
-testlist="hydro,mhd,fld,collapse";
+testlist="hydro,mhd,fld,collapse,rt";
 
 #######################################################################
 # Determine the parameters for running the test suite

@@ -1,88 +1,118 @@
 import matplotlib as mpl
 mpl.use('Agg')
-from pylab import *
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
+import visu_ramses
 
-fig = matplotlib.pyplot.figure()
-ratio = 1.0
-sizex = 18.0
+# Compute analytical solution
+def analytical_solution(r,t):
+    # Compute analytical solution
+    chi=1.0e10
+    E0=1.0e5
+    ana2 = E0/(8.0*(chi*np.pi*t)**1.5)
+    E_ana = ana2*np.exp(-r**2/(4.0*t*chi)) + 1.0
+    return E_ana
+
+# Make figure
+fig = plt.figure()
+ratio = 0.75
+sizex = 12.0
 fig.set_size_inches(sizex,ratio*sizex)
 
-pc=3.08e18
-t=loadtxt('time.dat')
+ax1 = fig.add_subplot(221)
+ax2 = fig.add_subplot(222)
+ax3 = fig.add_subplot(223)
+ax4 = fig.add_subplot(224)
 
-subplot(211)
-# Density
-data = loadtxt('data1.dat')
-x    = data[:,0]/pc
-z    = data[:,2]/pc
-rho  = data[:,3].reshape(128,128)
+# Load RAMSES output
+data  = visu_ramses.load_snapshot(2)
+x = data["x"]-2.5
+y = data["y"]-2.5
+z = data["z"]-2.5
+r = np.sqrt(x**2 + y**2 + z**2)
+rho = data["density"]
+P = data["thermal_pressure"]
+ps1 = data["passive_scalar_1"]
+ps2 = data["passive_scalar_2"]
+ps3 = data["passive_scalar_3"]
 
-imshow(np.log10(rho),origin='lower',interpolation='None',cmap='jet',extent=(min(x),max(x),min(z),max(z)))
-xlabel('Distance x (pc)')
-ylabel('Distance z (pc)')
-title('t=%4.3f (Myr)'%t)
-colorbar(label='Log(n)',shrink=0.5)
+# Bin the data in r to avoid having too many symbols in figure
+rmin = 0.0
+rmax = 1.75
+nr   = 301
+r_edges = np.linspace(rmin,rmax,nr)
+n_bin, xedges1 = np.histogram(r,bins=(r_edges))
+rho_bin, xedges1 = np.histogram(r,bins=(r_edges),weights=rho)
+P_bin, xedges1 = np.histogram(r,bins=(r_edges),weights=P)
+ps1_bin, xedges1 = np.histogram(r,bins=(r_edges),weights=ps1)
+ps2_bin, xedges1 = np.histogram(r,bins=(r_edges),weights=ps2)
+ps3_bin, xedges1 = np.histogram(r,bins=(r_edges),weights=ps3)
+cube = np.where(n_bin > 0.0)
+dens = rho_bin[cube]/n_bin[cube]
+pres = P_bin[cube]/n_bin[cube]
+ion1 = ps1_bin[cube]/n_bin[cube]
+ion2 = ps2_bin[cube]/n_bin[cube]
+ion3 = ps3_bin[cube]/n_bin[cube]
+rr = np.zeros([nr-1])
+for i in range(nr-1):
+    rr[i] = 0.5*(r_edges[i]+r_edges[i+1])
+r_mesh = rr[cube]
 
-subplot(212)
-# Pressure
-data = loadtxt('data2.dat')
-x    = data[:,0]/pc
-z    = data[:,2]/pc
-P    = data[:,3].reshape(128,128)
+# Radial profiles
+ax1.plot(r_mesh,np.log10(dens),'o',mec='b',mfc='None',label='density')
+ax5 = ax1.twinx()
+ax5.plot(r_mesh,np.log10(pres),'o',mec='r',mfc='None',label='Pressure')
 
-imshow(np.log10(P),origin='lower',interpolation='None',cmap='jet',extent=(min(x),max(x),min(z),max(z)))
-xlabel('Distance x (pc)')
-ylabel('Distance z (pc)')
-colorbar(label='Log (P)',shrink=0.5)
+ax2.plot(r_mesh,np.log10(ion1),'o',mec='k',mfc='None',label='Ions 1')
+ax2.plot(r_mesh,np.log10(ion2),'o',mec='lime',mfc='None',label='Ions 2')
+ax2.plot(r_mesh,np.log10(ion3),'o',mec='magenta',mfc='None',label='Ions 3')
+ax1.set_xlabel('Distance (pc)')
+ax1.set_ylabel('log(Density)')
+ax5.set_ylabel('log(Pressure)')
+ax1.legend(loc=1,fontsize=12)
+ax5.legend(loc=2,fontsize=12)
+ax1.set_xlim([0.0,rmax])
 
-# subplot(232)
-# # Density
-# data = loadtxt('data3.dat')
-# y    = data[:,1]/pc
-# z    = data[:,2]/pc
-# rho  = data[:,3].reshape(128,128)
+ax2.set_xlabel('Distance (pc)')
+ax2.set_ylabel('log(Ion)')
+ax2.legend(loc=1,fontsize=12)
+ax2.set_xlim([0.0,rmax])
 
-# imshow(np.log10(rho),origin='lower',interpolation='None',cmap='jet',extent=(min(y),max(y),min(z),max(z)))
-# xlabel('Distance y (pc)')
-# ylabel('Distance z (pc)')
-# title('t=%4.3f (Myr)'%t)
-# colorbar(label='Log(n)',shrink=0.5)
+# 2D maps
+cube = np.where(np.abs(y)<=0.51*data["dx"])
+slice_x = x[cube]
+slice_z = z[cube]
+slice_d = np.log10(rho[cube])
+slice_p = np.log10(P[cube])
 
-# subplot(235)
-# # Pressure
-# data = loadtxt('data4.dat')
-# y    = data[:,1]/pc
-# z    = data[:,2]/pc
-# P    = data[:,3].reshape(128,128)
+nx = 128
+xmin = ymin = -2.5
+xmax = ymax =  2.5
+dpx = (xmax-xmin)/float(nx)
+dpy = (ymax-ymin)/float(nx)
+xpx = np.linspace(xmin+0.5*dpx,xmax-0.5*dpx,nx)
+ypx = np.linspace(ymin+0.5*dpy,ymax-0.5*dpy,nx)
+grid_x, grid_y = np.meshgrid(xpx,ypx)
+points = np.transpose([slice_x,slice_z])
+map_d = griddata(points,slice_d,(grid_x,grid_y),method='nearest')
+map_p = griddata(points,slice_p,(grid_x,grid_y),method='nearest')
 
-# imshow(np.log10(P),origin='lower',interpolation='None',cmap='jet',extent=(min(y),max(y),min(z),max(z)))
-# xlabel('Distance y (pc)')
-# ylabel('Distance z (pc)')
-# colorbar(label='Log (P)',shrink=0.5)
+im1 = ax3.contourf(xpx,ypx,map_d,cmap='Blues',levels=np.linspace(np.nanmin(map_d),np.nanmax(map_d),11))
+im2 = ax4.contourf(xpx,ypx,map_p,cmap='Reds')
+cb1 = plt.colorbar(im1,ax=ax3,label='log(Density)')
+cb2 = plt.colorbar(im2,ax=ax4,label='log(Pressure)')
+ax3.set_xlabel('Distance x (pc)')
+ax3.set_ylabel('Distance z (pc)')
+ax3.set_xlim([xmin,xmax])
+ax3.set_ylim([ymin,ymax])
+ax4.set_xlabel('Distance x (pc)')
+ax4.set_ylabel('Distance z (pc)')
+ax4.set_xlim([xmin,xmax])
+ax4.set_ylim([ymin,ymax])
 
-# subplot(233)
-# # Density
-# data = loadtxt('data5.dat')
-# x    = data[:,0]/pc
-# y    = data[:,1]/pc
-# rho  = data[:,3].reshape(128,128)
+fig.subplots_adjust(wspace=0.3)
+fig.savefig('rt-dirac.pdf',bbox_inches='tight')
 
-# imshow(np.log10(rho),origin='lower',interpolation='None',cmap='jet',extent=(min(x),max(x),min(y),max(y)))
-# xlabel('Distance x (pc)')
-# ylabel('Distance y (pc)')
-# title('t=%4.3f (Myr)'%t)
-# colorbar(label='Log(n)',shrink=0.5)
-
-# subplot(236)
-# # Pressure
-# data = loadtxt('data6.dat')
-# x    = data[:,0]/pc
-# y    = data[:,1]/pc
-# P    = data[:,3].reshape(128,128)
-
-# imshow(np.log10(P),origin='lower',interpolation='None',cmap='jet',extent=(min(x),max(x),min(y),max(y)))
-# xlabel('Distance x (pc)')
-# ylabel('Distance y (pc)')
-# colorbar(label='Log (P)',shrink=0.5)
-
-savefig('rt-dirac.pdf',bbox_inches='tight')
+# Check results against reference solution
+visu_ramses.check_solution(data,'rt-dirac')
