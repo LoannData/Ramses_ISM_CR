@@ -30,7 +30,7 @@ x       = data["x"][order]*scale_l + scale_v*time
 amrlev  = data["level"][order]
 rho     = data["density"][order]*scale_d
 u       = data["velocity_x"][order]*scale_v
-p       = data["thermal_pressure"][order]
+p       = data["thermal_pressure"][order]*scale_d*scale_v**2
 T       = data["temperature"][order]
 er = np.zeros([data["ncells"],ngr])
 for i in range(ngr):

@@ -1,9 +1,9 @@
 &RUN_PARAMS 
 hydro=.true.
-ncontrol=10
+ncontrol=100
 nrestart=0
 nremap=0
-nsubcycle=10*1
+nsubcycle=10*2
 rt=.true.
 /
 
@@ -39,7 +39,7 @@ A_region=50.
 /
 
 &OUTPUT_PARAMS
-tout=0.15
+tout=0.05
 /
 
 &HYDRO_PARAMS
@@ -63,11 +63,11 @@ z_ave=1d0
 &RT_PARAMS
 X=0.76d0
 Y=0.24d0
-rt_output_coolstats=.true.
+rt_output_coolstats=.false.
 rt_flux_scheme='glf'
 rt_smooth=.true.
 rt_courant_factor=0.8           ! courant number for RT timesteps
-rt_c_fraction=1d-3            ! fraction of actual lightspeed set to RT lightspeed
+rt_c_fraction=1d-2            ! fraction of actual lightspeed set to RT lightspeed
 rt_otsa=.true.                                                                ! no OTSA
 rt_nsource=3
 rt_source_type=3*'point'

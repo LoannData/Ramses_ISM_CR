@@ -81,7 +81,7 @@ xpx = np.linspace(xmin+0.5*dpx,xmax-0.5*dpx,nx)
 ypx = np.linspace(ymin+0.5*dpy,ymax-0.5*dpy,nx)
 grid_x, grid_y = np.meshgrid(xpx,ypx)
 points = np.transpose([slice_x,slice_z])
-map_B = griddata(points,slice_B,(grid_x,grid_y),method='linear')
+map_B = griddata(points,slice_B,(grid_x,grid_y),method='nearest')
 
 im1 = ax2.contourf(xpx,ypx,map_B)
 cb1 = plt.colorbar(im1,ax=ax2,label='By')

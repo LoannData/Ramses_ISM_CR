@@ -18,19 +18,30 @@ ax4 = fig.add_subplot(224)
 
 # Load RAMSES output
 data  = visu_ramses.load_snapshot(2)
+scale_d = data["unit_d"]
+scale_l = data["unit_l"]
+scale_t = data["unit_t"]
+scale_v = scale_l/scale_t
+scale_b = np.sqrt(4.0*np.pi*scale_d*(scale_l/scale_t)**2)
 x = data["x"]-2.5
 y = data["y"]-2.5
 z = data["z"]-2.5
 r = np.sqrt(x**2 + y**2 + z**2)
-rho = data["density"]
-P = data["thermal_pressure"]
+rho = data["density"]*scale_d
+P = data["thermal_pressure"]*scale_d*scale_v**2
 ps1 = data["passive_scalar_1"]
 ps2 = data["passive_scalar_2"]
 ps3 = data["passive_scalar_3"]
+bx  = 0.5*(data["B_left_x"]+data["B_right_x"])*scale_b
+by  = 0.5*(data["B_left_y"]+data["B_right_y"])*scale_b
+bz  = 0.5*(data["B_left_z"]+data["B_right_z"])*scale_b
+ux  = data["velocity_x"]
+uy  = data["velocity_y"]
+uz  = data["velocity_z"]
 
 # Bin the data in r to avoid having too many symbols in figure
 rmin = 0.0
-rmax = 1.75
+rmax = 1.5
 nr   = 301
 r_edges = np.linspace(rmin,rmax,nr)
 n_bin, xedges1 = np.histogram(r,bins=(r_edges))
@@ -61,8 +72,8 @@ ax2.plot(r_mesh,np.log10(ion3),'o',mec='magenta',mfc='None',label='Ions 3')
 ax1.set_xlabel('Distance (pc)')
 ax1.set_ylabel('log(Density)')
 ax5.set_ylabel('log(Pressure)')
-ax1.legend(loc=1,fontsize=12)
-ax5.legend(loc=2,fontsize=12)
+ax1.legend(loc=(0.68,0.72),fontsize=12)
+ax5.legend(loc=(0.65,0.2),fontsize=12)
 ax1.set_xlim([0.0,rmax])
 
 ax2.set_xlabel('Distance (pc)')
@@ -78,8 +89,8 @@ slice_d = np.log10(rho[cube])
 slice_p = np.log10(P[cube])
 
 nx = 128
-xmin = ymin = -2.5
-xmax = ymax =  2.5
+xmin = ymin = -rmax
+xmax = ymax =  rmax
 dpx = (xmax-xmin)/float(nx)
 dpy = (ymax-ymin)/float(nx)
 xpx = np.linspace(xmin+0.5*dpx,xmax-0.5*dpx,nx)
@@ -88,9 +99,17 @@ grid_x, grid_y = np.meshgrid(xpx,ypx)
 points = np.transpose([slice_x,slice_z])
 map_d = griddata(points,slice_d,(grid_x,grid_y),method='nearest')
 map_p = griddata(points,slice_p,(grid_x,grid_y),method='nearest')
+map_bx = griddata(points,bx[cube] ,(grid_x,grid_y),method='nearest')
+map_bz = griddata(points,bz[cube] ,(grid_x,grid_y),method='nearest')
+map_ux = griddata(points,ux[cube] ,(grid_x,grid_y),method='nearest')
+map_uz = griddata(points,uz[cube] ,(grid_x,grid_y),method='nearest')
 
-im1 = ax3.contourf(xpx,ypx,map_d,cmap='Blues',levels=np.linspace(np.nanmin(map_d),np.nanmax(map_d),11))
+
+im1 = ax3.contourf(xpx,ypx,map_d,cmap='Blues',levels=np.linspace(np.nanmin(map_d),np.nanmax(map_d),10))
+stm = ax3.streamplot(xpx,ypx,map_bx,map_bz,color="k")
 im2 = ax4.contourf(xpx,ypx,map_p,cmap='Reds')
+vskip=4
+vec = ax4.quiver(xpx[::vskip],ypx[::vskip],map_ux[::vskip,::vskip],map_uz[::vskip,::vskip],color="k",pivot='mid',scale=40)
 cb1 = plt.colorbar(im1,ax=ax3,label='log(Density)')
 cb2 = plt.colorbar(im2,ax=ax4,label='log(Pressure)')
 ax3.set_xlabel('Distance x (pc)')
@@ -102,8 +121,8 @@ ax4.set_ylabel('Distance z (pc)')
 ax4.set_xlim([xmin,xmax])
 ax4.set_ylim([ymin,ymax])
 
-fig.subplots_adjust(wspace=0.3)
+fig.subplots_adjust(wspace=0.35)
 fig.savefig('rt-dirac.pdf',bbox_inches='tight')
 
 # Check results against reference solution
-visu_ramses.check_solution(data,'rt-dirac')
+visu_ramses.check_solution(data,'rt-dirac',tolerance={"all":8.0e-11})

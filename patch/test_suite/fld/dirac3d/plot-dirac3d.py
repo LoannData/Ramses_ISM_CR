@@ -83,7 +83,7 @@ xpx = np.linspace(xmin+0.5*dpx,xmax-0.5*dpx,nx)
 ypx = np.linspace(ymin+0.5*dpy,ymax-0.5*dpy,nx)
 grid_x, grid_y = np.meshgrid(xpx,ypx)
 points = np.transpose([slice_x,slice_z])
-map_E = griddata(points,slice_E,(grid_x,grid_y),method='linear')
+map_E = griddata(points,slice_E,(grid_x,grid_y),method='nearest')
 
 im1 = ax2.contourf(xpx,ypx,map_E)
 cb1 = plt.colorbar(im1,ax=ax2,label='log(Er)')
@@ -111,7 +111,7 @@ slice_x = x[cube]
 slice_y = y[cube]
 slice_E = np.log10(Er[cube])
 points = np.transpose([slice_x,slice_y])
-map_E = griddata(points,slice_E,(grid_x,grid_y),method='linear')
+map_E = griddata(points,slice_E,(grid_x,grid_y),method='nearest')
 
 im3 = ax4.contourf(xpx,ypx,map_E)
 cb3 = plt.colorbar(im3,ax=ax4,label='log(Er)')
