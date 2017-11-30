@@ -83,14 +83,14 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   use amr_commons
   use hydro_commons
   use cooling_module
+  use radiation_parameters,only:mu_gas
+
 #ifdef grackle
   use grackle_parameters
 #endif
 #ifdef ATON
   use radiation_commons, ONLY: Erad
 #endif
-  use radiation_parameters,only:mu_gas
-
 #ifdef RT
   use rt_parameters, only: nGroups, iGroups
   use rt_hydro_commons
@@ -140,9 +140,9 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 #endif
 
   real(dp) :: barotrop1D,mincolumn_dens
-  real(dp)                                   :: x0, y0, z0,coeff_chi,cst2, coef
+  real(dp)                                   :: x0, y0, z0,coeff_chi,cst2, coef, sum_dust
   double precision                           :: v_extinction
-  integer::uleidx,uleidy,uleidz,uleidh,igrid,ii,indc2,iskip2,ind_ll
+  integer::uleidx,uleidy,uleidz,uleidh,igrid,ii,indc2,iskip2,ind_ll, idust
 
 
   !-------------- SPHERICAL DIRECTIONS ------------------------------------------------!
@@ -410,7 +410,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         end do
      else
         do i=1,nleaf
-           T2min(i) = mu_gas*mH/kB !T2_star*(nH(i)/nISM)**(g_star-1.0)
+           T2min(i) =  mu_gas*mH/kb/gamma !T2_star*(nH(i)/nISM)**(g_star-1.0)
         end do
      endif
      !==========================================
@@ -648,10 +648,13 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            end do
         endif
      endif
-
      ! Compute polytrope internal energy
      do i=1,nleaf
-        T2min(i) = T2min(i)*nH(i)/scale_T2/(gamma-1.0)
+        sum_dust=0.0d0
+#if NDUST>0
+        sum_dust = sum_dust +uold(ind_leaf(i),firstindex_ndust+idust)/uold(ind_leaf(i),1)
+#endif        
+        T2min(i) =(1.0d0-sum_dust)*nH(i)/(gamma-1.0)! T2min(i)*(1.0d0-sum_dust)*nH(i)/scale_T2/(gamma-1.0)
      end do
 
      ! Update fluid internal energy
@@ -664,11 +667,12 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      ! Update total fluid energy
      if(isothermal)then
         do i=1,nleaf
-           uold(ind_leaf(i),ndim+2) =  uold(ind_leaf(i),1) + ekk(i) + err(i) + emag(i)
+           print *, 'toto', T2min(i),uold(ind_leaf(i),5),T2min(i) + ekk(i) + err(i) + emag(i)
+           uold(ind_leaf(i),5) = T2min(i) + ekk(i) + err(i) + emag(i)
         end do
      else if(cooling .or. neq_chem)then
         do i=1,nleaf
-           uold(ind_leaf(i),ndim+2) = T2(i) + T2min(i) + ekk(i) + err(i) + emag(i)
+           uold(ind_leaf(i),5) = T2(i) + T2min(i) + ekk(i) + err(i) + emag(i)
         end do
      endif
 
@@ -841,7 +845,7 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   rho   = rho_temp*scale_d
   Enint = Enint_temp*scale_d*scale_v**2 
 
-  Teos =mu_gas*mH/kB
+  Teos = Enint/(rho*kB/(mu_gas*mH*(gamma-1.0d0)))
 
   ht=1
 
@@ -870,7 +874,7 @@ subroutine enerint_eos(rho_temp,temp_temp,Eeos)
   rho  = rho_temp * scale_d
   temp = temp_temp
 
-  Eeos = rho/(gamma-1.0d0)!rho*kB/(mu_gas*mH*(gamma-1.0))*temp/(scale_d*scale_v**2)
+  Eeos = rho/(gamma-1.0)! rho*kB/(mu_gas*mH*(gamma-1.0))*temp/(scale_d*scale_v**2)
 
   return
 
@@ -890,7 +894,7 @@ subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Cseos
 
-  Cseos = 1.0d0!sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
+  Cseos = sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
 
   return
 

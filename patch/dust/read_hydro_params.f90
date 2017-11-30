@@ -597,7 +597,7 @@ subroutine read_hydro_params(nml_ok)
         sum_dust = sum_dust + dust_bound(i,j)
      end do
      do j=1,ndust
-     boundary_var(i,firstindex_ndust+j)=(d_bound(i)+sum_dust*d_bound(i))*dust_bound(i,j)
+        boundary_var(i,firstindex_ndust+j)=(d_bound(i)+sum_dust*d_bound(i))*dust_bound(i,j)
      end do
 #endif
      boundary_var(i,1) =d_bound(i)+sum_dust*d_bound(i)

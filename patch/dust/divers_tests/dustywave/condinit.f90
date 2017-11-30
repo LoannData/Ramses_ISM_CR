@@ -29,19 +29,14 @@ subroutine condinit(x,u,dx,nn)
   !================================================================
   integer::ivar, idust, i
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp)::xn,x0,sum_dust, t_stop, sound_speed,rho_0, epsilon_0, delta_rho0,v0, pi,P_0,rho_gas, dusttogas
+  real(dp)::xn,x0,sum_dust, t_stop, rho_0, epsilon_0, delta_rho0,v0, pi,P_0,rho_gas, dusttogas
       pi =3.14159265358979323846_dp
-      dusttogas = 0.1
+      dusttogas = 1.0d0!0.10
       rho_gas =1.0
-      rho_0= rho_gas + dusttogas*rho_gas
+      rho_0 = rho_gas + dusttogas*rho_gas
       epsilon_0=  dusttogas*rho_gas/rho_0
-      !rho_0     = 2.0_dp
-      !epsilon_0 = 0.1_dp
-      !rho_gas= (1.0_dp-epsilon_0)*rho_0
       delta_rho0= 1.0e-4_dp
-      v0  = 1.0e-4_dp
-      sound_speed = 1.0_dp
-      P_0=rho_0*(1.0_dp-epsilon_0)*sound_speed*sound_speed
+      v0  = delta_rho0
       q(1:nn,2)=0.0d0
       q(1:nn,3)=0.0d0
       q(1:nn,4)=0.0d0
@@ -65,12 +60,12 @@ subroutine condinit(x,u,dx,nn)
          do idust = 1, Ndust
             q(i,1)=rho_0*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
             q(i,2)=v0*sin(2.0_dp*pi*xn)
-            q(i,firstindex_ndust+idust) = epsilon_0
+            q(i,firstindex_ndust+idust) = epsilon_0!*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
             sum_dust= sum_dust + q(i,firstindex_ndust+idust)
          end do
-         
-         q(i,5)=P_0+P_0*delta_rho0*sin(2.0_dp*pi*xn)/rho_gas!*(gamma-1.0d0)
-
+         !P_0 = (1.0d0-epsilon_0)*rho_0/gamma
+         q(i,5)=(1.0d0-epsilon_0)*q(i,1)!/gamma
+         print *, sqrt(gamma * q(i,5)/q(i,1)/(1.0d0-epsilon_0)), 'tete'
       end do
       
      ! Convert primitive to conservative variables

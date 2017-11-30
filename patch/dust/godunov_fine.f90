@@ -171,9 +171,12 @@ subroutine set_uold(ilevel)
      iskip=ncoarse+(ind-1)*ngridmax
      do ivar=1,nvar+3
         do i=1,active(ilevel)%ngrid
+                                        
            uold(active(ilevel)%igrid(i)+iskip,ivar) = unew(active(ilevel)%igrid(i)+iskip,ivar)
+                            
         end do
      end do
+
      if(pressure_fix)then
         fact=(gamma-1.0d0)
         do i=1,active(ilevel)%ngrid
@@ -244,6 +247,7 @@ subroutine set_uold(ilevel)
               uold(ind_cell,5)=e_prim+e_kin+e_mag
               uold(ind_cell,nvar)=e_prim
            end if
+          
 
         end do
      end if
@@ -763,9 +767,11 @@ subroutine add_pdv_source_terms(ilevel)
            eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
            if(energy_fix)eps   = uold(ind_cell(i),nvar)
            sum_dust=0.0d0
+#if NDUST>0           
             do idust = 1, Ndust
                  sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
-            end do
+              end do
+#endif              
            call pressure_eos((1.0_dp-sum_dust)*d,eps,pp_eos)
            do idim=1,ndim
               unew(ind_cell(i),nvar) = unew(ind_cell(i),nvar) &

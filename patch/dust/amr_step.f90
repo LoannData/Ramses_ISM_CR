@@ -548,7 +548,8 @@ recursive subroutine amr_step(ilevel,icount)
 
                                call timer('cooling','start')
   if((hydro).and.(.not.static_gas)) then
-     if((neq_chem.or.cooling .or. barotrop .or. extinction .or. isothermal) .and. T2_star>0.0)call cooling_fine(ilevel)
+     !if((neq_chem.or.cooling .or. barotrop .or. extinction .or. isothermal) .and. T2_star>0.0)
+     if(isothermal.and.dust_diffusion) call cooling_fine(ilevel)
      ! Romain master version
      ! if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
   endif
@@ -602,7 +603,7 @@ recursive subroutine amr_step(ilevel,icount)
      if(simple_boundary)call make_boundary_hydro(ilevel)
   endif
 
-  ! Dust diffusion step
+!Dust diffusion step
 #if NDUST>0
   if(dust_diffusion)then
                              call timer('dust - diffusion','start')
@@ -629,8 +630,9 @@ recursive subroutine amr_step(ilevel,icount)
   end do
 #endif
   if(simple_boundary)call make_boundary_hydro(ilevel)
-  end if
+end if  
 #endif
+!End of dust diffusion 
 
 
 

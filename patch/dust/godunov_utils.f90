@@ -55,10 +55,10 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
 #if NIMHD==1
      ! modif nimhd
      rhoad(k)=rho(k)
-       sum_dust= 0.0_d0
+       sum_dust= 0.0d0
 #if NDUST>0
      do idust=1,ndust
-        sum_dust= sum_dust+ uu(kfirstindex_ndust+idust)/rho(k)
+        sum_dust= sum_dust+ uu(k,firstindex_ndust+idust)/rho(k)
      enddo
 
 #endif     
@@ -92,9 +92,16 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
 #endif
 
   ! Compute thermal sound speed
-  do k = 1, ncell
+     do k = 1, ncell
+     sum_dust= 0.0d0
+#if NDUST>0
+     do idust=1,ndust
+     sum_dust= sum_dust + uu(k,firstindex_ndust+idust)/rho(k)
+     enddo
+
+#endif
      uu(k,5) = max((gamma-one)*uu(k,5),smallp)
-     a2(k)=gamma*uu(k,5)/uu(k,1)
+     a2(k)=gamma*uu(k,5)/uu(k,1)/(1.0d0-sum_dust)
   end do
 #if NENER>0
   do irad = 1,nener
@@ -1013,11 +1020,21 @@ SUBROUTINE find_speed_info(qvar,vel_info)
 #endif
   REAL(dp),DIMENSION(1:nvar):: qvar
   REAL(dp) :: vel_info
-  REAL(dp) :: d,P,u,v,w,A,B,C,B2,c2,d2,cf
-
+  REAL(dp) :: d,P,u,v,w,A,B,C,B2,c2,d2,cf,sum_dust
+#if NDUST>0
+  INTEGER:: idust
+#endif
   d=qvar(1); P=qvar(2); u=qvar(3); A=qvar(4)
   v=qvar(5); B=qvar(6); w=qvar(7); C=qvar(8)
   B2 = A*A+B*B+C*C
+  sum_dust=0.d0
+#if NDUST>0
+  do idust =1, ndust
+     sum_dust=sum_dust+qvar(firstindex_ndust+idust)
+  end do
+#endif
+  d = d * (1.0d0-sum_dust)
+  
   c2 = gamma*P/d
 #if NENER>0
   do irad = 1,nent
@@ -1049,13 +1066,23 @@ SUBROUTINE find_speed_fast(qvar,vel_info)
 #if NENER>0
   INTEGER :: irad
 #endif
+  
   REAL(dp),DIMENSION(1:nvar):: qvar
   REAL(dp) :: vel_info
-  REAL(dp) :: d,P,u,v,w,A,B,C,B2,c2,d2,cf
-
+  REAL(dp) :: d,P,u,v,w,A,B,C,B2,c2,d2,cf,sum_dust
+#if NDUST>0
+  INTEGER:: idust
+#endif  
   d=qvar(1); P=qvar(2); u=qvar(3); A=qvar(4)
   v=qvar(5); B=qvar(6); w=qvar(7); C=qvar(8)
   B2 = A*A+B*B+C*C
+  sum_dust=0.d0
+#if NDUST>0
+  do idust=1,ndust
+     sum_dust=sum_dust+qvar(firstindex_ndust+idust)
+  end do
+#endif
+  d = d * (1.0d0-sum_dust)
   c2 = gamma*P/d
 #if NENER>0
   do irad = 1,nent

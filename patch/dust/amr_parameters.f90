@@ -80,9 +80,7 @@ module amr_parameters
   logical::DTU     =.false.   ! Unique time-step activated for niMHD diffusion routines
   logical :: radiative_nimhdheating=.false. ! Enable niMHD heating as a source term in radiative transfer
 #endif
-#if NDUST>0  
   logical::dust_diffusion=.false. ! Enable dust diffusion (Price and Laibe 2015)
-#endif
   ! Mesh parameters
   integer::geom=1             ! 1: cartesian, 2: cylindrical, 3: spherical
   integer::nx=1,ny=1,nz=1     ! Number of coarse cells in each dimension

@@ -2656,16 +2656,16 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
            
            ! Compute thermal pressure through EOS
            do l = 1, ngrid
-              etot = uin(l,i,j,k,5) - emag(l) -erad(l)
-              eint = etot/q(l,i,j,k,1)-eken(l)
-              eint = eint*q(l,i,j,k,1)   ! volumic
-              if(energy_fix)eint=uin(l,i,j,k,nvar)
               sum_dust=0.0d0
 #if NDUST>0              
               do idust = 1, ndust
                  sum_dust=sum_dust+q(l,i,j,k,firstindex_ndust+idust)
               end do
-#endif              
+#endif  
+              etot = uin(l,i,j,k,5) - emag(l) -erad(l)
+              eint = etot-eken(l)*q(l,i,j,k,1)
+              if(energy_fix)eint=uin(l,i,j,k,nvar)
+            
               call pressure_eos((1.0d0-sum_dust)*uin(l,i,j,k,1),eint,pp_eos)
               q(l,i,j,k,5)=MAX(pp_eos,smallp)
            end do

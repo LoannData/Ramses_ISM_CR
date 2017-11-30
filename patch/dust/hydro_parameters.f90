@@ -137,9 +137,7 @@ module hydro_parameters
   real(dp)::err_grad_B2=-1.0 ! B L2 norm gradient
   real(dp)::err_grad_E=-1.0  ! Radiative energy norm gradient
   real(dp)::err_grad_F=-1.0  ! Radiative flux norm gradient
-#if NDUST>0
   real(dp),dimension(1:NDUST)::err_grad_dust=-1.0  ! Dust concentration gradient
-#endif
   real(dp)::floor_d=1.d-10   ! Density floor
   real(dp)::floor_u=1.d-10   ! Velocity floor
   real(dp)::floor_p=1.d-10   ! Pressure floor

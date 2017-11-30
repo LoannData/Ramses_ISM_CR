@@ -117,41 +117,53 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdx
 
-  real(dp)::dPdx1,dx_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp)::dPdx1,dx_loc,sum_dust,Tksleft_tot,Tksright_tot,rholeft,rhoright
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
-
-  integer::i,j,k,l,ivar,idust
+  real(dp) :: speed, sigma,sigma1,sigma2,sigma3
+  integer::i,j,k,l,isl,idust, idens, ipress
   integer::jlo,jhi,klo,khi
 
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
-
+  idens=2*ndust+1
+  ipress=2*ndust+2
   do k=klo,khi
   do j=jlo,jhi
   do i=if1,if2
      do l = 1, ngrid
         dx_loc=max(ffdx(l,i-1,j,k),ffdx(l,i,j,k))
-        dPdx1=(uin(l,i,j,k,2*ndust+2)-uin(l,i-1,j,k,2*ndust+2))/dx
         Tksleft     = 0.0_dp
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
-        Tksright_tot= 0.0_dp        
+        Tksright_tot= 0.0_dp
+        rholeft = uin (l,i-1,j,k,idens)
+        rhoright = uin (l,i,j,k,idens)
+        dPdx1= (uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
         do idust= 1, ndust
-           Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)
-           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)
+           Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)/rholeft
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/rhoright
         end do
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
         end do
-        do idust= 1, ndust
-           fx(idust) = 0.5d0*(uin(l,i-1,j,k,idust)*Tksleft(idust)+uin(l,i,j,k,idust)*Tksright(idust))*dPdx1/dx_loc
-           if(dust_lin) fx(idust) = -D_lin_dust*(uin(l,i,j,k,idust)-uin(l,i-1,j,k,idust))/dx/dx_loc
-
+        do idust=1,ndust
+           !First order terms
+           speed  = 0.5d0*(Tksright(idust)/rhoright+Tksleft(idust)/rholeft)*dPdx1
+           if(speed.ge.0.0d0) fx(idust)= speed*uin(l,i-1,j,k,idust) 
+           if(speed<0.0d0) fx(idust)= speed*uin(l,i,j,k,idust)
+           !Second order terms
+           if(speed.ge.0.0d0) isl = -1
+           if(speed<0.0d0) isl = 0
+           !sigma1 = 0.5d0*(uin(l,i+1+isl,j,k,idust)-uin(l,i-1+isl,j,k,idust))/dx
+           sigma2 =(uin(l,i+isl,j,k,idust)-uin(l,i-1+isl,j,k,idust))/dx
+           sigma3 =(uin(l,i+1+isl,j,k,idust)-uin(l,i+isl,j,k,idust))/dx
+           call minmod_dust(sigma2,sigma3,sigma)
+           fx(idust) = fx(idust) + 0.5d0*abs(speed)*(dx-abs(speed)*dt)*sigma
         end do
         do idust= 1, ndust
-           myflux(l,i,j,k,idust)=fx(idust)*dt/dx
+           myflux(l,i,j,k,idust)=fx(idust)*dt/dx/dx_loc
         end do
     enddo
   enddo
@@ -181,15 +193,17 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdy
 
-  real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot,rholeft,rhoright
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fy
-
-  
+  !Slopes and advection velocity
+  real(dp) :: speed, sigma,sigma1,sigma2,sigma3  
   ! Local scalar variables
-  integer::i,j,k,l,ivar, idust
+  integer::i,j,k,l,ivar, idust, idens, ipress,isl
   integer::ilo,ihi,klo,khi
-
+  
+  idens=2*ndust+1
+  ipress=2*ndust+2
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
 
@@ -198,21 +212,33 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   do i=ilo,ihi
      do l = 1, ngrid
         dy_loc=max(ffdy(l,i,j-1,k),ffdy(l,i,j,k))
-        dPdy1=(uin(l,i,j,k,2*ndust+2)-uin(l,i,j-1,k,2*ndust+2))/dy
         Tksleft     = 0.0_dp
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        do idust= 1, ndust
-           Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)
-           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)
+        rholeft = uin (l,i,j-1,k,idens)
+        rhoright = uin (l,i,j,k,idens)
+        dPdy1=(uin(l,i,j,k,ipress)-uin(l,i,j-1,k,ipress))/dy
+         do idust= 1, ndust
+           Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)/rholeft
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/rhoright
         end do
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j-1,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
         end do
-        do idust= 1, ndust
-           fy(idust) =0.5d0*(uin(l,i,j-1,k,idust)*Tksleft(idust)+uin(l,i,j,k,idust)*Tksright(idust))*dPdy1/dy_loc
+        do idust=1,ndust
+           !First order terms
+           speed  = 0.5d0*(Tksright(idust)/rhoright+Tksleft(idust)/rholeft)*dPdy1
+           if(speed.ge.0.0d0) fy(idust)= speed*uin(l,i,j-1,k,idust) 
+           if(speed<0.0d0) fy(idust)= speed*uin(l,i,j,k,idust)
+           !Second order terms
+           if(speed.ge.0.0d0) isl = -1
+           if(speed<0.0d0) isl = 0
+           sigma2 =(uin(l,i,j+isl,k,idust)-uin(l,i,j-1+isl,k,idust))/dy
+           sigma3 =(uin(l,i,j+1+isl,k,idust)-uin(l,i,j+isl,k,idust))/dy
+           call minmod_dust(sigma2,sigma3,sigma)
+           fy(idust) = fy(idust) + 0.5d0*abs(speed)*(dy-abs(speed)*dt)*sigma
         end do
         do idust= 1, ndust
            myflux(l,i,j,k,idust)=fy(idust)*dt/dy
@@ -244,16 +270,18 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   ! Primitive variables
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdz
-  real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot,rholeft, rhoright
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fz
 
-
+  !Slopes and advection velocity
+  real(dp) :: speed, sigma,sigma1,sigma2,sigma3  
   ! Local scalar variables
-  integer::i,j,k,l,ivar, idust
+  integer::i,j,k,l,ivar, idust, idens, ipress, isl
   integer::ilo,ihi,jlo,jhi,klo,khi
 
-
+  idens=2*ndust+1
+  ipress=2*ndust+2
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
 
@@ -262,23 +290,35 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   do i=ilo,ihi
  
      do l = 1, ngrid
-        dPdz1=(uin(l,i,j,k,2*ndust+2)-uin(l,i,j,k-1,2*ndust+2))/dz
         dz_loc=max(ffdz(l,i,j,k),ffdz(l,i,j,k-1))
         Tksleft     = 0.0_dp
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        do idust= 1, ndust
-           Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)
-           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)
+        rholeft = uin (l,i,j,k-1,idens)
+        rhoright = uin (l,i,j,k,idens)
+        dPdz1=(uin(l,i,j,k,ipress)-uin(l,i,j,k-1,ipress))/dz
+         do idust= 1, ndust
+           Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)/rholeft
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/rhoright
         end do
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j,k-1,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
         end do
-        do idust= 1, ndust
-           fz(idust) =0.5d0*(uin(l,i,j,k-1,idust)*Tksleft(idust)+uin(l,i,j,k,idust)*Tksright(idust))*dPdz1/dz_loc
-        end do        
+        do idust=1,ndust
+           !First order terms
+           speed  = 0.5d0*(Tksright(idust)/rhoright+Tksleft(idust)/rholeft)*dPdz1
+           if(speed.ge.0.0d0) fz(idust)= speed*uin(l,i,j,k-1,idust) 
+           if(speed<0.0d0) fz(idust)= speed*uin(l,i,j,k,idust)
+           !Second order terms
+           if(speed.ge.0.0d0) isl = -1
+           if(speed<0.0d0) isl = 0
+           sigma2 =(uin(l,i,j,k+isl,idust)-uin(l,i,j,k-1+isl,idust))/dz
+           sigma3 =(uin(l,i,j,k+1+isl,idust)-uin(l,i,j,k+isl,idust))/dz
+           call minmod_dust(sigma2,sigma3,sigma)
+           fz(idust) = fz(idust) + 0.5d0*abs(speed)*(dz-abs(speed)*dt)*sigma
+        end do
         do idust= 1, ndust
            myflux(l,i,j,k,idust)=fz(idust)*dt/dz
         end do  
@@ -288,3 +328,25 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   enddo
 
 end subroutine dustZflx
+
+
+subroutine minmod_dust(a,b,sigma)
+  use amr_parameters
+  implicit none
+  real(dp)::a,b
+  real(dp):: sigma
+  if (abs(a).gt.abs(b)) sigma=b
+  if (abs(b).ge.abs(a)) sigma=a
+  if (a*b.le.0.0d0) sigma=0.0d0
+end subroutine minmod_dust
+
+subroutine vanleer(a,b,c,sigma)
+  use amr_parameters
+  implicit none
+  real(dp)::a,b,c
+  real(dp)::sigma
+  real(dp)::sigma2
+  call minmod_dust(a,b,sigma2)
+  call minmod_dust(sigma2,c,sigma)
+  
+end subroutine vanleer

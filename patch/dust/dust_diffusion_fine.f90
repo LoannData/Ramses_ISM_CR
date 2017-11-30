@@ -99,16 +99,17 @@ subroutine set_uold_dust(ilevel)
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
         do i=1,active(ilevel)%ngrid
-           uold(active(ilevel)%igrid(i)+iskip,1) = unew(active(ilevel)%igrid(i)+iskip,1)
-           uold(active(ilevel)%igrid(i)+iskip,2) = unew(active(ilevel)%igrid(i)+iskip,2)
-           uold(active(ilevel)%igrid(i)+iskip,3) = unew(active(ilevel)%igrid(i)+iskip,3)
-           uold(active(ilevel)%igrid(i)+iskip,4) = unew(active(ilevel)%igrid(i)+iskip,4)
+!!$           uold(active(ilevel)%igrid(i)+iskip,1) = unew(active(ilevel)%igrid(i)+iskip,1)
+!!$           uold(active(ilevel)%igrid(i)+iskip,2) = unew(active(ilevel)%igrid(i)+iskip,2)
+!!$           uold(active(ilevel)%igrid(i)+iskip,3) = unew(active(ilevel)%igrid(i)+iskip,3)
+!!$           uold(active(ilevel)%igrid(i)+iskip,4) = unew(active(ilevel)%igrid(i)+iskip,4)
            uold(active(ilevel)%igrid(i)+iskip,5) = unew(active(ilevel)%igrid(i)+iskip,5)
            do idust=1,ndust
               uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
            end do
         end do
-  end do
+     end do
+
 
 111 format('   Entering set_uold_dust for level ',i2)
 
@@ -181,34 +182,28 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2),save::uloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndust),save::uuloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:5),save::uuuloc
-
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::facdx
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndust,1:ndim),save::flux
-
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
-
   integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
   integer ,dimension(1:nvector,1:twotondim       ),save::nbors_father_grids
   integer ,dimension(1:nvector,0:twondim         ),save::ibuffer_father
   integer ,dimension(1:nvector,0:twondim         ),save::ind1
   integer ,dimension(1:nvector                   ),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
-
-  integer::idust
+  integer::idust,ht
   integer::i,j,ivar,idim,irad,ind_son,ind_father,iskip,nbuffer,ibuffer
   integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh,nexist
   integer::i1min,i1max,j1min,j1max,k1min,k1max
   integer::i2min,i2max,j2min,j2max,k2min,k2max
   integer::i3min,i3max,j3min,j3max,k3min,k3max
-  
   real(dp)::dx,scale,oneontwotondim
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp)::sum_dust,sum_dust_new,sum_dust_old
-  real(dp)::d,u,v,w,A,B,C,enint,e_kin,e_mag,pressure,cs
+  real(dp)::d,u,v,w,A,B,C,enint,e_kin,e_mag,pressure,cs, temp
   real(dp)::rho_gas,rho_grain_loc,size_grain_loc, pi, t_stop
+
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-  if(verbosed) write(*,*) 'dt_dust =', dtnew(ilevel)
-  if(verbosed) write(*,1500) scale_l,scale_t,scale_d,scale_v
   
   1500 FORMAT(1pE16.8,1pE16.8,1pE16.8)
   !Saved variables set to 0
@@ -285,7 +280,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            end do
            do ivar=1,ndust
               do i=1,nbuffer
-                 u1(i,j,firstindex_ndust+idust)=uold(ibuffer_father(i,j),firstindex_ndust+idust)/uold(ibuffer_father(i,j),1)
+                 u1(i,j,firstindex_ndust+idust)=uold(ibuffer_father(i,j),firstindex_ndust+idust)!/uold(ibuffer_father(i,j),1)
               end do
            end do
 
@@ -318,7 +313,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
         !Gather dust variables
         do idust=1,ndust
            do i=1,nexist
-              uloc(ind_exist(i),i3,j3,k3,idust)=uold(ind_cell(i),firstindex_ndust+idust)/uold(ind_cell(i),1)
+              uloc(ind_exist(i),i3,j3,k3,idust)=uold(ind_cell(i),firstindex_ndust+idust)!/uold(ind_cell(i),1)
               facdx(ind_exist(i),i3,j3,k3)=1.0d0
            end do
            do i=1,nbuffer
@@ -385,12 +380,12 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               if(dust_barr) t_stop = 0.1_dp
 
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - uold(ind_cell(i),firstindex_ndust+idust)/uold(ind_cell(i),1))
-              if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.K_drag)then
-                write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel)
+              if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
+                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel), sum_dust, t_stop
                stop
             endif
-            if( dtnew(ilevel) .gt. dx*dx/sum_dust/t_stop/cs/cs.and. dust_barr)  then
-               write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?' , dtnew(ilevel), dx*dx/sum_dust/t_stop/cs/cs
+            if( dtnew(ilevel) .gt. dx*dx/sum_dust/t_stop/cs/cs.and.dust_barr)  then
+               write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (BARR)' , dtnew(ilevel), dx*dx/sum_dust/t_stop/cs/cs
                stop
             endif
            !(price&laibe 2015)
@@ -433,10 +428,10 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               sum_dust = sum_dust + u2(i,ind_son,firstindex_ndust+idust)!/u2(i,ind_son,1)
            end do
            call pressure_eos((1.0_dp-sum_dust)*d,enint,pressure)
-           call soundspeed_eos((1.0_dp-sum_dust)*d,enint,cs)
-           
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint,cs)           
            if(dust_barr) cs = 1.0_dp
            if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
+
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+1)=d
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+2)=pressure
            do idust = 1, ndust
@@ -446,7 +441,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               if(dust_barr) t_stop = 0.1_dp
               uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp - u2(i,ind_son,firstindex_ndust+idust))
               if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
-                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', sum_dust*t_stop,dtnew(ilevel)
+                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (INTERP)', sum_dust*t_stop,dtnew(ilevel), sum_dust, t_stop
                  stop
               endif    
               !(price&laibe 2015)
@@ -536,65 +531,53 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            if(son(ind_cell(i))==0)then
               sum_dust_old=0.0_dp
               do idust=1,ndust
-                 !We compute sum_dust_old to compute rho_gas
+                 !We compute the old dust density
                  sum_dust_old=sum_dust_old+uold(ind_cell(i),firstindex_ndust+idust)
               enddo
-              
               !we deduce rho_gas 
               rho_gas = uold(ind_cell(i),1)-sum_dust_old
               do idust=1,ndust
                  !Update epsilon taking in account small fluxes from refined interfaces
                  unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+uold(ind_cell(i),firstindex_ndust+idust)& 
-                      &+dflux_dust(ind_cell(i),idust)
-
-              enddo   
+     &+dflux_dust(ind_cell(i),idust)
+              
+              enddo
+              !We compute the new dust density
               sum_dust_new=0.0_dp              
               do idust=1,ndust
-               !We compute sum_dust_new
                sum_dust_new = sum_dust_new + unew(ind_cell(i),firstindex_ndust+idust)
-              enddo
+               enddo
+          
                !write(*,*) rho_gas, sum_dust_old, sum_dust_new, unew(ind_cell(i),firstindex_ndust+1),uold(ind_cell(i),firstindex_ndust+1),uuloc(i,i3,j3,k3,1),dflux_dust(ind_cell(i),1)
    
               if(dust_barr.eqv. .false.) then
                  !Update all the quantities that depend on rho
-                 uuuloc(i,i3,j3,k3,1)= rho_gas + sum_dust_new
-              else
-                 !If we test barenblatt we only update P
-                  unew(ind_cell(i),5)=(1.0_dp-sum_dust_new)*uold(ind_cell(i),1)/(gamma-1.0_dp)
-               endif
-           end if
-        end do
-  end do
-  end do
-end do
+                 call temperature_eos(rho_gas, uuuloc(i,i3,j3,k3,5) , temp, ht )
+                 
+                 rho_gas =  uold(ind_cell(i),1)-sum_dust_new
 
-  !Update conservative variables new state vector
-  do k2=k2min,k2max
-  do j2=j2min,j2max
-  do i2=i2min,i2max
-     ind_son=1+i2+2*j2+4*k2
-     iskip=ncoarse+(ind_son-1)*ngridmax
-        do i=1,ncache
-           ind_cell(i)=iskip+ind_grid(i)
-        end do
-        i3=1+i2
-        j3=1+j2
-        k3=1+k2
-        do i=1,ncache
-          if(son(ind_cell(i))==0)then
-          if(dust_barr.eqv. .false.) then
+                 call enerint_eos ( rho_gas, temp , enint)
                  d = uuuloc(i,i3,j3,k3,1)
                  u = uuuloc(i,i3,j3,k3,2)
                  v = uuuloc(i,i3,j3,k3,3)
                  w = uuuloc(i,i3,j3,k3,4)
+                 !print *, d, uold(ind_cell(i),1),unew(ind_cell(i),1)
                  unew(ind_cell(i),1) = d
                  unew(ind_cell(i),2) = d*u
                  unew(ind_cell(i),3) = d*v
                  unew(ind_cell(i),4) = d*w
-                 unew(ind_cell(i),5) = uuuloc(i,i3,j3,k3,5) + 0.5d0*d*(u**2+v**2+w**2)
-              end if
-              end if
-        end do
+                 !print *, 'bla'
+                 !print *,sum_dust_old, unew(ind_cell(i),5) 
+                 !unew(ind_cell(i),5) = uuuloc(i,i3,j3,k3,5) + 0.5d0*d*(u**2+v**2+w**2)
+                 unew(ind_cell(i),5) = enint + 0.5d0*d*(u**2+v**2+w**2)
+                 !print *, sum_dust_new , unew(ind_cell(i),5),0.5d0*d*(u**2+v**2+w**2)               
+
+              else
+                 !If we test barenblatt we only update P
+                  unew(ind_cell(i),5)=(1.0_dp-sum_dust_new)*uold(ind_cell(i),1)/(gamma-1.0_dp)
+              endif
+           end if
+     end do
   end do
   end do
   end do
@@ -869,7 +852,7 @@ subroutine add_dust_terms(ilevel)
             if(dust_barr) t_stop = 0.1_dp
            do idim=1,ndim
               unew(ind_cell(i),5) = unew(ind_cell(i),5) &
-                   & +  gradEintgradP(i)*t_stop * sum_dust/(1.0_dp+sum_dust)*dtnew(ilevel)/d
+                  & +  gradEintgradP(i)*t_stop * sum_dust/(1.0_dp+sum_dust)*dtnew(ilevel)/d
            end do
         end do
 

@@ -580,7 +580,6 @@ subroutine region_condinit(x,q,dx,nn)
               end do
 #endif
              sum_dust =0.0_dp
-
 #if NDUST>0
              do idust=1,ndust
                 q(i,firstindex_ndust+idust)= dust_region(k,idust)
