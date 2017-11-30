@@ -298,6 +298,31 @@ def load_snapshot(nout):
     data["time"  ] = info["time"]
     data["ngrp"  ] = info["ngrp"]
     
+    # Read sink particles if present
+    sinkfile = infile+"/sink_"+infile.split("_")[-1]+".csv"
+    try:
+        sinklist = np.loadtxt(sinkfile,delimiter=",")
+        if np.shape(sinklist)[0] == 0:
+            data["nsinks"] = 0
+        else:
+            list_shape = np.shape(np.shape(sinklist))[0]
+            if list_shape == 1:
+                sinklist = np.reshape(sinklist, (1, np.shape(sinklist)[0]))
+                data["nsinks"] = 1
+            else:
+                data["nsinks"] = np.shape(sinklist)[0]
+            try:
+                data["r_sink"] = info["ir_cloud"]/(2.0**info["levelmax"])
+            except KeyError:
+                try:
+                    data["r_sink"] = info["ncell_racc"]/(2.0**info["levelmax"])
+                except KeyError:
+                    data["r_sink"] = 4.0/(2.0**info["levelmax"])
+            for i in range(data["nsinks"]):
+                data["sink"+str(i+1)] = sinklist[i,:]
+    except IOError:
+        pass
+    
     return data
 
 # =======================================================================

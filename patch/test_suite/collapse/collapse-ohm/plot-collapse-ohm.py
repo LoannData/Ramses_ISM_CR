@@ -128,7 +128,7 @@ vskip = 6
 vec = ax5.quiver(xpx[::vskip],ypx[::vskip],z3[::vskip,::vskip],z4[::vskip,::vskip],color="w")
 
 cb1 = plt.colorbar(im1,ax=ax2,label='log(Density)')
-cb2 = plt.colorbar(im2,ax=ax5,label='Temperature')
+cb2 = plt.colorbar(im2,ax=ax5,label='log(T)')
 cb1.ax.yaxis.set_label_coords(-1.1,0.5)
 cb2.ax.yaxis.set_label_coords(-1.1,0.5)
 
