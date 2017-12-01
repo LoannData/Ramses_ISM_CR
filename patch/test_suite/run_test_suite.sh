@@ -37,9 +37,13 @@ NCPU=1;
 VERBOSE=false;
 QUICK=false;
 DELDATA=true;
+CLEAN_ALL=false;
 SELECTTEST=false;
-while getopts "dp:qt:v" OPTION; do
+while getopts "cdp:qt:v" OPTION; do
    case $OPTION in
+      c)
+         CLEAN_ALL=true;
+      ;;
       d)
          DELDATA=false;
       ;;
@@ -121,6 +125,25 @@ testname=( $testlist );
 ntestsall=${#testname[@]};
 ntests=$ntestsall;
 all_tests_ok=true;
+
+#######################################################################
+# Clean all directories and exit
+#######################################################################
+if $CLEAN_ALL ; then
+   for ((i=0;i<$ntests;i++)); do
+      cd ${TEST_DIRECTORY}/${testname[i]};
+      $DELETE_RESULTS;
+      if [ -f to_be_removed ]; then
+         rm_list=$(cat to_be_removed);
+         rm -f $rm_list;
+         rm to_be_removed;
+      fi
+   done
+   $RETURN_TO_BIN;
+   make clean;
+   rm -f ${EXECNAME}*d;
+   exit;
+fi
 
 #######################################################################
 # Select particular test if this was asked by user

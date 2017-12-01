@@ -294,8 +294,12 @@ subroutine clump_finder(create_output,keep_alive)
         write(*,*)"Output status of peak memory."
      endif
 
+#ifndef WITHOUTMPI
      call MPI_ALLREDUCE(verbose, verbose_all, ncpu, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, info)
-     
+#else
+     verbose_all=verbose
+#endif
+
      if(verbose_all)call analyze_peak_memory
      if(clinfo.and.saddle_threshold.LE.0)call write_clump_properties(.false.)
      if(create_output)then
