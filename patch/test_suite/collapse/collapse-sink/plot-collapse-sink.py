@@ -49,7 +49,7 @@ u       = np.sqrt(ux**2 + uy**2 + uz**2)
 dmin = -19.5
 dmax = -10.0
 tmin = 0.8
-tmax = 3.0
+tmax = 2.7
 bmin = -5.0
 bmax = 0.0
 umin = -0.1
@@ -168,7 +168,7 @@ ax7.set_ylim([ymin,ymax])
 
 # Sink 1 ===========================
 
-dx_im = 400.0
+dx_im = 500.0
 xsink = data["sink1"][3]*scale_l/au
 ysink = data["sink1"][4]*scale_l/au
 zsink = data["sink1"][5]*scale_l/au
@@ -237,10 +237,14 @@ ax6.set_aspect('equal')
 ax6.set_xlim([xmin,xmax])
 ax6.set_ylim([ymin,ymax])
 
+msink = data["sink1"][1]
+asink = data["sink1"][15]
+ax5.text(-230,220,'Sink 1: %.3f Msun' % msink, color='k',bbox=dict(facecolor='w', edgecolor='k'),ha='left',va='center')
+ax6.text(-230,220,'Sink 1: %.1f yr' % asink, color='k',bbox=dict(facecolor='w', edgecolor='k'),ha='left',va='center')
 
-# Sink 1 ===========================
 
-dx_im = 400.0
+# Sink 2 ===========================
+
 xsink = data["sink2"][3]*scale_l/au
 ysink = data["sink2"][4]*scale_l/au
 zsink = data["sink2"][5]*scale_l/au
@@ -308,6 +312,11 @@ ax9.set_ylabel('z')
 ax9.set_aspect('equal')
 ax9.set_xlim([xmin,xmax])
 ax9.set_ylim([ymin,ymax])
+
+msink = data["sink1"][1]
+asink = data["sink1"][15]
+ax8.text(-230,220,'Sink 2: %.3f Msun' % msink, color='k',bbox=dict(facecolor='w', edgecolor='k'),ha='left',va='center')
+ax9.text(-230,220,'Sink 2: %.1f yr' % asink, color='k',bbox=dict(facecolor='w', edgecolor='k'),ha='left',va='center')
 
 
 #fig.subplots_adjust(wspace=0.25)
