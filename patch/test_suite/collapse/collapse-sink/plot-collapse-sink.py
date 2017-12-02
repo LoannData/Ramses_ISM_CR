@@ -151,8 +151,15 @@ zsink1  = data["sink1"][5]*scale_l/au-0.5*data["boxlen"]*scale_l/au
 xsink2  = data["sink2"][3]*scale_l/au-0.5*data["boxlen"]*scale_l/au
 ysink2  = data["sink2"][4]*scale_l/au-0.5*data["boxlen"]*scale_l/au
 zsink2  = data["sink2"][5]*scale_l/au-0.5*data["boxlen"]*scale_l/au
-ax4.scatter([xsink1,xsink2],[ysink1,ysink2],marker='o',c='w',alpha=alpha,edgecolor='k')
-ax7.scatter([xsink1,xsink2],[ysink1,ysink2],marker='o',c='w',alpha=alpha,edgecolor='k')
+
+circle1 = plt.Circle((xsink1,ysink1), data["r_sink"]*data["boxlen"]*scale_l/au,facecolor='w',edgecolor="k",linewidth=2,alpha=alpha)
+circle2 = plt.Circle((xsink1,ysink1), data["r_sink"]*data["boxlen"]*scale_l/au,facecolor='w',edgecolor="k",linewidth=2,alpha=alpha)
+circle3 = plt.Circle((xsink2,ysink2), data["r_sink"]*data["boxlen"]*scale_l/au,facecolor='w',edgecolor="k",linewidth=2,alpha=alpha)
+circle4 = plt.Circle((xsink2,ysink2), data["r_sink"]*data["boxlen"]*scale_l/au,facecolor='w',edgecolor="k",linewidth=2,alpha=alpha)
+ax4.add_artist(circle1)
+ax4.add_artist(circle3)
+ax7.add_artist(circle2)
+ax7.add_artist(circle4)
 
 ax4.set_xlabel('x')
 ax4.set_ylabel('y')
