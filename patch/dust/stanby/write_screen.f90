@@ -300,7 +300,7 @@ subroutine write_screen
 #endif
 #if NDUST>0
      write(*,116)'===================================================================================================================================='
-     write(*,116)'lev       x            d          u          v          w          P          A          B          C      eps_dust(idust)'
+     write(*,116)'lev       x            d          u          v          w          P          A          B          C      d_dust(idust)'
 #endif
      ! Sort radius
      allocate(ind_sort(1:ncell))
@@ -321,7 +321,7 @@ subroutine write_screen
      do i=1,ncell
         ddd=MAX(dd(ind_sort(i)),smallr)
         ppp=MAX((gamma-1.0)*ei(ind_sort(i)),ddd*smallp)
-        write(*,113) &
+        write(*,*) &
              & ll(ind_sort(i)),  &
              & (rr(i)-dble(icoarse_min))*scale, &
              & ddd , &

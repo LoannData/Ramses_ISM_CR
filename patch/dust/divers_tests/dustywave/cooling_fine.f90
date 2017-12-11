@@ -667,7 +667,6 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      ! Update total fluid energy
      if(isothermal)then
         do i=1,nleaf
-           print *, 'toto', T2min(i),uold(ind_leaf(i),5),T2min(i) + ekk(i) + err(i) + emag(i)
            uold(ind_leaf(i),5) = T2min(i) + ekk(i) + err(i) + emag(i)
         end do
      else if(cooling .or. neq_chem)then

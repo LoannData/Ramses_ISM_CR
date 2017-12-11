@@ -300,7 +300,7 @@ subroutine write_screen
 #endif
 #if NDUST>0
      write(*,116)'===================================================================================================================================='
-     write(*,116)'lev       x            d          u          v          w          P          A          B          C      eps_dust(idust)'
+     write(*,116)'lev       x            d          u          v          w          P          A          B          C      d_dust(idust)'
 #endif
      ! Sort radius
      allocate(ind_sort(1:ncell))

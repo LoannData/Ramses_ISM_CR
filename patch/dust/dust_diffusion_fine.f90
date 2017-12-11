@@ -205,7 +205,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   
-  1500 FORMAT(1pE16.8,1pE16.8,1pE16.8)
   !Saved variables set to 0
   u1   = 0.0d0
   u2   = 0.0d0
@@ -359,7 +358,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            endif
            sum_dust=0.0_dp
            do idust = 1, ndust
-              sum_dust = sum_dust + uold(ind_cell(i),firstindex_ndust+idust)/uold(ind_cell(i),1)
+              sum_dust = sum_dust + uold(ind_cell(i),firstindex_ndust+idust)/d
            end do
            call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pressure)
            call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
@@ -379,20 +378,17 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust
               if(dust_barr) t_stop = 0.1_dp
 
-              uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - uold(ind_cell(i),firstindex_ndust+idust)/uold(ind_cell(i),1))
-              if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
+              uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - uold(ind_cell(i),firstindex_ndust+idust)/d)
+              if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.dt_control)then
                  write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel), sum_dust, t_stop
                stop
             endif
-            if( dtnew(ilevel) .gt. dx*dx/sum_dust/t_stop/cs/cs.and.dust_barr)  then
-               write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (BARR)' , dtnew(ilevel), dx*dx/sum_dust/t_stop/cs/cs
-               stop
-            endif
+            !if( dtnew(ilevel) .gt. dx*dx/sum_dust/t_stop/cs/cs.and.dust_barr)  then
+            !   write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (BARR)' , dtnew(ilevel), dx*dx/sum_dust/t_stop/cs/cs
+             !  stop
+            !endif
            !(price&laibe 2015)
            end do   
-        if(verbosed)write(*,*)'dt, ts',sum_dust,d,enint,e_mag,e_kin,uold(ind_cell(i),5)
-        if(verbosed)write(*,*) dtnew(ilevel), rho_grain_loc*size_grain_loc/d*SQRT(pi*gamma/8.0_dp)/cs
-        if(verbosed)write(*,*)'cs_barren = ', cs*scale_v, ' cm.s-1'
         end do
         do i=1,nbuffer
            if (energy_fix) then
@@ -687,6 +683,7 @@ subroutine add_dust_terms(ilevel)
   real(dp)  :: t_stop,cs,pi, rho_grain_loc,size_grain_loc
   real(dp) :: dd,ee,cmp_Cv_eos
   integer  :: ht
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel

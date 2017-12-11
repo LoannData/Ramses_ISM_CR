@@ -141,6 +141,10 @@ subroutine backup_hydro(filename)
   character(LEN=80)::filename
   integer::i,ivar,ncache,ind,ilevel,igrid,iskip,ilun,istart,ibound,ht
   real(dp)::d,u,v,w,A,B,C,e
+  real(dp):: sum_dust
+#if NDUST>0
+  integer:: idust
+#endif  
   integer,allocatable,dimension(:)::ind_grid
   real(dp)::cmp_temp,p
   real(dp),allocatable,dimension(:)::xdp
@@ -269,7 +273,11 @@ subroutine backup_hydro(filename)
                        e=e-uold(ind_grid(i)+iskip,8+irad)
                     end do
 #endif
-                    call pressure_eos(d,e,p)
+                    sum_dust=0.0d0
+#if NDUST>0
+                    sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+idust)/d
+#endif                    
+                    call pressure_eos((1.0d0-sum_dust)*d,e,p)
                     xdp(i)=p
                  end do
                  write(ilun)xdp
@@ -336,7 +344,11 @@ subroutine backup_hydro(filename)
                     end do
 #endif
                  endif
-                 call temperature_eos(d,e,cmp_temp,ht)
+                 sum_dust=0.0d0
+#if NDUST>0
+                 sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+idust)/d
+#endif                    
+                 call temperature_eos((1.0d0-sum_dust)*d,e,cmp_temp,ht)
                  xdp(i)=cmp_temp
               end do
               write(ilun)xdp
