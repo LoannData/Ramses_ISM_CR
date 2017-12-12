@@ -245,7 +245,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
      ind_cell(i)=father(ind_grid(i))
   end do
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncache,ilevel)
-
   !---------------------------
   ! Gather 6x6x6 cells stencil
   !---------------------------
@@ -364,11 +363,12 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
            if(dust_barr)  cs = 1.0_dp
            if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
+           uuuloc(ind_exist(i),i3,j3,k3,1)=d
            uuuloc(ind_exist(i),i3,j3,k3,2)=u
            uuuloc(ind_exist(i),i3,j3,k3,3)=v
            uuuloc(ind_exist(i),i3,j3,k3,4)=w
            uuuloc(ind_exist(i),i3,j3,k3,5)=enint+e_mag
-           
+
            !We fill uloc with the quantities required to compute the fluxes (d, P, epsilon, ts/d)
            uloc(ind_exist(i),i3,j3,k3,2*ndust+1)=d
            uloc(ind_exist(i),i3,j3,k3,2*ndust+2)=pressure
@@ -551,23 +551,16 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
                  call temperature_eos(rho_gas, uuuloc(i,i3,j3,k3,5) , temp, ht )
                  
                  rho_gas =  uold(ind_cell(i),1)-sum_dust_new
-
-                 call enerint_eos ( rho_gas, temp , enint)
+                 call enerint_eos (rho_gas, temp , enint)
                  d = uuuloc(i,i3,j3,k3,1)
                  u = uuuloc(i,i3,j3,k3,2)
                  v = uuuloc(i,i3,j3,k3,3)
                  w = uuuloc(i,i3,j3,k3,4)
-                 !print *, d, uold(ind_cell(i),1),unew(ind_cell(i),1)
-                 unew(ind_cell(i),1) = d
-                 unew(ind_cell(i),2) = d*u
-                 unew(ind_cell(i),3) = d*v
-                 unew(ind_cell(i),4) = d*w
-                 !print *, 'bla'
-                 !print *,sum_dust_old, unew(ind_cell(i),5) 
-                 !unew(ind_cell(i),5) = uuuloc(i,i3,j3,k3,5) + 0.5d0*d*(u**2+v**2+w**2)
+                 !unew(ind_cell(i),1) = d
+                 !unew(ind_cell(i),2) = d*u
+                 !unew(ind_cell(i),3) = d*v
+                 !unew(ind_cell(i),4) = d*w
                  unew(ind_cell(i),5) = enint + 0.5d0*d*(u**2+v**2+w**2)
-                 !print *, sum_dust_new , unew(ind_cell(i),5),0.5d0*d*(u**2+v**2+w**2)               
-
               else
                  !If we test barenblatt we only update P
                   unew(ind_cell(i),5)=(1.0_dp-sum_dust_new)*uold(ind_cell(i),1)/(gamma-1.0_dp)
@@ -590,7 +583,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
      if(idim==3)k0=1
      !----------------------
      ! Left flux at boundary
-     !----------------------     
+      !----------------------     
      ! Check if grids sits near left boundary
      ! and gather neighbor father cells index
      nb_noneigh=0

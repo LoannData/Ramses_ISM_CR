@@ -5,6 +5,9 @@
 subroutine condinit(x,u,dx,nn)
   use amr_parameters
   use hydro_parameters
+  use poisson_parameters
+  use cooling_module      , only : kb,mh
+  use radiation_parameters,only:mu_gas
   implicit none
   integer ::nn                              ! Number of cells
   real(dp)::dx                              ! Cell size
@@ -24,21 +27,46 @@ subroutine condinit(x,u,dx,nn)
   ! scalars in the hydro solver.
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
-#if NDUST>0
-  integer::idust
-#endif
-#if NENER>0
-  integer::irad
-#endif
-#if NVAR>8+NENER
-  integer::ivar
-#endif  
+  integer::ivar, idust, i
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp),dimension(1:nvector) :: sum_dust
-
-     ! Call built-in initial condition generator
-     call region_condinit(x,q,dx,nn)
-     ! Add here, if you wish, some user-defined initial conditions
+  real(dp)::xn,x0,sum_dust, t_stop, rho_0, epsilon_0, delta_rho0,v0, pi,P_0,rho_gas, dusttogas
+      pi =3.14159265358979323846_dp
+      dusttogas = 1.0d0!0.10
+      rho_gas =1.0
+      rho_0 = rho_gas + dusttogas*rho_gas
+      epsilon_0=  dusttogas*rho_gas/rho_0
+      delta_rho0= 1.0e-4_dp
+      v0  = delta_rho0
+      q(1:nn,2)=0.0d0
+      q(1:nn,3)=0.0d0
+      q(1:nn,4)=0.0d0
+      q(1:nn,5)=0.0d0
+      q(1:nn,6)=0.0d0
+      q(1:nn,7)=0.0d0
+      q(1:nn,8)=0.0d0
+      q(1:nn,nvar+1)=0.0d0
+      q(1:nn,nvar+2)=0.0d0
+      q(1:nn,nvar+3)=0.0d0
+  
+      do ivar=9,nvar
+         q(1:nn,ivar)=0.0d0
+      end do
+   
+      do i=1, nn
+         ! Compute position in normalized coordinates
+         xn=abs(x(i,1))
+        
+         sum_dust =0.0d0
+         do idust = 1, Ndust
+            q(i,1)=rho_0*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
+            q(i,2)=v0*sin(2.0_dp*pi*xn)
+            q(i,firstindex_ndust+idust) = epsilon_0!*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
+            sum_dust= sum_dust + q(i,firstindex_ndust+idust)
+         end do
+         !P_0 = (1.0d0-epsilon_0)*rho_0/gamma
+         q(i,5)=(1.0d0-epsilon_0)*q(i,1)!/gamma
+      end do
+      
      ! Convert primitive to conservative variables
      ! density -> density
      u(1:nn,1)=q(1:nn,1)
@@ -98,8 +126,8 @@ subroutine condinit(x,u,dx,nn)
 #endif
 #if NDUST>0
      ! dust
-     do idust=1,ndust
-        u(1:nn,firstindex_ndust+idust)=q(1:nn,1)*q(1:nn,firstindex_ndust+idust)
+     do ivar=1,ndust
+        u(1:nn,firstindex_ndust+ivar)=q(1:nn,1)*q(1:nn,firstindex_ndust+ivar)
      end do
 #endif
  
@@ -123,11 +151,10 @@ subroutine velana(x,v,dx,t,ncell)
   ! v(i,1:3) is the imposed 3-velocity in user units.
   !================================================================
   integer::i
-  real(dp)::xx,yy=0.,zz=0.,vx,vy,vz,aa,twopi
-!!$  real(dp)::rr,tt,omega
-  
+  real(dp)::xx,yy,zz,vx,vy,vz,rr,tt,omega,aa,twopi
+
   ! Add here, if you wish, some user-defined initial conditions
-  aa=1.0+0.*t
+  aa=1.0
   twopi=2d0*ACOS(-1d0)
   do i=1,ncell
 

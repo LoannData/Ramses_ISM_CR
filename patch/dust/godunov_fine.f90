@@ -164,7 +164,7 @@ subroutine set_uold(ilevel)
      call add_pdv_source_terms(ilevel)
   endif
 #if NDUST>0
-   call add_dust_terms(ilevel)
+   !call add_dust_terms(ilevel)
 #endif
   ! Set uold to unew for myid cells
   do ind=1,twotondim
