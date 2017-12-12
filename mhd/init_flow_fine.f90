@@ -548,9 +548,13 @@ subroutine region_condinit(x,q,dx,nn)
                  q(i,8+ivar)=prad_region(k,ivar)
               enddo
 #if USE_FLD==1
-              T_region(k)=P_region(k)*mu_gas*mH/kb/d_region(k) *scale_v**2
+              if(T_region(k)==0.0d0) T_region(k) = P_region(k)*mu_gas*mH/kb/d_region(k) *scale_v**2
               do j=1,ngrp
-                 q(i,firstindex_er+j)=radiation_source(T_region(k),j)/(scale_d*scale_v**2)
+                 if(E_region(k,j) > 0.0d0)then
+                    q(i,firstindex_er+j)=E_region(k,j)
+                 else
+                    q(i,firstindex_er+j)=radiation_source(T_region(k),j)/(scale_d*scale_v**2)
+                 endif
               end do
 #endif
 #if USE_M_1==1
@@ -602,9 +606,13 @@ subroutine region_condinit(x,q,dx,nn)
               q(i,8+ivar)=q(i,8+ivar)+prad_region(k,ivar)*r/vol
            enddo
 #if USE_FLD==1
-           T_region(k)=P_region(k)*mu_gas*mH/kb/d_region(k) *scale_v**2
+           if(T_region(k)==0.0d0) T_region(k) = P_region(k)*mu_gas*mH/kb/d_region(k) *scale_v**2
            do j=1,ngrp
-              q(i,firstindex_er+j)=q(i,firstindex_er+j)+radiation_source(T_region(k),j)*r/vol/(scale_d*scale_v**2)
+              if(E_region(k,j) > 0.0d0)then
+                 q(i,firstindex_er+j)=q(i,firstindex_er+j)+E_region(k,j)*r/vol
+              else
+                 q(i,firstindex_er+j)=q(i,firstindex_er+j)+radiation_source(T_region(k),j)*r/vol/(scale_d*scale_v**2)
+              endif
            end do
 #endif
 #endif

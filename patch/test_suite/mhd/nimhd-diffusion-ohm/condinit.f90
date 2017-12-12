@@ -6,34 +6,44 @@ subroutine condinit(x,u,dx,nn)
   use amr_parameters
   use hydro_parameters
   implicit none
-  integer ::nn                              ! Number of cells
-  real(dp)::dx                              ! Cell size
+  integer ::nn                            ! Number of cells
+  real(dp)::dx                            ! Cell size
   real(dp),dimension(1:nvector,1:nvar+3)::u ! Conservative variables
-  real(dp),dimension(1:nvector,1:ndim)::x   ! Cell center position.
+  real(dp),dimension(1:nvector,1:ndim)::x ! Cell center position.
   !================================================================
   ! This routine generates initial conditions for RAMSES.
   ! Positions are in user units:
   ! x(i,1:3) are in [0,boxlen]**ndim.
   ! U is the conservative variable vector. Conventions are here:
-  ! U(i,1): d, U(i,2:4): d.u,d.v,d.w, U(i,5): E, U(i,6:8): Bleft,
+  ! U(i,1): d, U(i,2:4): d.u,d.v,d.w, U(i,5): E, U(i,6:8): Bleft, 
   ! U(i,nvar+1:nvar+3): Bright
   ! Q is the primitive variable vector. Conventions are here:
-  ! Q(i,1): d, Q(i,2:4):u,v,w, Q(i,5): P, Q(i,6:8): Bleft,
+  ! Q(i,1): d, Q(i,2:4):u,v,w, Q(i,5): P, Q(i,6:8): Bleft, 
   ! Q(i,nvar+1:nvar+3): Bright
   ! If nvar > 8, remaining variables (9:nvar) are treated as passive
   ! scalars in the hydro solver.
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
-#if NENER>0
-  integer::irad
-#endif
-#if NVAR>8+NENER
-  integer::ivar
-#endif
+  integer::i,ivar
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
+
+  real(dp) :: xx,yy,zz
 
   ! Call built-in initial condition generator
   call region_condinit(x,q,dx,nn)
+  
+  do i = 1,nn
+     xx = x(i,1) - 0.5_dp*(1.0_dp + dx)
+     yy = x(i,2) - 0.5_dp*(1.0_dp + dx)
+     zz = x(i,3) - 0.5_dp*(1.0_dp + dx)
+!      if((abs(xx) < 0.9_dp*dx) .and. (abs(yy) < 0.9_dp*dx) .and. (abs(zz) < 0.9_dp*dx))then
+     if((abs(xx) < 0.9_dp*dx) .and. (abs(zz) < 0.9_dp*dx))then
+!      if(abs(xx) < 0.9_dp*dx)then
+       q(i,     7) = 1.0_dp
+       q(i,nvar+2) = 1.0_dp
+     endif
+  enddo
+  
 
   ! Add here, if you wish, some user-defined initial conditions
   ! ........
@@ -103,7 +113,7 @@ end subroutine condinit
 !================================================================
 subroutine velana(x,v,dx,t,ncell)
   use amr_parameters
-  use hydro_parameters
+  use hydro_parameters  
   implicit none
   integer ::ncell                         ! Size of input arrays
   real(dp)::dx                            ! Cell size
@@ -116,11 +126,10 @@ subroutine velana(x,v,dx,t,ncell)
   ! v(i,1:3) is the imposed 3-velocity in user units.
   !================================================================
   integer::i
-  real(dp)::xx,yy=0.,zz=0.,vx,vy,vz,aa,twopi
-!!$  real(dp)::rr,tt,omega
-  
+  real(dp)::xx,yy,zz,vx,vy,vz,rr,tt,omega,aa,twopi
+
   ! Add here, if you wish, some user-defined initial conditions
-  aa=1.0+0.*t
+  aa=1.0
   twopi=2d0*ACOS(-1d0)
   v=0.0d0
 !   do i=1,ncell

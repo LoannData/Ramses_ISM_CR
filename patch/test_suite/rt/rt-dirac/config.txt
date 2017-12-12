@@ -1,0 +1,2 @@
+QUICK: 0
+FLAGS: NDIM=3 SOLVER=mhd PATCH=../patch/test_suite/rt/rt-dirac NIONS=3 NGROUPS=3

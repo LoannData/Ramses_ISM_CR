@@ -36,7 +36,7 @@ subroutine dump_all
 
   if(IOGROUPSIZEREP>0)call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
 
-  if(ndim>1)then
+!   if(ndim>1)then
      if(IOGROUPSIZEREP>0) then
         filedirini='output_'//TRIM(nchar)//'/'
         filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
@@ -228,7 +228,7 @@ subroutine dump_all
 #endif
      if(myid==1.and.print_when_io) write(*,*)'End output timer'
 
-  end if
+!   end if
 
 end subroutine dump_all
 !#########################################################################
