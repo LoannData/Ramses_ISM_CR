@@ -3,7 +3,6 @@ This is the RAMSES parameter file for Sod's shock tube test.
 &RUN_PARAMS
 hydro=.true.
 nsubcycle=3*1,2
-verbose=.false.
 /
 
 &AMR_PARAMS 
@@ -21,7 +20,7 @@ ibound_max=-1,+1
 bound_type= 2, 2
 d_bound=1.0,0.125
 u_bound=0.0,0.0
-p_bound=0.66,0.034
+p_bound=1.0,0.1 !0.66,0.034
 prad_bound=0.34,0.066
 A_bound=0.0,0.0
 B_bound=0.0,0.0
@@ -36,7 +35,7 @@ x_center=0.25,0.75
 length_x=0.5,0.5
 d_region=1.0,0.125
 u_region=0.0,0.0
-p_region=0.66,0.034
+p_region=1.0,0.1 !0.66,0.034
 prad_region=0.34,0.066
 A_region=0.0,0.0
 B_region=0.0,0.0
