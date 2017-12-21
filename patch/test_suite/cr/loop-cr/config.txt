@@ -1,0 +1,2 @@
+QUICK: 0
+FLAGS: NDIM=2 PATCH=../patch/test_suite/cr/loop-cr SOLVER=mhd NCR=1
