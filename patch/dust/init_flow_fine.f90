@@ -473,7 +473,7 @@ subroutine region_condinit(x,q,dx,nn)
   use hydro_parameters,only:var_region
 #endif
 #if NDUST>0
-  use hydro_parameters,only:dust_region,temp_dust
+  use hydro_parameters,only:dust_region
 #endif
   use radiation_parameters,only:mu_gas
   use cooling_module,only:mH,kb,clight
@@ -585,13 +585,7 @@ subroutine region_condinit(x,q,dx,nn)
                 q(i,firstindex_ndust+idust)= dust_region(k,idust)
                 sum_dust = sum_dust+dust_region(k,idust)
               end do
-              if(dust_barr .eqv. .false.) then
-                !q(i,5) =  q(i,5)+d_region(k)*kb*temp_dust/mu_gas/mh/scale_v**2
-                q(i,1) = q(i,1)+sum_dust*d_region(k)
-               else
-                 q(i,5) = (1.0_dp-sum_dust)*d_region(k)*kb*temp_dust/mu_gas/mh/scale_v**2
-               end if
-               
+              q(i,1) = q(i,1)+sum_dust*d_region(k)
 #endif
 
            end if
@@ -645,14 +639,7 @@ subroutine region_condinit(x,q,dx,nn)
               q(i,firstindex_ndust+ivar) = q(i,firstindex_ndust+ivar) + dust_region(k,ivar)
               sum_dust                   = sum_dust + q(i,firstindex_ndust+ivar)
            end do
-           if(dust_barr .eqv. .false.) then
               q(i,1) = q(i,1) + sum_dust*q(i,1)
-              !q(i,5) = q(i,5) + d_region(k)*kb*temp_dust/mu_gas/mh/scale_v**2
-
-           else
-              q(i,5) = q(i,5) + d_region(k)*r/vol*kb*temp_dust/mu_gas/mh/scale_v**2 &
-                             &-sum_dust*q(i,1)*kb*temp_dust/mu_gas/mh/scale_v**2
-           end if
 #endif
            
         end do

@@ -99,10 +99,6 @@ subroutine set_uold_dust(ilevel)
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
         do i=1,active(ilevel)%ngrid
-!!$           uold(active(ilevel)%igrid(i)+iskip,1) = unew(active(ilevel)%igrid(i)+iskip,1)
-!!$           uold(active(ilevel)%igrid(i)+iskip,2) = unew(active(ilevel)%igrid(i)+iskip,2)
-!!$           uold(active(ilevel)%igrid(i)+iskip,3) = unew(active(ilevel)%igrid(i)+iskip,3)
-!!$           uold(active(ilevel)%igrid(i)+iskip,4) = unew(active(ilevel)%igrid(i)+iskip,4)
            uold(active(ilevel)%igrid(i)+iskip,5) = unew(active(ilevel)%igrid(i)+iskip,5)
            do idust=1,ndust
               uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
@@ -200,8 +196,8 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp)::sum_dust,sum_dust_new,sum_dust_old
   real(dp)::d,u,v,w,A,B,C,enint,e_kin,e_mag,pressure,cs, temp
-  real(dp)::rho_gas,rho_grain_loc,size_grain_loc, pi, t_stop
-
+  real(dp)::rho_gas, pi, t_stop
+  real(dp), dimension(1:ndust) ::d_grain,l_grain
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   
@@ -214,11 +210,17 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   uuuloc= 0.0d0
   facdx= 0.0d0
   ok   = .false.
+  
   oneontwotondim = 1.d0/dble(twotondim)
+  
   ! Initialisation of dust related quantities
+  
   pi =3.14159265358979323846_dp
-  rho_grain_loc=rho_grain/scale_d
-  size_grain_loc=size_grain/scale_l
+
+  do idust=1,ndust
+    d_grain(idust)=grain_dens(idust)/scale_d
+    l_grain(idust)=grain_size(idust)/scale_l
+  end do
   ! Mesh spacing in that level
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
@@ -276,11 +278,11 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
                  u1(i,j,ivar)=uold(ibuffer_father(i,j),ivar)
               end do
            end do
-           do ivar=1,ndust
-              do i=1,nbuffer
-                 u1(i,j,firstindex_ndust+idust)=uold(ibuffer_father(i,j),firstindex_ndust+idust)!/uold(ibuffer_father(i,j),1)
-              end do
-           end do
+           !do ivar=1,ndust
+            !  do i=1,nbuffer
+            !     u1(i,j,firstindex_ndust+idust)=uold(ibuffer_father(i,j),firstindex_ndust+idust)!/uold(ibuffer_father(i,j),1)
+            !  end do
+           !end do
 
            do i=1,nbuffer
               ind1(i,j)=son(ibuffer_father(i,j))
@@ -374,8 +376,8 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            uloc(ind_exist(i),i3,j3,k3,2*ndust+2)=pressure
            do idust = 1, ndust
               ! different prescriptions for t-stop
-              t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d!/d
-              if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust
+              t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d!/d
+              if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp
 
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - uold(ind_cell(i),firstindex_ndust+idust)/d)
@@ -432,8 +434,8 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+2)=pressure
            do idust = 1, ndust
               ! different prescriptions for t-stop
-              t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d
-              if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust
+              t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
+              if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp
               uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp - u2(i,ind_son,firstindex_ndust+idust))
               if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
@@ -556,10 +558,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
                  u = uuuloc(i,i3,j3,k3,2)
                  v = uuuloc(i,i3,j3,k3,3)
                  w = uuuloc(i,i3,j3,k3,4)
-                 !unew(ind_cell(i),1) = d
-                 !unew(ind_cell(i),2) = d*u
-                 !unew(ind_cell(i),3) = d*v
-                 !unew(ind_cell(i),4) = d*w
                  unew(ind_cell(i),5) = enint + 0.5d0*d*(u**2+v**2+w**2)
               else
                  !If we test barenblatt we only update P
@@ -673,7 +671,9 @@ subroutine add_dust_terms(ilevel)
   real(dp) ,dimension(1:ndim       )::u_loc
   real(dp),dimension(1:nvector,1:ndim),save::Pleft,Pright, Enintleft, Enintright
   real(dp) ,dimension(1:nvector)       ::gradEintgradP
-  real(dp)  :: t_stop,cs,pi, rho_grain_loc,size_grain_loc
+  real(dp)  :: t_stop,cs,pi
+    real(dp), dimension(1:ndust) ::d_grain,l_grain
+
   real(dp) :: dd,ee,cmp_Cv_eos
   integer  :: ht
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -690,8 +690,10 @@ subroutine add_dust_terms(ilevel)
   Pleft=0.0; Pright=0.0; Enintleft=0.0; Enintright=0.0
   gradEintgradP=0.0d0
   t_stop=0.0d0;  pi =3.14159265358979323846_dp
-  rho_grain_loc=rho_grain/scale_d
-  size_grain_loc=size_grain/scale_l
+  do idust=1,ndust
+    d_grain(idust)=grain_dens(idust)/scale_d
+    l_grain(idust)=grain_size(idust)/scale_l
+  end do
   
   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -837,8 +839,8 @@ subroutine add_dust_terms(ilevel)
                  sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
             end do
             call soundspeed_eos((1.0_dp-sum_dust)*d,eps, cs)
-            t_stop = rho_grain_loc*size_grain_loc*SQRT(pi*gamma/8.0_dp)/cs/d
-            if(K_drag) t_stop = sum_dust*(1-sum_dust)*d/K_dust
+            t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
+            if(K_drag) t_stop = sum_dust*(1-sum_dust)*d/K_dust(idust)
             if(dust_barr) t_stop = 0.1_dp
            do idim=1,ndim
               unew(ind_cell(i),5) = unew(ind_cell(i),5) &

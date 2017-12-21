@@ -117,10 +117,10 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdx
 
-  real(dp)::dPdx1,dx_loc,sum_dust,Tksleft_tot,Tksright_tot,rholeft,rhoright
+  real(dp)::dx_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
-  real(dp) :: speed, sigma,sigma1,sigma2,sigma3
+  real(dp) :: speed, sigma
   integer::i,j,k,l,isl,idust, idens, ipress
   integer::jlo,jhi,klo,khi
 
@@ -137,29 +137,26 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        rholeft = uin (l,i-1,j,k,idens)
-        rhoright = uin (l,i,j,k,idens)
-        dPdx1= (uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
         do idust= 1, ndust
-           Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)/rholeft
-           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/rhoright
+           Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)/uin(l,i-1,j,k,idens)
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
         end do
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
         end do
+        
         do idust=1,ndust
            !First order terms
-           speed  = 0.5d0*(Tksright(idust)/rhoright+Tksleft(idust)/rholeft)*dPdx1
+           speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i-1,j,k,idens))*(uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
            if(speed.ge.0.0d0) fx(idust)= speed*uin(l,i-1,j,k,idust) 
            if(speed<0.0d0) fx(idust)= speed*uin(l,i,j,k,idust)
            !Second order terms
-           if(speed.ge.0.0d0) isl = -1
-           if(speed<0.0d0) isl = 0
-           !sigma1 = 0.5d0*(uin(l,i+1+isl,j,k,idust)-uin(l,i-1+isl,j,k,idust))/dx
-           sigma2 =(uin(l,i+isl,j,k,idust)-uin(l,i-1+isl,j,k,idust))/dx
-           sigma3 =(uin(l,i+1+isl,j,k,idust)-uin(l,i+isl,j,k,idust))/dx
-           call minmod_dust(sigma2,sigma3,sigma)
+           if(speed.ge.0.0d0) isl = i-1
+           if(speed<0.0d0) isl = i
+           !sigma2 =(uin(l,i+isl,j,k,idust)-uin(l,i-1+isl,j,k,idust))/dx
+           !sigma3 =(uin(l,i+1+isl,j,k,idust)-uin(l,i+isl,j,k,idust))/dx
+           call minmod_dust((uin(l,isl,j,k,idust)-uin(l,isl-1,j,k,idust))/dx,(uin(l,isl+1,j,k,idust)-uin(l,isl,j,k,idust))/dx,sigma)
            fx(idust) = fx(idust) + 0.5d0*abs(speed)*(dx-abs(speed)*dt)*sigma
         end do
         do idust= 1, ndust

@@ -56,7 +56,7 @@ subroutine init_hydro
 #if NDUST>0
   allocate(dflux_dust(1:ncell,1:ndust))
   allocate(delta_vdust(1:ncell,1:ndust,1:ndim))
-  dflux_dust =0.0d0; delta_vdust=0.0d0
+  dflux_dust =0.0d0; delta_vdust=0.0d0;
 #endif
   ! Variables for BICG scheme
   ! 1 : r
