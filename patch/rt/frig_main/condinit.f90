@@ -368,14 +368,15 @@ subroutine condinit(x,u,dx,nn)
   nticks=dx/dxmin
 
 
-! Set ionisation fraction to the floor value by hand
-#ifdef RT
-  if (rt) then
+!Set all scalar variables to 0 initially
+!Include, radiation, extinction and passive scalar
+!#ifdef RT
+!  if (rt) then
      DO i=1,nn
         q(i,9:nvar) = 0d0
      ENDDO ! LAYS EGGS
-  end if
-#endif
+!  end if
+!#endif
 
 
 

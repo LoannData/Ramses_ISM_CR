@@ -7,17 +7,22 @@ subroutine dump_all
   use pm_commons
   use hydro_commons
   use cooling_module
-
+#if USE_TURB==1
+  use turb_commons
+#endif
   use feedback_module
 
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
 #endif
+#if ! defined (WITHOUTMPI) || defined (NOSYSTEM)
+  integer::info
+#endif
   character::nml_char
   character(LEN=5)::nchar,ncharcpu
   character(LEN=80)::filename,filedir,filedirini,filecmd
-  integer::i,itest,info,irec,ierr
+  integer::irec,ierr
 
   if(nstep_coarse==nstep_coarse_old.and.nstep_coarse>0)return
   if(nstep_coarse==0.and.nrestart>0)return
@@ -28,10 +33,10 @@ subroutine dump_all
   ifout=ifout+1
   if(t>=tout(iout).or.aexp>=aout(iout))iout=iout+1
   output_done=.true.
-  
+
   if(IOGROUPSIZEREP>0)call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
 
-  if(ndim>1)then
+!   if(ndim>1)then
      if(IOGROUPSIZEREP>0) then
         filedirini='output_'//TRIM(nchar)//'/'
         filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
@@ -40,8 +45,8 @@ subroutine dump_all
      endif
 
      filecmd='mkdir -p '//TRIM(filedir)
-     
-     if (.not.withoutmkdir) then 
+
+     if (.not.withoutmkdir) then
 #ifdef NOSYSTEM
         call PXFMKDIR(TRIM(filedirini),LEN(TRIM(filedirini)),O'755',info)
         call PXFMKDIR(TRIM(filedir),LEN(TRIM(filedir)),O'755',info)
@@ -57,7 +62,7 @@ subroutine dump_all
         endif
 #endif
      endif
-     
+
 #ifndef WITHOUTMPI
      call MPI_BARRIER(MPI_COMM_WORLD,info)
 #endif
@@ -67,7 +72,7 @@ subroutine dump_all
      call output_header(filename)
 #ifndef WITHOUTMPI
      if(synchro_when_io) call MPI_BARRIER(MPI_COMM_WORLD,info)
-#endif     
+#endif
      if(myid==1.and.print_when_io) write(*,*)'End backup header'
 
      if(myid==1.and.print_when_io) write(*,*)'Start backup info etc.'
@@ -95,19 +100,15 @@ subroutine dump_all
         endif
         ! Copy namelist file to output directory
         filename=TRIM(filedir)//'namelist.txt'
-        OPEN(UNIT=10, FILE=namelist_file, ACCESS='DIRECT', STATUS='OLD', &
-             & ACTION='READ',  IOSTAT=IERR, RECL=1)
-        OPEN(UNIT=11, FILE=filename, ACCESS='DIRECT', STATUS='REPLACE', &
-             & ACTION='WRITE', IOSTAT=IERR, RECL=1)
-        IREC = 1
+        OPEN(10, FILE=namelist_file, ACCESS="STREAM", ACTION="READ")
+        OPEN(11, FILE=filename,      ACCESS="STREAM", ACTION="WRITE")
         DO
-           READ(UNIT=10, REC=IREC, IOSTAT=IERR)nml_char
+           READ(10, IOSTAT=IERR)nml_char
            IF (IERR.NE.0) EXIT
-           WRITE(UNIT=11, REC=IREC)nml_char
-           IREC = IREC + 1
+           WRITE(11)nml_char
         END DO
-        CLOSE(10)
         CLOSE(11)
+        CLOSE(10)
         ! Copy compilation details to output directory
         filename=TRIM(filedir)//'compilation.txt'
         OPEN(UNIT=11, FILE=filename, FORM='formatted')
@@ -140,7 +141,7 @@ subroutine dump_all
 #endif
         if(myid==1.and.print_when_io) write(*,*)'End backup hydro'
      end if
-     
+
 #ifdef RT
      if(rt.or.neq_chem)then
         if(myid==1.and.print_when_io) write(*,*)'Start backup rt'
@@ -152,7 +153,7 @@ subroutine dump_all
         if(myid==1.and.print_when_io) write(*,*)'End backup rt'
      endif
 #endif
-    
+
      if(pic)then
         if(myid==1.and.print_when_io) write(*,*)'Start backup part'
         filename=TRIM(filedir)//'part_'//TRIM(nchar)//'.out'
@@ -174,7 +175,7 @@ subroutine dump_all
 #endif
         if(myid==1.and.print_when_io) write(*,*)'End backup part'
      end if
-     
+
      if(poisson)then
         if(myid==1.and.print_when_io) write(*,*)'Start backup poisson'
         filename=TRIM(filedir)//'grav_'//TRIM(nchar)//'.out'
@@ -206,7 +207,28 @@ subroutine dump_all
 #endif
         if(myid==1.and.print_when_io) write(*,*)'End backup gadget format'
      end if
-  end if
+
+#if USE_TURB==1
+     if (turb) then
+        if(myid==1.and.print_when_io) write(*,*)'Start backup turb'
+        if (myid==1) call write_turb_fields(filedir)
+#ifndef WITHOUTMPI
+        if(synchro_when_io) call MPI_BARRIER(MPI_COMM_WORLD,info)
+#endif
+        if(myid==1.and.print_when_io) write(*,*)'End backup turb'
+     end if
+#endif
+
+     if(myid==1.and.print_when_io) write(*,*)'Start timer'
+     ! Output timer: must be called by each process !
+     filename=TRIM(filedir)//'timer_'//TRIM(nchar)//'.txt'
+     call output_timer(.true., filename)
+#ifndef WITHOUTMPI
+     if(synchro_when_io) call MPI_BARRIER(MPI_COMM_WORLD,info)
+#endif
+     if(myid==1.and.print_when_io) write(*,*)'End output timer'
+
+!   end if
 
 end subroutine dump_all
 !#########################################################################
@@ -220,6 +242,7 @@ subroutine backup_amr(filename)
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  integer::dummy_io,info2
 #endif
   character(LEN=80)::filename
 
@@ -227,14 +250,12 @@ subroutine backup_amr(filename)
   integer::ilevel,ibound,ncache,istart,i,igrid,idim,ind,iskip
   integer,allocatable,dimension(:)::ind_grid,iig
   real(dp),allocatable,dimension(:)::xdp
-  real(sp),allocatable,dimension(:)::xsp
   real(dp),dimension(1:3)::skip_loc
   character(LEN=80)::fileloc
   character(LEN=5)::nchar
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::scale
   integer,parameter::tag=1120
-  integer::dummy_io,info2
 
   if(verbose)write(*,*)'Entering backup_amr'
 
@@ -254,7 +275,7 @@ subroutine backup_amr(filename)
 
   !-----------------------------------
   ! Output amr grid in file
-  !-----------------------------------  
+  !-----------------------------------
   ilun=myid+10
   call title(myid,nchar)
   fileloc=TRIM(filename)//TRIM(nchar)
@@ -397,7 +418,7 @@ subroutine backup_amr(filename)
      end do
   end do
   close(ilun)
-   
+
   ! Send the token
 #ifndef WITHOUTMPI
   if(IOGROUPSIZE>0) then
@@ -430,7 +451,6 @@ subroutine output_info(filename)
   real(dp)::scale
 !  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   character(LEN=80)::fileloc
-  character(LEN=5)::nchar
 
   if(verbose)write(*,*)'Entering output_info'
 
@@ -457,7 +477,7 @@ subroutine output_info(filename)
      stop
 #endif
   endif
-  
+
   ! Write run parameters
   write(ilun,'("ncpu        =",I11)')ncpu
   write(ilun,'("ndim        =",I11)')ndim
@@ -485,14 +505,14 @@ subroutine output_info(filename)
   write(ilun,'("npscal      =",I11)')npscal
   write(ilun,'("nextinct    =",I11)')nextinct
   write(ilun,*)
-  
+
   ! Write ordering information
   write(ilun,'("ordering type=",A80)')ordering
   if(ordering=='bisection') then
      do icpu=1,ncpu
-        ! write 2*ndim floats for cpu bound box                                                         
+        ! write 2*ndim floats for cpu bound box
         write(ilun,'(E23.15)')bisec_cpubox_min(icpu,:),bisec_cpubox_max(icpu,:)
-        ! write 1 float for cpu load                                                                    
+        ! write 1 float for cpu load
         write(ilun,'(E23.15)')dble(bisec_cpu_load(icpu))
      end do
   else
@@ -529,12 +549,16 @@ subroutine output_header(filename)
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  integer::info
 #endif
   character(LEN=80)::filename
 
-  integer::info,ilun
-  integer(i8b)::tmp_long,npart_tot
+  integer::ilun
+  integer(i8b)::npart_tot
   character(LEN=80)::fileloc
+#ifdef LONGINT
+  integer(i8b)::tmp_long
+#endif
 
   if(verbose)write(*,*)'Entering output_header'
 
@@ -558,7 +582,7 @@ subroutine output_header(filename)
      ! Open file
      fileloc=TRIM(filename)
      open(unit=ilun,file=fileloc,form='formatted')
-     
+
      ! Write header information
      write(ilun,*)'Total number of particles'
      write(ilun,*)npart_tot
@@ -598,16 +622,17 @@ subroutine savegadget(filename)
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  integer::info
+  integer(i8b)::npart_loc
 #endif
   character(LEN=80)::filename
-  TYPE (gadgetheadertype) :: header
-  real,allocatable,dimension(:,:)::pos, vel
+  TYPE(gadgetheadertype)::header
+  real,allocatable,dimension(:,:)::pos,vel
   integer(i8b),allocatable,dimension(:)::ids
-  integer::i, idim, ipart
-  real:: gadgetvfact
-  integer::info
-  integer(i8b)::npart_tot, npart_loc
-  real, parameter:: RHOcrit = 2.7755d11
+  integer::i,idim,ipart
+  real(dp)::gadgetvfact
+  integer(i8b)::npart_tot
+  real(dp),parameter::RHOcrit=2.7755d11
 
 #ifndef WITHOUTMPI
   npart_loc=npart
@@ -634,7 +659,7 @@ subroutine savegadget(filename)
 #ifndef LONGINT
   header%nparttotal(2) = npart_tot
 #else
-  header%nparttotal(2) = MOD(npart_tot,4294967296)
+  header%nparttotal(2) = MOD(npart_tot,4294967296_i8b)
 #endif
   header%flag_cooling = 0
   header%numfiles = ncpu
@@ -648,7 +673,7 @@ subroutine savegadget(filename)
 #ifndef LONGINT
   header%totalhighword(2) = 0
 #else
-  header%totalhighword(2) = npart_tot/4294967296
+  header%totalhighword(2) = npart_tot/4294967296_i8b
 #endif
   header%flag_entropy_instead_u = 0
   header%flag_doubleprecision = 0
@@ -665,8 +690,8 @@ subroutine savegadget(filename)
                 write(*,*) myid, "Ipart=",ipart, "exceeds", npart
                 call clean_stop
            endif
-           pos(idim, ipart)=xp(i,idim) * boxlen_ini
-           vel(idim, ipart)=vp(i,idim) * gadgetvfact
+           pos(idim, ipart)=real(xp(i,idim) * boxlen_ini , kind=4)
+           vel(idim, ipart)=real(vp(i,idim) * gadgetvfact , kind=4)
            if (idim.eq.1) ids(ipart) = idp(i)
         end if
      end do
@@ -676,4 +701,3 @@ subroutine savegadget(filename)
   deallocate(pos, vel, ids)
 
 end subroutine savegadget
-
