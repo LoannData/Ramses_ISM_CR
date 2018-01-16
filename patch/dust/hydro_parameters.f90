@@ -244,7 +244,8 @@ module hydro_parameters
   real(dp),parameter::year=3.15576e7_dp  !1 year in s
 
   ! Dust related parameters
-  logical  :: K_drag = .false.
+  logical :: K_drag = .false.
+  logical :: upwind_dust = .false.
   real(dp),dimension(1:ndust) :: K_dust = 1.0_dp
   real(dp),dimension(1:ndust):: grain_size = 1.0e-7_dp ! Dust properties (1:ndust) where the sizes of the grains are stocked
   real(dp),dimension(1:ndust):: grain_dens = 1.0_dp ! Dust properties (1:ndust) where the intrinsic of the grains are stocked

@@ -1773,7 +1773,7 @@ subroutine make_sink_from_clump(ilevel)
               sum_dust= 0.0_dp
 #if NDUST>0
               do idust=1,ndust
-                 sum_dust= sum_dust+ uold(indp(j,ind),firstindex_ndust+idust)/d
+                 sum_dust= sum_dust+ uold(ind_cell_new(i),firstindex_ndust+idust)/d
               enddo
  
 #endif

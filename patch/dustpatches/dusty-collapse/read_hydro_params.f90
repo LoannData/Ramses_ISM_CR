@@ -6,7 +6,14 @@ subroutine read_hydro_params(nml_ok)
   use cooling_module,ONLY:kB,mH,clight
   use const
   use units_commons
+  use mod_opacities
   use cloud_module
+#if NIMHD==1
+  use variables_X,ONLY:nvarchimie,nchimie,tchimie,&
+      &nminchimie,tminchimie,dnchimie,dtchimie,&
+      &xichimie,ximinchimie,dxichimie,&
+      nislin,tislin,xiislin
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -18,8 +25,14 @@ subroutine read_hydro_params(nml_ok)
   integer::i,j,idim,irad,nboundary_true=0,ht
   integer ,dimension(1:MAXBOUND)::bound_type
   real(dp)::ek_bound,em_bound,er_bound
-  real(dp)::radiation_source, sum_dust
+  real(dp)::radiation_source  
+  real(dp):: sum_dust
   character(len=2):: rad_trans_model='m1'
+
+  integer::ii,jj,kk,ee,hh,gg,ie,ir,k,it
+  real(dp)::dummy,compute_db,d0
+  real(dp)::xx,yy,vv,ww,zz
+  real(dp)::dtemp1,Temp_new2,epsilon_n,eint_old,T0,temp_new,d_loc,eint_new,pi
 
   !--------------------------------------------------
   ! Namelist definitions
@@ -38,45 +51,37 @@ subroutine read_hydro_params(nml_ok)
        & ,var_region &
 #endif
 #if NDUST>0
-       & ,dust_region &
+       &, dust_region &
 #endif
-       & ,A_region,B_region,C_region
-  namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr, dtdiff_params,dt_control &
+       & ,A_region,B_region,C_region &
+       & ,alpha_dense_core,beta_dense_core,crit,delta_rho,mass_c,rap,cont &
+       & ,ff_sct,ff_rt,ff_act,ff_vct,theta_mag,bb_test &
+       & ,contrast,Mach,uniform_bmag,r0_box
+  namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr &
        & ,niter_riemann,slope_type,slope_mag_type,switch_solv,switch_solv_dens &
 #if NENER>0
        & ,gamma_rad &
 #endif
-#if NDUST>0       
-       &,grain_size, grain_dens, K_dust, K_drag, upwind_dust &
-#endif
-       & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
+#if NDUST>0
+       &, grain_size, grain_dens, K_dust, K_drag &
+#endif       
+       & ,pressure_fix,beta_fix,scheme,riemann,riemann2d &
+       & ,positivity_type
   namelist/refine_params/x_refine,y_refine,z_refine,r_refine &
        & ,a_refine,b_refine,exp_refine,jeans_refine,mass_cut_refine &
+       & ,iso_jeans,Tp_jeans &
        & ,m_refine,mass_sph,err_grad_d,err_grad_p,err_grad_u &
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2,err_grad_E &
+#if NDUST>0
        & ,err_grad_dust &
-#if NENER>0
-       & ,err_grad_prad &
 #endif       
-#if NPSCAL>0
-       & ,err_grad_var &
-#endif
-       
-       & ,floor_d,floor_u,floor_p,floor_dust,ivar_refine,var_cut_refine &
+       & ,floor_d,floor_u,floor_p,ivar_refine,var_cut_refine &
        & ,floor_A,floor_B,floor_C,floor_B2,floor_E &
-       & ,interpol_var,interpol_type,sink_refine,interpol_mag_type&
-       & ,interpol_var_cond,interpol_type_cond,interpol_mag_type_cond
-
+       & ,interpol_var,interpol_type,sink_refine,interpol_mag_type
   namelist/boundary_params/nboundary,bound_type &
        & ,ibound_min,ibound_max,jbound_min,jbound_max &
        & ,kbound_min,kbound_max &
-#if NENER>0
-       & ,prad_bound &
-#endif
-#if NVAR>8+NENER
-       & ,var_bound &
-#endif
-       & ,d_bound,u_bound,v_bound,w_bound,p_bound,no_inflow &
+       & ,d_bound,u_bound,v_bound,w_bound,p_bound &
 #if NENER>NGRP
        & ,prad_bound &
 #endif
@@ -85,29 +90,34 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #if NDUST>0
        & ,dust_bound &
+#endif       
+#if NVAR>8+NENER
+       & ,var_bound &
 #endif
-       & ,A_bound,B_bound,C_bound
+       & ,A_bound,B_bound,C_bound,T_bound ,no_inflow
   namelist/physics_params/cooling,haardt_madau,metal,isothermal,barotrop,eos &
        & ,m_star,t_star,n_star,T2_star,g_star,del_star,eps_star,jeans_ncells &
        & ,eta_sn,yield,rbubble,f_ek,ndebris,f_w,mass_gmc,kappa_IR &
        & ,J21,a_spec,z_ave,z_reion,eta_mag,delayed_cooling,T2max &
-       & ,self_shielding,smbh,agn,B_ave,t_diss,momentum_feedback &
+       & ,self_shielding,smbh,agn,B_ave,t_diss &
 !       & ,rsink_max,msink_max,merge_stars &
        & ,units_density,units_time,units_length,neq_chem,ir_feedback,ir_eff &
-       & ,larson_lifetime,flux_accretion,t_diss &
-       & ,mu_gas &
-       & ,isotrope_cond,slopelim_cond,k_perp,cr_diffusion &
-       & ,M0,Dcr,epsilon_diff_cr,fix_temp_diff,alfven_diff_coeff
-
-  namelist/radiation_params/grey_rad_transfer &
+       & ,larson_lifetime,flux_accretion,t_diss, momentum_feedback &
+       & ,mu_gas,analytical_barotrop,isotrope_cond,slopelim_cond,k_perp,cr_diffusion
+  namelist/radiation_params/grey_rad_transfer,dtdiff_params,dt_control &
        & ,rosseland_params,planck_params,epsilon_diff,fld_limiter &
        & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group  &
        & ,numin,numax,Tr_floor,robin,rad_trans_model,min_optical_depth,rt_feedback &
-       & ,PMS_evol,Hosokawa_track,energy_fix,facc_star,facc_star_lum,valp_min,store_matrix,external_radiation_field
+       & ,PMS_evol,Hosokawa_track,energy_fix,facc_star,facc_star_lum,valp_min,store_matrix,external_radiation_field &
+       & ,opacity_type,rad_trans_model,min_optical_depth &
+       & ,rt_feedback,PMS_evol,Hosokawa_track,energy_fix &
+       & ,facc_star,facc_star_lum,store_matrix &
+       & ,external_radiation_field,stellar_photon
   ! modif nimhd
   namelist/nonidealmhd_params/nambipolar,gammaAD &
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
-       & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm
+       & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm &
+       & ,rho_threshold,use_x1d,use_x2d,use_x3d,use_res,default_ionisrate
   namelist/pseudovisco_params/nvisco,visco
   ! fin modif nimhd
 
@@ -394,6 +404,10 @@ subroutine read_hydro_params(nml_ok)
   is_radiative_energy(2:ngrp+1) = .true.
 #endif
 
+  ! Compute the size of the box early,
+  ! to avoid problems in the initial build of the amr grid
+  call calc_boxlen
+
   !--------------------------------------------------
   ! Make sure virtual boundaries are expanded to 
   ! account for staggered mesh representation
@@ -447,6 +461,7 @@ subroutine read_hydro_params(nml_ok)
   endif
 #endif
 
+
 #if NDUST>0
   !--------------------------------------------------
   ! Check for dust
@@ -457,8 +472,7 @@ subroutine read_hydro_params(nml_ok)
      nml_ok=.false.
   endif
 #endif
-
-
+  
   !-------------------------------------------------
   ! This section deals with hydro boundary conditions
   !-------------------------------------------------
@@ -586,12 +600,9 @@ subroutine read_hydro_params(nml_ok)
   ! Compute boundary conservative variables
   !--------------------------------------------------
   do i=1,nboundary
-#if NPSCAL>0
-     do j=1,npscal
-        boundary_var(i,firstindex_pscal+j)=var_bound(i,j)
-     end do
-#endif
-     sum_dust =0.0d0   
+     ! Do imposed BC for radiative transfer
+     d0=compute_db()
+     d_bound(i)=d0
 #if NDUST>0
      do j=1,ndust
         sum_dust = sum_dust + dust_bound(i,j)
@@ -600,16 +611,20 @@ subroutine read_hydro_params(nml_ok)
         boundary_var(i,firstindex_ndust+j)=(d_bound(i)+sum_dust*d_bound(i))*dust_bound(i,j)
      end do
 #endif
-     boundary_var(i,1) =d_bound(i)+sum_dust*d_bound(i)
-     boundary_var(i,2)=(d_bound(i)+sum_dust*d_bound(i))*u_bound(i)
-     boundary_var(i,3)=(d_bound(i)+sum_dust*d_bound(i))*v_bound(i)
-     boundary_var(i,4)=(d_bound(i)+sum_dust*d_bound(i))*w_bound(i)
+     d_bound(i)=d0*(1.0_dp+sum_dust)
+     T_bound(i)=Tr_floor
+     P_bound(i)=T_bound(i)*d_bound(i)*(1.0_dp-sum_dust)*kb/(mu_gas*mH*scale_v**2)
+     boundary_var(i,1)=MAX(d_bound(i),smallr)
+     boundary_var(i,2)=d_bound(i)*u_bound(i)
+     boundary_var(i,3)=d_bound(i)*v_bound(i)
+     boundary_var(i,4)=d_bound(i)*w_bound(i)
      boundary_var(i,6)=A_bound(i)
      boundary_var(i,7)=B_bound(i)
      boundary_var(i,8)=C_bound(i)
      boundary_var(i,nvar+1)=A_bound(i)
      boundary_var(i,nvar+2)=B_bound(i)
      boundary_var(i,nvar+3)=C_bound(i)
+
      er_bound=0.0D0
 #if NENER>0
      do j=1,nent
@@ -619,10 +634,7 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #if USE_FLD==1 || USE_M_1==1
      !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
-
-     call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)+sum_dust*d_bound(i)),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
-     if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht)
-
+     call temperature_eos(d_bound(i)*(1.0_dp-sum_dust),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
      do j=1,ngrp
         boundary_var(i,firstindex_er+j)=radiation_source(T_bound(i),j)/(scale_d*scale_v**2)
         er_bound=er_bound+boundary_var(i,firstindex_er+j)
@@ -635,17 +647,9 @@ subroutine read_hydro_params(nml_ok)
      end do
 #endif
 
-     ek_bound=0.5d0*(d_bound(i)+sum_dust*d_bound(i))*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
+     ek_bound=0.5d0*d_bound(i)*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
      em_bound=0.5d0*(A_bound(i)**2+B_bound(i)**2+C_bound(i)**2)
      boundary_var(i,5)=ek_bound+em_bound+er_bound+P_bound(i)/(gamma-1.0d0)
-     
-
-#if NDUST>0
-    if(dust_barr)then
-        boundary_var(i,5) =(1.0_dp-sum_dust)*(d_bound(i))/(gamma-1.0d0)
-     end if
-#endif
-
   end do
 
   !-----------------------------------
@@ -690,9 +694,360 @@ subroutine read_hydro_params(nml_ok)
   if (interpol_mag_type == -1) then
     interpol_mag_type = interpol_type
   endif
-  if (interpol_mag_type_cond == -1) then
-    interpol_mag_type_cond = interpol_type_cond
+
+#if NIMHD==1
+  !------------------------------------------
+  ! Read resistivity tables for non-ideal MHD
+  !------------------------------------------
+  if(use_nonideal_mhd)then
+     if(use_res==1)then
+        open(10,file='res_sig.dat', status='old')
+        read(10,*) nchimie
+        allocate(resistivite_chimie_res(8,nchimie))
+        do i=1,nchimie
+           read(10,*)resistivite_chimie_res(:,i)
+        end do
+        close(10)
+        rho_threshold=max(rho_threshold,resistivite_chimie_res(1,1)*(mu_gas*mH)/scale_d) ! input in part/cc, output in code units
+        resistivite_chimie_res(7,:)=resistivite_chimie_res(7,:)*clight**2/(4.d0*acos(-1.))
+        resistivite_chimie_res(6,:)=1.43d-7**2/(&
+        &max(resistivite_chimie_res(6,:)*((1.0d0-tanh(resistivite_chimie_res(1,:)/5.0d13))),1.e-36)&
+        &*3.d-16*sqrt(resistivite_chimie_res(1,:))*(2.34d-24**1.5)*clight**2)
+        !     open(1010,file='res_sig_v.dat', status='new')
+        nminchimie=(resistivite_chimie_res(1,1))
+        dnchimie=(log10(resistivite_chimie_res(1,nchimie))-log10(resistivite_chimie_res(1,1)))/&
+                 &(nchimie-1)
+!                 print*, dnchimie,17.d0/35.d0
+        !     do i=1,nchimie
+        !     write(1010,*)resistivite_chimie(1,i),resistivite_chimie(6,i)
+        !  end do
+        !     close(1010)
+        !     stop
+     else if(use_x2d==1)then
+        open(42,file='resnh.dat', status='old')
+        read(42,*) nchimie, tchimie, nvarchimie
+        read(42,*)
+        read(42,*)
+        allocate(resistivite_chimie_x(-1:nvarchimie,nchimie,tchimie,1))
+        do i=1,tchimie
+           do j=1,nchimie
+              read(42,*)resistivite_chimie_x(0:nvarchimie,j,i,1),dummy,dummy,dummy,dummy,resistivite_chimie_x(-1,j,i,1)
+!              print *, resistivite_chimie_x(:,j,i)
+           end do
+           read(42,*)
+        end do
+        close(42)
+        rho_threshold=max(rho_threshold,resistivite_chimie_x(0,1,1,1)*(mu_gas*mH)/scale_d) ! input in part/cc, output in code units
+        nminchimie=(resistivite_chimie_x(0,1,1,1))
+        dnchimie=(log10(resistivite_chimie_x(0,nchimie,1,1))-log10(resistivite_chimie_x(0,1,1,1)))/&
+                 &(nchimie-1)
+!                 print*, dnchimie,15.d0/50.d0
+        tminchimie=(resistivite_chimie_x(-1,1,1,1))
+        dtchimie=(log10(resistivite_chimie_x(-1,1,tchimie,1))-log10(resistivite_chimie_x(-1,1,1,1)))/&
+                 &(tchimie-1)
+!                 print*, dtchimie,3.d0/50.d0
+!         close(333)
+        call rq
+        call nimhd_3dtable
+     else if(use_x3d==1)then
+
+        open(42,file='marchand2016_table.dat',form='unformatted')
+        read(42) nchimie, tchimie, xichimie, nvarchimie
+        allocate(resistivite_chimie_x(-2:nvarchimie+4,nchimie,tchimie,xichimie))
+        read(42) resistivite_chimie_x
+        close(42)
+
+        rho_threshold=max(rho_threshold,resistivite_chimie_x(-2,1,1,1)*(mu_gas*mH)/scale_d) ! input in part/cc, output in code units
+        nminchimie=(resistivite_chimie_x(-2,1,1,1))
+        dnchimie=(log10(resistivite_chimie_x(-2,nchimie,1,1))-log10(resistivite_chimie_x(-2,1,1,1)))/&
+                 &(nchimie-1)
+!                 print*, dnchimie,15.d0/50.d0
+        tminchimie=(resistivite_chimie_x(-1,1,1,1))
+        dtchimie=(log10(resistivite_chimie_x(-1,1,tchimie,1))-log10(resistivite_chimie_x(-1,1,1,1)))/&
+                 &(tchimie-1)
+!                 print*, dtchimie,3.d0/50.d0
+        ximinchimie=(resistivite_chimie_x(0,1,1,1))
+        dxichimie=(log10(resistivite_chimie_x(0,1,1,xichimie))-log10(resistivite_chimie_x(0,1,1,1)))/&
+                 &(xichimie-1)
+        call rq_3d
+        call nimhd_4dtable
+     else
+        print*, 'must choose an input for abundances or resistivities'
+        stop
+     endif
   endif
+#endif
+
+  if(barotrop)fld=.false.
+
+  if(barotrop .and. (.not. analytical_barotrop))then
+     open(101,file='barotropic_eos.dat', status='old')
+     read(101,*)nrho_barotrop,rhomin_barotrop,rhomax_barotrop,drho_barotrop
+     allocate(rho_barotrop(nrho_barotrop))
+     allocate(temp_barotrop(nrho_barotrop))
+     do i=1,nrho_barotrop
+        read(101,*)rho_barotrop(i),temp_barotrop(i)
+     end do
+     close(101)
+  end if
+
+  if(eos)then
+  
+     !--------------------------------
+     ! Read eos tables
+     !--------------------------------
+!      open(14,file='verif.dat')
+     open(10,file='tab_eos.dat',status='old',form='unformatted')
+     read(10) nRho,nEnergy
+     read(10) rhomin,rhomax,emin,Emax,yHe
+     
+     allocate(Rho_eos(nRho,nEnergy),Ener_eos(nRho,nEnergy),Temp_eos(nRho,nEnergy),P_eos(nRho,nEnergy))
+     allocate(  Cs_eos(nRho,nEnergy),S_eos(nRho,nEnergy),  xH_eos(nRho,nEnergy), xH2_eos(nRho,nEnergy)                  )
+     allocate(xHe_eos(nRho,nEnergy),xHep_eos(nRho,nEnergy),Cv_eos(nRho,nEnergy)                                       )
+     !inversion de la table eos
+     nTemp=nEnergy
+     allocate(eint_eos(nRho,nTemp))
+     
+     read(10)  rho_eos
+     read(10) Ener_eos
+     read(10) Temp_eos
+     read(10)    P_eos
+     read(10)    S_eos
+     read(10)   Cs_eos
+     read(10)   xH_eos
+     read(10)  xH2_eos
+     read(10)  xHe_eos
+     read(10) xHep_eos
+     close(10)
+     
+     rho_eos(:,:) = log10(rho_eos(:,:))
+     ener_eos(:,:) = log10(ener_eos(:,:))
+     
+     do k=1,5
+        ii=0
+        jj=0
+        kk=0
+        hh=0
+        ee=0
+        gg=0
+        do ir=2,nRho-1
+           do ie=2,nEnergy-1
+              if (P_eos(ir,ie) .eq. 0.0d0) then
+                 ii = ii+1
+                 xx = P_eos(ir,ie+1) * P_eos(ir,ie-1) *  P_eos(ir-1,ie) * P_eos(ir+1,ie)
+                 yy = P_eos(ir+1,ie+1) * P_eos(ir+1,ie-1) *  P_eos(ir-1,ie-1) * P_eos(ir-1,ie+1)
+                 if(ie > 2 .and. ie < nEnergy-1 .and. ir > 2 .and. ir < nRho-1)then
+                    ww = P_eos(ir,ie+2) * P_eos(ir,ie-2) *  P_eos(ir-2,ie) * P_eos(ir+2,ie)
+                 else
+                    ww = 0.0_dp
+                 endif
+                 if(ie > 3 .and. ie < nEnergy-2 .and. ir > 3 .and. ir < nRho-2)then
+                    zz = P_eos(ir+3,ie+3) * P_eos(ir-3,ie-3) *  P_eos(ir-3,ie+3) * P_eos(ir+3,ie-3)
+                 else
+                    zz = 0.0_dp
+                 endif
+                 if (xx .ne. 0.) then
+                    P_eos(ir,ie) = 0.25d0*(P_eos(ir,ie+1) + P_eos(ir,ie-1) + P_eos(ir-1,ie) + P_eos(ir+1,ie))
+                    jj=jj+1              
+                 else if (yy .ne. 0. .and. k > 0) then
+                    P_eos(ir,ie) = 0.25d0*(P_eos(ir+1,ie+1) + P_eos(ir+1,ie-1) + P_eos(ir-1,ie+1)+P_eos(ir-1,ie-1))
+                    kk=kk+1
+                 else if (ww .ne. 0 .and. k > 1) then
+                    ee = ee +1
+                    P_eos(ir,ie) = 0.25d0*(P_eos(ir,ie+2) + P_eos(ir,ie-2) + P_eos(ir-2,ie) + P_eos(ir+2,ie))
+                 else if (zz .ne. 0 .and. k > 2) then
+                    hh=hh+1
+                    P_eos(ir,ie) = 0.25d0*(P_eos(ir+3,ie+3) + P_eos(ir+3,ie-3) + P_eos(ir-3,ie+3)+P_eos(ir-3,ie-3))
+                 else 
+                    gg=gg+1
+                 endif
+              endif
+           enddo
+        end do
+        if (myid == 1) print*, "on bouche les trous P_eos", ii,jj,kk,ee,hh,gg, "iter", k
+     end do
+     
+     do k=1,5
+        ii=0
+        jj=0
+        kk=0
+        hh=0
+        ee=0
+        gg=0
+        do ir=2,nRho-1
+           do ie=2,nEnergy-1
+              if (Cs_eos(ir,ie) .eq. 0.0d0) then           
+                 ii = ii+1
+                 xx = Cs_eos(ir,ie+1) * Cs_eos(ir,ie-1) *  Cs_eos(ir-1,ie) * Cs_eos(ir+1,ie)
+                 yy = Cs_eos(ir+1,ie+1) * Cs_eos(ir+1,ie-1) *  Cs_eos(ir-1,ie-1) * Cs_eos(ir-1,ie+1)
+                 if(ie > 2 .and. ie < nEnergy-1 .and. ir > 2 .and. ir < nRho-1)then
+                    ww = Cs_eos(ir,ie+2) * Cs_eos(ir,ie-2) *  Cs_eos(ir-2,ie) * Cs_eos(ir+2,ie)
+                 else
+                    ww = 0.0_dp
+                 endif
+                 if(ie > 3 .and. ie < nEnergy-2 .and. ir > 3 .and. ir < nRho-2)then
+                    zz = Cs_eos(ir+3,ie+3) * Cs_eos(ir-3,ie-3) *  Cs_eos(ir-3,ie+3) * Cs_eos(ir+3,ie-3)
+                 else
+                    zz = 0.0_dp
+                 endif
+                 if (xx .ne. 0.) then
+                    Cs_eos(ir,ie) = 0.25d0*(Cs_eos(ir,ie+1) + Cs_eos(ir,ie-1) + Cs_eos(ir-1,ie) + Cs_eos(ir+1,ie))
+                    jj=jj+1              
+                 else if (yy .ne. 0. .and. k > 0) then
+                    Cs_eos(ir,ie) = 0.25d0*(Cs_eos(ir+1,ie+1) + Cs_eos(ir+1,ie-1) + Cs_eos(ir-1,ie+1)+Cs_eos(ir-1,ie-1))
+                    kk=kk+1
+                 else if (ww .ne. 0 .and. k > 1) then
+                    ee = ee +1
+                    Cs_eos(ir,ie) = 0.25d0*(Cs_eos(ir,ie+2) + Cs_eos(ir,ie-2) + Cs_eos(ir-2,ie) + Cs_eos(ir+2,ie))
+                 else if (zz .ne. 0 .and. k > 2) then
+                    hh=hh+1
+                    Cs_eos(ir,ie) = 0.25d0*(Cs_eos(ir+3,ie+3) + Cs_eos(ir+3,ie-3) + Cs_eos(ir-3,ie+3)+Cs_eos(ir-3,ie-3))
+                 else 
+                    gg=gg+1
+                 endif
+              endif
+           enddo
+        end do
+        if (myid == 1) print*, "on bouche les trous Cs_eos", ii,jj,kk,ee,hh,gg, "iter", k
+     end do
+     
+     do k=1,5
+        ii=0
+        jj=0
+        kk=0
+        hh=0
+        ee=0
+        gg=0
+        do ir=2,nRho-1
+           do ie=2,nEnergy-1
+              if (Temp_eos(ir,ie) .eq. 0.0d0) then           
+                 ii = ii+1
+                 xx = Temp_eos(ir,ie+1) * Temp_eos(ir,ie-1) *  Temp_eos(ir-1,ie) * Temp_eos(ir+1,ie)
+                 yy = Temp_eos(ir+1,ie+1) * Temp_eos(ir+1,ie-1) *  Temp_eos(ir-1,ie-1) * Temp_eos(ir-1,ie+1)
+                 if(ie > 2 .and. ie < nEnergy-1 .and. ir > 2 .and. ir < nRho-1)then
+                    ww = Temp_eos(ir,ie+2) * Temp_eos(ir,ie-2) *  Temp_eos(ir-2,ie) * Temp_eos(ir+2,ie)
+                 else
+                    ww = 0.0_dp
+                 endif
+                 if(ie > 3 .and. ie < nEnergy-2 .and. ir > 3 .and. ir < nRho-2)then
+                    zz = Temp_eos(ir+3,ie+3) * Temp_eos(ir-3,ie-3) *  Temp_eos(ir-3,ie+3) * Temp_eos(ir+3,ie-3)
+                 else
+                    zz = 0.0_dp
+                 endif
+                 if (xx .ne. 0.) then
+                    Temp_eos(ir,ie) = 0.25d0*(Temp_eos(ir,ie+1)+Temp_eos(ir,ie-1)+Temp_eos(ir-1,ie)+Temp_eos(ir+1,ie))
+                    jj=jj+1              
+                 else if (yy .ne. 0. .and. k > 0) then
+                    Temp_eos(ir,ie) = 0.25d0*(Temp_eos(ir+1,ie+1)+Temp_eos(ir+1,ie-1)+Temp_eos(ir-1,ie+1)+Temp_eos(ir-1,ie-1))
+                    kk=kk+1
+                 else if (ww .ne. 0 .and. k > 1) then
+                    ee = ee +1
+                    Temp_eos(ir,ie) = 0.25d0*(Temp_eos(ir,ie+2)+Temp_eos(ir,ie-2)+Temp_eos(ir-2,ie)+Temp_eos(ir+2,ie))
+                 else if (zz .ne. 0 .and. k > 2) then
+                    hh=hh+1
+                    Temp_eos(ir,ie) = 0.25d0*(Temp_eos(ir+3,ie+3)+Temp_eos(ir+3,ie-3)+Temp_eos(ir-3,ie+3)+Temp_eos(ir-3,ie-3))
+                 else 
+                    gg=gg+1
+                 endif
+              endif
+           enddo
+        end do
+        
+        if (myid == 1) print*, "on bouche les trous Temp_eos", ii,jj,kk,ee,hh,gg, "iter", k
+     end do
+     
+     Tmin=3.0d0
+     Tmax=1.0d5
+     dtemp1 =(log10(Tmax) - log10(Tmin))/ntemp
+     eint_eos(:,:)=0.0d0
+     do ir=2,nRho-1
+        do it=1,ntemp
+           d_loc = (10.**rho_eos(ir,1))
+           T0 = 10.**(log10(Tmin) + (it-1.0d0)*dtemp1)
+           
+           eint_old = d_loc*kb*T0/(mu_gas*mh*(gamma-1.0d0))
+           if (it >1) then
+              eint_old = max(d_loc*kb*T0/(mu_gas*mh*(gamma-1.0d0)),eint_eos(ir,it-1))
+           end if
+           
+           epsilon_n = 1.0d0
+           
+           do ii=1,1000
+              call temperature_eos(d_loc/scale_d,eint_old/(scale_d*scale_v**2),temp_new,ht)
+              if (ht==1) then
+                 eint_old=0.d0
+                 exit
+              end if
+              call temperature_eos(d_loc/scale_d,eint_old*1.001_dp/(scale_d*scale_v**2),temp_new2,ht)
+              if (ht==1) then
+                 eint_old=0.d0
+                 exit
+              end if
+              
+              if(abs(Temp_new2-Temp_new) .ne.0)then
+                 eint_new = eint_old - (Temp_new-T0)/((Temp_new2-Temp_new)/(0.001*eint_old))
+              else
+                 eint_new = eint_old
+              endif
+              epsilon_n = abs(eint_new - eint_old)/eint_old
+              eint_old = eint_new
+              if  (abs(epsilon_n) .lt. 1.d-4) then
+                 exit
+              else if (ii==1000) then
+                 print*, "newton for e(rho,T) did not converge at ", log10(d_loc),log10(T0)
+              end if
+           end do
+           eint_eos(ir,it) = eint_old 
+        enddo
+     enddo
+     
+     Cv_eos(:,:)=0.0d0
+     
+     do  ir=2,nRho-1
+        do  ie=2,nEnergy-1
+           d_loc = (10.**rho_eos(ir,1))
+           T0 = 10.**(ener_eos(ir,ie))
+           
+           call temperature_eos(d_loc/scale_d,(T0-0.001_dp*T0)/(scale_d*scale_v**2),temp_new,ht)
+           call temperature_eos(d_loc/scale_d,(T0+0.001_dp*T0)/(scale_d*scale_v**2),temp_new2,ht)
+           
+           if((temp_new2-temp_new) .ne. 0.0_dp)then
+              Cv_eos(ir,ie)=(0.002_dp*T0)/(temp_new2-temp_new)
+           else
+              Cv_eos(ir,ie) = 1.0_dp
+           endif
+        end do
+     end do
+     Cv_eos(:,nEnergy)=Cv_eos(:,nEnergy-1)
+     
+     if (myid == 1) print*, "ok pour le bouchage"
+  end if
+
+  ! Multigroup opacities initialization
+  if(fld)then
+     if((opacity_type == 'grey') .and. (ngrp > 1) .and. (.not.stellar_photon))then
+        if(myid == 1)then
+           write(*,*) 'WARNING! Trying to use grey opacity table with ngrp =',ngrp
+           write(*,*) 'Switching to multigroup opacities'
+        endif
+        opacity_type = 'multigroup'
+     endif
+     call init_opacities
+  end if
+ 
+  if(PMS_evol .and. rt_feedback .and. Hosokawa_track)then
+     open(101,file='Hosokawa_track.dat', status='old')
+     read(101,*)nmdot_PMS,nm_PMS,ndata_PMS
+     allocate(nb_ligne_PMS(nmdot_PMS))
+     allocate(data_PMS(nmdot_PMS,nm_PMS,ndata_PMS))
+     read(101,*)nb_ligne_PMS(1),nb_ligne_PMS(2),nb_ligne_PMS(3),nb_ligne_PMS(4),nb_ligne_PMS(5)
+     do i=1,nmdot_PMS
+        do j=1,nm_PMS
+           read(101,*)data_PMS(i,j,1),data_PMS(i,j,2),data_PMS(i,j,3),data_PMS(i,j,4) ! mdot,mass,luminosity,radius
+        end do
+     end do
+     close(101)
+  end if
 
 end subroutine read_hydro_params
 !################################################################
@@ -719,6 +1074,7 @@ use amr_commons
      &     +imag(dda) + imag(ddb)
 !!$     t2 = ((real(ddb(i)) - e) + (real(dda(i)) - (t1 - e)))&
 !!$     &     +imag(dda(i)) + imag(ddb(i))
+!!$ !    print*,t1,t2
      !   The result is t1 + t2, after normalization.
 !!$     ddb(i) = cmplx ( t1 + t2, t2 - ((t1 + t2) - t1) )
      ddb = cmplx ( t1 + t2, t2 - ((t1 + t2) - t1),dp)

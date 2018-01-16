@@ -7,7 +7,7 @@ subroutine flag_formation_sites
   use amr_commons
   use pm_commons
   use clfind_commons
-  use hydro_commons, only:uold
+  use hydro_commons, only:uold,firstindex_ndust, ndust
   use hydro_parameters, only:smallr
   use pm_parameters, only:mass_halo_AGN,mass_clump_AGN
   implicit none
@@ -220,9 +220,9 @@ end subroutine flag_formation_sites
 subroutine compute_clump_properties_round2
   use amr_commons
 #if NENER>0
-  use hydro_commons, ONLY:uold,gamma,nvar,nener,inener,smallr
+  use hydro_commons, ONLY:uold,gamma,nvar,nener,inener,smallr,firstindex_ndust, ndust
 #else
-  use hydro_commons, ONLY:uold,gamma,nvar,smallr
+  use hydro_commons, ONLY:uold,gamma,nvar,smallr,firstindex_ndust, ndust
 #endif
   use poisson_commons, ONLY:f
   use clfind_commons
@@ -810,9 +810,9 @@ subroutine surface_int_np(ind_cell,np,ilevel)
   use clfind_commons, ONLY: center_of_mass,Psurf
 #endif
 #if NENER>0
-  use hydro_commons, ONLY: uold,gamma,nvar,nener,inener,smallr
+  use hydro_commons, ONLY: uold,gamma,nvar,nener,inener,smallrr,firstindex_ndust, ndust
 #else
-  use hydro_commons, ONLY: uold,gamma,nvar,smallr
+  use hydro_commons, ONLY: uold,gamma,nvar,smallr,firstindex_ndust, ndust
 #endif
   implicit none
   integer::np,ilevel

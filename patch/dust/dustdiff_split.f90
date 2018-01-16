@@ -1,6 +1,6 @@
 ! ---------------------------------------------------------------
-!  DUSTDIFF_SPLIT  This routine solves the dust flux following the  
-!              anistropic diffusion.
+!  DUSTDIFF_SPLIT  This routine solves the dust flux  
+!              
 !
 !  inputs/outputs
 !  uin         => (const)  input state
@@ -153,9 +153,7 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
            if(speed<0.0d0) fx(idust)= speed*uin(l,i,j,k,idust)
            !Second order terms
            if(speed.ge.0.0d0) isl = i-1
-           if(speed<0.0d0) isl = i
-           !sigma2 =(uin(l,i+isl,j,k,idust)-uin(l,i-1+isl,j,k,idust))/dx
-           !sigma3 =(uin(l,i+1+isl,j,k,idust)-uin(l,i+isl,j,k,idust))/dx
+           if(speed<0.0d0) isl = i       
            call minmod_dust((uin(l,isl,j,k,idust)-uin(l,isl-1,j,k,idust))/dx,(uin(l,isl+1,j,k,idust)-uin(l,isl,j,k,idust))/dx,sigma)
            fx(idust) = fx(idust) + 0.5d0*abs(speed)*(dx-abs(speed)*dt)*sigma
         end do
@@ -190,11 +188,11 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdy
 
-  real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot,rholeft,rhoright
+  real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fy
   !Slopes and advection velocity
-  real(dp) :: speed, sigma,sigma1,sigma2,sigma3  
+  real(dp) :: speed, sigma
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress,isl
   integer::ilo,ihi,klo,khi
@@ -213,12 +211,10 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        rholeft = uin (l,i,j-1,k,idens)
-        rhoright = uin (l,i,j,k,idens)
         dPdy1=(uin(l,i,j,k,ipress)-uin(l,i,j-1,k,ipress))/dy
          do idust= 1, ndust
-           Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)/rholeft
-           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/rhoright
+           Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)/uin(l,i,j-1,k,idens)
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
         end do
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j-1,k,ndust+idust)+Tksleft_tot
@@ -226,15 +222,14 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
         end do
         do idust=1,ndust
            !First order terms
-           speed  = 0.5d0*(Tksright(idust)/rhoright+Tksleft(idust)/rholeft)*dPdy1
+           speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j-1,k,idens))*dPdy1
            if(speed.ge.0.0d0) fy(idust)= speed*uin(l,i,j-1,k,idust) 
            if(speed<0.0d0) fy(idust)= speed*uin(l,i,j,k,idust)
            !Second order terms
-           if(speed.ge.0.0d0) isl = -1
-           if(speed<0.0d0) isl = 0
-           sigma2 =(uin(l,i,j+isl,k,idust)-uin(l,i,j-1+isl,k,idust))/dy
-           sigma3 =(uin(l,i,j+1+isl,k,idust)-uin(l,i,j+isl,k,idust))/dy
-           call minmod_dust(sigma2,sigma3,sigma)
+           if(speed.ge.0.0d0) isl = j-1
+           if(speed<0.0d0) isl = j
+
+           call minmod_dust((uin(l,i,isl,k,idust)-uin(l,i,isl-1,k,idust))/dy,(uin(l,i,isl+1,k,idust)-uin(l,i,isl,k,idust))/dy,sigma)
            fy(idust) = fy(idust) + 0.5d0*abs(speed)*(dy-abs(speed)*dt)*sigma
         end do
         do idust= 1, ndust
@@ -267,12 +262,12 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   ! Primitive variables
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdz
-  real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot,rholeft, rhoright
+  real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fz
 
   !Slopes and advection velocity
-  real(dp) :: speed, sigma,sigma1,sigma2,sigma3  
+  real(dp) :: speed, sigma 
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress, isl
   integer::ilo,ihi,jlo,jhi,klo,khi
@@ -292,12 +287,10 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        rholeft = uin (l,i,j,k-1,idens)
-        rhoright = uin (l,i,j,k,idens)
         dPdz1=(uin(l,i,j,k,ipress)-uin(l,i,j,k-1,ipress))/dz
          do idust= 1, ndust
-           Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)/rholeft
-           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/rhoright
+           Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)/uin(l,i,j,k-1,idens)
+           Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
         end do
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j,k-1,ndust+idust)+Tksleft_tot
@@ -305,15 +298,14 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
         end do
         do idust=1,ndust
            !First order terms
-           speed  = 0.5d0*(Tksright(idust)/rhoright+Tksleft(idust)/rholeft)*dPdz1
+           speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j,k-1,idens))*dPdz1
            if(speed.ge.0.0d0) fz(idust)= speed*uin(l,i,j,k-1,idust) 
            if(speed<0.0d0) fz(idust)= speed*uin(l,i,j,k,idust)
            !Second order terms
-           if(speed.ge.0.0d0) isl = -1
-           if(speed<0.0d0) isl = 0
-           sigma2 =(uin(l,i,j,k+isl,idust)-uin(l,i,j,k-1+isl,idust))/dz
-           sigma3 =(uin(l,i,j,k+1+isl,idust)-uin(l,i,j,k+isl,idust))/dz
-           call minmod_dust(sigma2,sigma3,sigma)
+           if(speed.ge.0.0d0) isl = k-1
+           if(speed<0.0d0) isl = k
+           
+           call minmod_dust((uin(l,i,j,isl,idust)-uin(l,i,j,isl-1,idust))/dz,(uin(l,i,j,isl+1,idust)-uin(l,i,j,isl,idust))/dz,sigma)
            fz(idust) = fz(idust) + 0.5d0*abs(speed)*(dz-abs(speed)*dt)*sigma
         end do
         do idust= 1, ndust
@@ -329,21 +321,27 @@ end subroutine dustZflx
 
 subroutine minmod_dust(a,b,sigma)
   use amr_parameters
+  use hydro_parameters, only : upwind_dust
+
   implicit none
   real(dp)::a,b
   real(dp):: sigma
   if (abs(a).gt.abs(b)) sigma=b
   if (abs(b).ge.abs(a)) sigma=a
   if (a*b.le.0.0d0) sigma=0.0d0
+  if (upwind_dust) sigma=0.0d0
 end subroutine minmod_dust
 
 subroutine vanleer(a,b,c,sigma)
   use amr_parameters
+  use hydro_parameters, only : upwind_dust
+
   implicit none
   real(dp)::a,b,c
   real(dp)::sigma
   real(dp)::sigma2
   call minmod_dust(a,b,sigma2)
   call minmod_dust(sigma2,c,sigma)
-  
+  if (upwind_dust) sigma=0.0d0
+
 end subroutine vanleer
