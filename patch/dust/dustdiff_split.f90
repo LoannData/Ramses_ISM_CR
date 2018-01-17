@@ -50,6 +50,7 @@ subroutine dustdiff_split(uin,flux,dx,dy,dz,dt,ngrid,fdx)
   flux=0.0d0
  ! Compute the dust flux in X direction
   call dustXflx(uin,Xflux,dx,dt,ngrid,fdx)
+
   do k=klo,khi
   do j=jlo,jhi
   do i=if1,if2

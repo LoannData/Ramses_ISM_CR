@@ -62,7 +62,7 @@ subroutine init_flow_fine(ilevel)
   character(LEN=5)::nchar,ncharvar
 
   integer,parameter::tag=1107
-  integer::dummy_io,info2
+
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel

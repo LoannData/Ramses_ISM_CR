@@ -63,7 +63,7 @@ subroutine read_hydro_params(nml_ok)
        & ,gamma_rad &
 #endif
 #if NDUST>0
-       &, grain_size, grain_dens, K_dust, K_drag &
+       &, grain_size, grain_dens, K_dust, K_drag,dust_ratio &
 #endif       
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d &
        & ,positivity_type
@@ -603,15 +603,17 @@ subroutine read_hydro_params(nml_ok)
      ! Do imposed BC for radiative transfer
      d0=compute_db()
      d_bound(i)=d0
+     sum_dust=0.0d0
 #if NDUST>0
+    
      do j=1,ndust
-        sum_dust = sum_dust + dust_bound(i,j)
+        sum_dust = sum_dust + dust_ratio(j)
      end do
      do j=1,ndust
-        boundary_var(i,firstindex_ndust+j)=(d_bound(i)+sum_dust*d_bound(i))*dust_bound(i,j)
+        boundary_var(i,firstindex_ndust+j)=d_bound(i)*dust_ratio(j)
      end do
 #endif
-     d_bound(i)=d0*(1.0_dp+sum_dust)
+     d_bound(i)=d0
      T_bound(i)=Tr_floor
      P_bound(i)=T_bound(i)*d_bound(i)*(1.0_dp-sum_dust)*kb/(mu_gas*mH*scale_v**2)
      boundary_var(i,1)=MAX(d_bound(i),smallr)

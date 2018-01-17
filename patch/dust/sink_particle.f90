@@ -1832,7 +1832,14 @@ subroutine make_sink_from_clump(ilevel)
 
               ! Convert back to conservative variable
               d=d-delta_d
-!              e=e*d
+              !              e=e*d
+              sum_dust= 0.0_dp
+#if NDUST>0
+              do idust=1,ndust
+                 sum_dust= sum_dust+ uold(ind_cell_new(i),firstindex_ndust+idust)/d
+              enddo
+ 
+#endif
               call enerint_eos((1.0d0-sum_dust)*d,temp,e)
               if(energy_fix)uold(ind_cell_new(i),nvar)=e
 #ifdef SOLVERmhd

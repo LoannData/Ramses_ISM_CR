@@ -170,7 +170,7 @@ subroutine make_boundary_diffusion(ilevel,igroup)
                     ekin  = rho*usquare*0.5_dp
                     eps   = (uu(i,5)-ekin-emag-erad_loc)
                     sum_dust =0.0_dp
-#if Ndust >0
+#if NDUST>0
                     do idust = 1, ndust
                        sum_dust = sum_dust + uu(i,firstindex_ndust+idust)/rho
                     end do
@@ -392,7 +392,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
                     ekin  = rho*usquare*half
                     eps   = (uu(i,5)-ekin-emag-erad_loc)
                     sum_dust =0.0_dp
-#if Ndust >0
+#if NDUST>0
                     do idust = 1, ndust
                        sum_dust = sum_dust + uu(i,firstindex_ndust+idust)/rho
                     end do

@@ -146,7 +146,7 @@ subroutine dust_diffusion_fine(ilevel)
       call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
   end do
 
-111 format('   Entering diffusion_fine for level ',i2)
+111 format('   Entering dust_diffusion_fine for level ',i2)
 
 end subroutine dust_diffusion_fine
 !###########################################################
@@ -220,7 +220,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   do idust=1,ndust
     d_grain(idust)=grain_dens(idust)/scale_d
     l_grain(idust)=grain_size(idust)/scale_l
-  end do
+ end do
   ! Mesh spacing in that level
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
@@ -254,6 +254,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   do k1=k1min,k1max
   do j1=j1min,j1max
   do i1=i1min,i1max
+
      !Check if neighboring grid exists
      nbuffer=0
      nexist=0
@@ -310,6 +311,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
         do i=1,nbuffer
            ok(ind_nexist(i),i3,j3,k3)=.false.
         end do
+
         !Gather dust variables
         do idust=1,ndust
            do i=1,nexist
@@ -317,7 +319,8 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               facdx(ind_exist(i),i3,j3,k3)=1.0d0
            end do
            do i=1,nbuffer
-              uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)        
+              uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)
+
            end do
         end do
         do i=1,nbuffer
@@ -335,9 +338,11 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               enint=uold(ind_cell(i),nvar)
            else
               d=uold(ind_cell(i),1)
+
               u=uold(ind_cell(i),2)/d
               v=uold(ind_cell(i),3)/d
               w=uold(ind_cell(i),4)/d
+
               e_mag= 0.0_dp
 #ifdef solverMHD                           
               A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
@@ -357,10 +362,12 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
                  enint=uold(ind_cell(i),5)-e_kin- e_mag
               endif
            endif
+
            sum_dust=0.0_dp
            do idust = 1, ndust
               sum_dust = sum_dust + uold(ind_cell(i),firstindex_ndust+idust)/d
            end do
+
            call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pressure)
            call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
            if(dust_barr)  cs = 1.0_dp
@@ -380,7 +387,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp
 
-              uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - uold(ind_cell(i),firstindex_ndust+idust)/d)
+              uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
               if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.dt_control)then
                  write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel), sum_dust, t_stop
                stop
@@ -392,6 +399,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            !(price&laibe 2015)
            end do   
         end do
+
         do i=1,nbuffer
            if (energy_fix) then
               d=u2(i,ind_son,1)
@@ -406,9 +414,10 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               A=0.5d0*(u2(i,ind_son,6)+u2(i,ind_son,nvar+1))
               B=0.5d0*(u2(i,ind_son,7)+u2(i,ind_son,nvar+2))
               C=0.5d0*(u2(i,ind_son,8)+u2(i,ind_son,nvar+3))
-              e_kin=0.5d0*d*(u**2+v**2+w**2)
               e_mag=0.5d0*(A**2+B**2+C**2)
 #endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+
 #if NENER>0
               do irad=1,nener
                  e_kin=e_kin+u2(i,ind_son,8+irad)
@@ -420,13 +429,16 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
                  enint=u2(i,ind_son,5)-e_kin-e_mag
               endif
            endif
+ 
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+1)=d
            sum_dust=0.0_dp
            do idust = 1, ndust
-              sum_dust = sum_dust + u2(i,ind_son,firstindex_ndust+idust)!/u2(i,ind_son,1)
+              sum_dust = sum_dust + u2(i,ind_son,firstindex_ndust+idust)/u2(i,ind_son,1)
            end do
+
            call pressure_eos((1.0_dp-sum_dust)*d,enint,pressure)
-           call soundspeed_eos((1.0_dp-sum_dust)*d,enint,cs)           
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint,cs) 
+
            if(dust_barr) cs = 1.0_dp
            if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
 
@@ -434,10 +446,12 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+2)=pressure
            do idust = 1, ndust
               ! different prescriptions for t-stop
+
               t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
+
               if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
-              if(dust_barr) t_stop = 0.1_dp
-              uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp - u2(i,ind_son,firstindex_ndust+idust))
+              if(dust_barr) t_stop = 0.1_dp              
+              uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp -sum_dust)
               if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
                  write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (INTERP)', sum_dust*t_stop,dtnew(ilevel), sum_dust, t_stop
                  stop
@@ -445,6 +459,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               !(price&laibe 2015)
            enddo
         end do
+
      end do
      end do
      end do
@@ -457,8 +472,9 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   !-----------------------------------------------
   ! Compute flux due to dust diffusion
   !-----------------------------------------------
+
   call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache,facdx)
-  
+
   !Reset fluxes at refined interfaces
   do idim=1,ndim
       i0=0; j0=0; k0=0

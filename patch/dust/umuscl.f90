@@ -5370,7 +5370,9 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     rhof=0.5d0*(u(l,i,j,k,   1)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),   1))
                     sum_dust= 0.0d0
 #if NDUST>0
-                    sum_dust=sum_dust+0.5d0*(u(l,i,j,k,firstindex_ndust+idust)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),firstindex_ndust+idust))/rhof
+                    do idust = 1,ndust
+                       sum_dust=sum_dust+0.5d0*(u(l,i,j,k,firstindex_ndust+idust)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),firstindex_ndust+idust))/rhof
+                    end do   
 #endif                    
 !                 epsf=u(l,i,j,k,3)
                     epsf=0.5d0*(u(l,i,j,k,nvar)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),nvar))
@@ -5466,8 +5468,11 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     tcell=1.0d0
                  else
                     sum_dust=0.0d0
+                   
 #if NDUST>0
-                    sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/rhocell
+                    do idust = 1, ndust
+                       sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/rhocell
+                    end do   
 #endif                    
                     call temperature_eos((1.0d0-sum_dust)*rhocell,u(l,i,j,k,nvar),tcell,ht)
 !                    if(nmagdiffu2.eq.1)call temperature_eos((1.0d0-sum_dust)*rhocell,u(l,i,j,k,3),tcell,ht)
@@ -5587,7 +5592,9 @@ jcenter=0.0d0
               else
                  sum_dust=0.0d0
 #if NDUST>0
-                 sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/rhocell
+                 do idust =1, ndust
+                    sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/rhocell
+                 end do   
 #endif                 
                  call temperature_eos((1.0d0-sum_dust)*u(l,i,j,k,1),u(l,i,j,k,nvar),tcell,ht)
                  if(nambipolar2.eq.1)call temperature_eos((1.0d0-sum_dust)*u(l,i,j,k,1),u(l,i,j,k,3),tcell,ht)

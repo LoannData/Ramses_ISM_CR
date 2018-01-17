@@ -27,7 +27,8 @@ subroutine make_boundary_diffusion(ilevel,igroup)
   real(dp),dimension(1:nvector,1:ndim),save::xx
   real(dp),dimension(1:nvector,1:nvar+3),save::uu
   real(dp)::dd,t2,t2r,cal_Teg,usquare,emag,erad_loc,eps,ekin,Cv,rho
-
+  integer :: idust
+  real(dp):: sum_dust
   if(.not. simple_boundary)return
 
   ! Mesh size at level ilevel
@@ -166,8 +167,13 @@ subroutine make_boundary_diffusion(ilevel,igroup)
                     rho   = uu(i,1)
                     ekin  = rho*usquare*0.5_dp
                     eps   = (uu(i,5)-ekin-emag-erad_loc)
-
-                    call temperature_eos(rho,eps,t2,ht)
+                    sum_dust =0.0_dp
+#if NDUST>0
+                    do idust = 1, ndust
+                       sum_dust = sum_dust + uu(i,firstindex_ndust+idust)/rho
+                    end do
+#endif 
+                    call temperature_eos((1.0_dp-sum_dust)*rho,eps,t2,ht)
                     t2    = Tr_floor ! comment this for radiative shock
 
                     unew(ind_cell(i),nvar+3) = t2
@@ -233,7 +239,8 @@ subroutine make_boundary_diffusion_tot(ilevel)
   real(dp),dimension(1:nvector,1:nvar+3),save::uu
   real(dp),dimension(1:nvector)::cond,relax
   real(dp)::dd,t2,t2r,cal_Teg,usquare,emag,erad_loc,eps,ekin,Cv,rho
-
+  integer :: idust
+  real(dp):: sum_dust
   if(.not. simple_boundary)return
 
   ! Mesh size at level ilevel
@@ -380,8 +387,13 @@ subroutine make_boundary_diffusion_tot(ilevel)
                     rho   = uu(i,1)
                     ekin  = rho*usquare*half
                     eps   = (uu(i,5)-ekin-emag-erad_loc)
-
-                    call temperature_eos(rho,eps,t2,ht)
+                    sum_dust =0.0_dp
+#if NDUST>0
+                    do idust = 1, ndust
+                       sum_dust = sum_dust + uu(i,firstindex_ndust+idust)/rho
+                    end do
+#endif       
+                    call temperature_eos(rho*(1.0_dp-sum_dust),eps,t2,ht)
 
 #if NGRP>0
                     uu(i,ind_trad(1)) = t2

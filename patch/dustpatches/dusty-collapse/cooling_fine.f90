@@ -559,7 +559,13 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 
      ! Compute T2=T/mu in Kelvin
      do i=1,nleaf
-        T2(i)=T2(i)/nH(i)*scale_T2
+        sum_dust =0.0d0
+#if NDUST>0        
+         do idust = 1, ndust
+              sum_dust=sum_dust+uold(ind_leaf(i),firstindex_ndust+idust)/nH(i)
+           end do
+#endif           
+        T2(i)=T2(i)/nH(i)/(1.0d0-sum_dust)*scale_T2
 
 !        if(ind .eq. 1 .and. abs(xg(ind_grid(i),1)-0.5) .le. dx .and. abs(xg(ind_grid(i),2)-0.5) .le. dx) then
 !           write(*,*) 'T2, nH, scale_T2',T2(i),nH(i),scale_T2
@@ -598,7 +604,14 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      !==========================================
      if(jeans_ncells>0)then
         do i=1,nleaf
-           T2min(i) = nH(i)*polytropic_constant*scale_T2
+           
+           sum_dust =0.0d0
+#if NDUST>0           
+         do idust = 1, ndust
+              sum_dust=sum_dust+uold(ind_leaf(i),firstindex_ndust+idust)/nH(i)
+           end do
+#endif           
+           T2min(i) = nH(i)*(1.0d0-sum_dust)*polytropic_constant*scale_T2
         end do
      else
         do i=1,nleaf
@@ -619,9 +632,12 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      if(barotrop)then
         do i=1,nleaf
            sum_dust =0.0d0
+#if NDUST>0           
            do idust = 1, ndust
-              sum_dust=sum_dust+uold(ind_leaf(i),firstindex_ndust+idust)
-           end do   
+              sum_dust=sum_dust+uold(ind_leaf(i),firstindex_ndust+idust)/nH(i)
+           end do
+#endif           
+           
            T2min(i) = barotrop1D((1.0d0-sum_dust)*nH(i)*scale_d) 
         enddo
      end if
@@ -1309,7 +1325,6 @@ subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   real(dp):: dd1,dd2,de1,de2
   integer :: ir,ie
   real(dp):: xx,drho,dener
-
 if(eos)then
    rho = rho_temp * scale_d
   Enint   = Enint_temp * scale_d*scale_v**2
@@ -1368,7 +1383,7 @@ if(eos)then
      stop
   endif
 else
-  Cseos = sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
+    Cseos = sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
 end if
 end subroutine soundspeed_eos
 !################################################################

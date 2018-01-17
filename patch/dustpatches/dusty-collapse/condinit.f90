@@ -247,8 +247,8 @@ subroutine condinit(x,u,dx,nn)
         sum_dust = 0.0d0
 #if NDUST>0
         do idust =1,ndust
-           q(i, idust)= dust_region(1,idust)
-           sum_dust = sum_dust + dust_region(1,idust)
+           q(i, firstindex_ndust+idust)= dust_ratio(idust)
+           sum_dust = sum_dust + dust_ratio(idust)
         end do   
 #endif
         if(eos)then
@@ -545,8 +545,8 @@ subroutine condinit(x,u,dx,nn)
            sum_dust = 0.0d0
 #if NDUST>0
            do idust =1,ndust
-              q(i, idust)= dust_region(1,idust)
-              sum_dust = sum_dust + dust_region(1,idust)
+              q(i, firstindex_ndust+idust)= dust_ratio(idust)
+              sum_dust = sum_dust + dust_ratio(idust)
            end do   
 #endif 
            if(eos)then
@@ -565,8 +565,8 @@ subroutine condinit(x,u,dx,nn)
            sum_dust = 0.0d0
 #if NDUST>0
            do idust =1,ndust
-              q(i, idust)= dust_region(1,idust)
-              sum_dust = sum_dust + dust_region(1,idust)
+              q(i,firstindex_ndust+idust)= dust_ratio(idust)
+              sum_dust = sum_dust + dust_ratio(idust)
            end do   
 #endif 
            if(eos)then
