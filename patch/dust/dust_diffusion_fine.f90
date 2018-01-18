@@ -344,7 +344,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               w=uold(ind_cell(i),4)/d
 
               e_mag= 0.0_dp
-#ifdef solverMHD                           
+#ifdef SOLVERmhd                           
               A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
               B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
               C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
@@ -410,7 +410,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               v=u2(i,ind_son,3)/d
               w=u2(i,ind_son,4)/d
               e_mag=0.0_dp
-#ifdef solverMHD             
+#ifdef SOLVERmhd             
               A=0.5d0*(u2(i,ind_son,6)+u2(i,ind_son,nvar+1))
               B=0.5d0*(u2(i,ind_son,7)+u2(i,ind_son,nvar+2))
               C=0.5d0*(u2(i,ind_son,8)+u2(i,ind_son,nvar+3))

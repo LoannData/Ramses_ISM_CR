@@ -1077,12 +1077,11 @@ SUBROUTINE find_speed_fast(qvar,vel_info)
   v=qvar(5); B=qvar(6); w=qvar(7); C=qvar(8)
   B2 = A*A+B*B+C*C
   sum_dust=0.d0
-!#if NDUST>0
-!  do idust=1,ndust
-!     sum_dust=sum_dust+qvar(firstindex_ndust+idust)
-!     print *, 'tatata', sum_dust
-!  end do
-!#endif
+#if NDUST>0
+  do idust=1,ndust
+     sum_dust=sum_dust+qvar(firstindex_ndust+idust)
+  end do
+#endif
   d = d * (1.0d0-sum_dust)
   c2 = gamma*P/d
 #if NENER>0
