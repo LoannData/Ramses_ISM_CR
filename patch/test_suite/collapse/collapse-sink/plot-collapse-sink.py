@@ -330,4 +330,4 @@ ax9.text(-230,220,'Sink 2: %.1f yr' % asink, color='k',bbox=dict(facecolor='w', 
 fig.savefig('collapse-sink.pdf',bbox_inches='tight')
 
 # Check results against reference solution
-visu_ramses.check_solution(data,'collapse-sink',tolerance={"all":1.5e-05})
+visu_ramses.check_solution(data,'collapse-sink',tolerance={"all":1.e-06,"passive_scalar_1":4.5e-5,"radiative_energy_1":4.5e-5,"temperature":4.5e-5,"thermal_pressure":4.5e-5})
