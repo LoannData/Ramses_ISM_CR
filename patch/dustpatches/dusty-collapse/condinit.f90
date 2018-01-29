@@ -58,9 +58,11 @@ subroutine condinit(x,u,dx,nn)
   real(dp) :: sum_dust
 #if NDUST>0
   integer :: idust
+  real(dp):: epsilon_0
+  real(dp),dimension(1:ndust):: dtgas
+  epsilon_0 = dust_ratio(1)
 #endif  
   small_er=eray_min/(scale_d*scale_v**2)
-
   id=1; iu=2; iv=3; iw=4; ip=5
   x0=0.5*boxlen
   y0=0.5*boxlen
@@ -246,9 +248,12 @@ subroutine condinit(x,u,dx,nn)
         END IF
         sum_dust = 0.0d0
 #if NDUST>0
+        if(mrn) call init_dust_ratio(epsilon_0, dtgas)
         do idust =1,ndust
-           q(i, firstindex_ndust+idust)= dust_ratio(idust)
-           sum_dust = sum_dust + dust_ratio(idust)
+          
+           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           if(mrn) q(i, firstindex_ndust+idust) = dtgas(idust)
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
         end do   
 #endif
         if(eos)then
@@ -544,11 +549,14 @@ subroutine condinit(x,u,dx,nn)
            q(i,1) = d_c / cont / cont_ic
            sum_dust = 0.0d0
 #if NDUST>0
-           do idust =1,ndust
-              q(i, firstindex_ndust+idust)= dust_ratio(idust)
-              sum_dust = sum_dust + dust_ratio(idust)
-           end do   
-#endif 
+        if(mrn) call init_dust_ratio(epsilon_0, dtgas)
+        do idust =1,ndust
+           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           if(mrn) q(i, firstindex_ndust+idust)= dtgas(idust)
+
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+        end do   
+#endif
            if(eos)then
               call enerint_eos(q(i,1)*(1.0D0-sum_dust),Temp,ee)
               q(i,5) = ee
@@ -564,11 +572,15 @@ subroutine condinit(x,u,dx,nn)
            q(i,1) = d_c / (1.+eli)
            sum_dust = 0.0d0
 #if NDUST>0
-           do idust =1,ndust
-              q(i,firstindex_ndust+idust)= dust_ratio(idust)
-              sum_dust = sum_dust + dust_ratio(idust)
-           end do   
-#endif 
+        if(mrn) call init_dust_ratio(epsilon_0, dtgas)
+      
+        do idust =1,ndust
+           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           if(mrn) q(i, firstindex_ndust+idust)= dtgas(idust)
+
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+        end do   
+#endif
            if(eos)then
               call enerint_eos(q(i,1)*(1.0d0-sum_dust),Temp,ee)
               q(i,5   ) = ee

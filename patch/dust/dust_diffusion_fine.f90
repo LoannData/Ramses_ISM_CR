@@ -216,11 +216,18 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   ! Initialisation of dust related quantities
   
   pi =3.14159265358979323846_dp
-
-  do idust=1,ndust
-    d_grain(idust)=grain_dens(idust)/scale_d
-    l_grain(idust)=grain_size(idust)/scale_l
- end do
+  if(mrn.eqv..true.) then
+     call size_dust(l_grain)
+     l_grain = l_grain/scale_l
+     do idust=1,ndust
+       d_grain(idust)=grain_dens(idust)/scale_d
+    end do       
+  else
+     do idust=1,ndust
+       d_grain(idust)=grain_dens(idust)/scale_d
+       l_grain(idust)=grain_size(idust)/scale_l
+    end do
+ endif
   ! Mesh spacing in that level
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
