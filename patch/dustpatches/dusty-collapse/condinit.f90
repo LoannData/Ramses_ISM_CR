@@ -59,7 +59,7 @@ subroutine condinit(x,u,dx,nn)
 #if NDUST>0
   integer :: idust
   real(dp):: epsilon_0
-  real(dp),dimension(1:ndust):: dtgas
+  real(dp),dimension(1:ndust):: dustMRN
   epsilon_0 = dust_ratio(1)
 #endif  
   small_er=eray_min/(scale_d*scale_v**2)
@@ -248,11 +248,11 @@ subroutine condinit(x,u,dx,nn)
         END IF
         sum_dust = 0.0d0
 #if NDUST>0
-        if(mrn) call init_dust_ratio(epsilon_0, dtgas)
+        if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
         do idust =1,ndust
           
            q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-           if(mrn) q(i, firstindex_ndust+idust) = dtgas(idust)
+           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
            sum_dust = sum_dust + q(i, firstindex_ndust+idust)
         end do   
 #endif
@@ -549,10 +549,10 @@ subroutine condinit(x,u,dx,nn)
            q(i,1) = d_c / cont / cont_ic
            sum_dust = 0.0d0
 #if NDUST>0
-        if(mrn) call init_dust_ratio(epsilon_0, dtgas)
+        if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
         do idust =1,ndust
            q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-           if(mrn) q(i, firstindex_ndust+idust)= dtgas(idust)
+           if(mrn) q(i, firstindex_ndust+idust)= dustMRN(idust)
 
            sum_dust = sum_dust + q(i, firstindex_ndust+idust)
         end do   
@@ -572,11 +572,11 @@ subroutine condinit(x,u,dx,nn)
            q(i,1) = d_c / (1.+eli)
            sum_dust = 0.0d0
 #if NDUST>0
-        if(mrn) call init_dust_ratio(epsilon_0, dtgas)
+        if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
       
         do idust =1,ndust
            q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-           if(mrn) q(i, firstindex_ndust+idust)= dtgas(idust)
+           if(mrn) q(i, firstindex_ndust+idust)= dustMRN(idust)
 
            sum_dust = sum_dust + q(i, firstindex_ndust+idust)
         end do   
