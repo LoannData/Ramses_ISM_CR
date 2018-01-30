@@ -63,7 +63,7 @@ subroutine read_hydro_params(nml_ok)
        & ,gamma_rad &
 #endif
 #if NDUST>0
-       &, grain_size, grain_dens, K_dust, K_drag,dust_ratio,mrn &
+       &, grain_size, grain_dens, K_dust, K_drag,dust_ratio,mrn, size_min, size_max, mrn_index &
 #endif       
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d &
        & ,positivity_type

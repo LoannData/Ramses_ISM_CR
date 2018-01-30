@@ -250,7 +250,10 @@ module hydro_parameters
   real(dp),dimension(1:ndust) :: K_dust = 1.0_dp
   real(dp),dimension(1:ndust):: grain_size = 1.0e-7_dp ! Dust properties (1:ndust) where the sizes of the grains are stocked
   real(dp),dimension(1:ndust):: grain_dens = 1.0_dp ! Dust properties (1:ndust) where the intrinsic of the grains are stocked
-   real(dp),dimension(1:ndust) :: dust_ratio= 0.01_dp ! To start with the usual value
+  real(dp),dimension(1:ndust) :: dust_ratio= 0.01_dp ! To start with the usual value
+  real(dp) :: size_min  = 5.0d-7
+  real(dp) :: size_max  = 2.5d-5
+  real(dp) :: mrn_index = 3.5d0
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2
