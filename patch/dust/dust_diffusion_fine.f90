@@ -198,6 +198,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   real(dp)::d,u,v,w,A,B,C,enint,e_kin,e_mag,pressure,cs, temp
   real(dp)::rho_gas, pi, t_stop
   real(dp), dimension(1:ndust) ::d_grain,l_grain
+
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   
@@ -217,11 +218,11 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   
   pi =3.14159265358979323846_dp
   if(mrn.eqv..true.) then
-     call size_dust(l_grain)
-     l_grain = l_grain/scale_l
+     call size_dust(l_grain,dust_ratio(1))
      do idust=1,ndust
+       l_grain(idust) = l_grain(idust)/scale_l
        d_grain(idust)=grain_dens(idust)/scale_d
-    end do       
+    end do
   else
      do idust=1,ndust
        d_grain(idust)=grain_dens(idust)/scale_d
@@ -454,7 +455,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            do idust = 1, ndust
               ! different prescriptions for t-stop
 
-              t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
+              t_stop =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
 
               if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp              

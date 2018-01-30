@@ -150,7 +150,6 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 
   ! Translate to primative variables, compute sound speeds  
   call ctoprim(uin,qin,bf,gravin,dt,ngrid)
-
   ! Compute TVD slopes
   call uslope(bf,qin,dq,dbf,dx,dt,ngrid)
 
@@ -231,6 +230,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   call cmpflxm(qm,iu1+1,iu2+1,ju1  ,ju2  ,ku1  ,ku2  , &
        &       qp,iu1  ,iu2  ,ju1  ,ju2  ,ku1  ,ku2  , &
        &          if1  ,if2  ,jlo  ,jhi  ,klo  ,khi  , 2,3,4,6,7,8,fx,tx,ngrid)
+
   ! Save flux in output array
   do k=klo,khi
   do j=jlo,jhi
@@ -297,6 +297,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   call cmpflxm(qm,iu1  ,iu2  ,ju1+1,ju2+1,ku1  ,ku2  , &
        &       qp,iu1  ,iu2  ,ju1  ,ju2  ,ku1  ,ku2  , &
        &          ilo  ,ihi  ,jf1  ,jf2  ,klo  ,khi  , 3,2,4,7,6,8,fx,tx,ngrid)
+
   ! Save flux in output array
   do k=klo,khi
   do j=jf1,jf2
@@ -364,6 +365,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   call cmpflxm(qm,iu1  ,iu2  ,ju1  ,ju2  ,ku1+1,ku2+1, &
        &       qp,iu1  ,iu2  ,ju1  ,ju2  ,ku1  ,ku2  , &
        &          ilo  ,ihi  ,jlo  ,jhi  ,kf1  ,kf2  , 4,2,3,8,6,7,fx,tx,ngrid)
+
   ! Save flux in output array
   do k=kf1,kf2
   do j=jlo,jhi
@@ -1994,7 +1996,9 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
   REAL(dp) :: rstarLL,rstarLR,rstarRL,rstarRR,AstarLL,AstarLR,AstarRL,AstarRR,BstarLL,BstarLR,BstarRL,BstarRR
   REAL(dp) :: EstarLLx,EstarLRx,EstarRLx,EstarRRx,EstarLLy,EstarLRy,EstarRLy,EstarRRy,EstarLL,EstarLR,EstarRL,EstarRR
   REAL(dp) :: AstarT,AstarB,BstarR,BstarL
-
+#if NDUST>0
+  integer :: idust
+#endif  
 #if NENER>0
   integer::irad
 #endif
@@ -2080,7 +2084,17 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
               END DO
            end do
 #endif
-
+#if NDUST>0
+           ! Non-thermal energies
+           do idust= 1,ndust
+              DO l = 1, ngrid
+                 qLL (l,firstindex_ndust+idust) = qRT(l,i,j,k,+idust,xdim)
+                 qRL (l,firstindex_ndust+idust) = qLT(l,i,j,k,firstindex_ndust+idust,xdim)
+                 qLR (l,firstindex_ndust+idust) = qRB(l,i,j,k,firstindex_ndust+idust,xdim)
+                 qRR (l,firstindex_ndust+idust) = qLB(l,i,j,k,firstindex_ndust+idust,xdim)
+              END DO
+           end do
+#endif
            ! Compute final fluxes
             DO l = 1, ngrid 
 
@@ -2092,7 +2106,7 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
 
                if(iriemann2d==5)then
 
-                  
+
                   rLL=qLL(l,1); pLL=qLL(l,2); uLL=qLL(l,3); vLL=qLL(l,4); ALL=qLL(l,6); BLL=qLL(l,7) ; CLL=qLL(l,8) 
                   rLR=qLR(l,1); pLR=qLR(l,2); uLR=qLR(l,3); vLR=qLR(l,4); ALR=qLR(l,6); BLR=qLR(l,7) ; CLR=qLR(l,8) 
                   rRL=qRL(l,1); pRL=qRL(l,2); uRL=qRL(l,3); vRL=qRL(l,4); ARL=qRL(l,6); BRL=qRL(l,7) ; CRL=qRL(l,8) 
@@ -2120,7 +2134,9 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qLL(l,8+irad)
                   end do
 #endif
+
                   call find_speed_fast(qtmp,cfastLLx)
+
                   qtmp(1)=qLR(l,1); qtmp(2)=qLR(l,2); qtmp(7)=qLR(l,5); qtmp(8)=qLR(l,8)
                   qtmp(3)=qLR(l,3); qtmp(4)=qLR(l,6); qtmp(5)=qLR(l,4); qtmp(6)=qLR(l,7)
 #if NENER>0
@@ -2272,10 +2288,14 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   emf(l,i,j,k) = E
 
                else if(iriemann2d==3)then
-
                   ! Compute 4 fast magnetosonic velocity relative to x direction
                   qtmp(1)=qLL(l,1); qtmp(2)=qLL(l,2); qtmp(7)=qLL(l,5); qtmp(8)=qLL(l,8)
                   qtmp(3)=qLL(l,3); qtmp(4)=qLL(l,6); qtmp(5)=qLL(l,4); qtmp(6)=qLL(l,7)
+#if NDUST>0
+                 do idust= 1,ndust
+                     qtmp(firstindex_ndust+idust)=qLL(l,firstindex_ndust+idust)
+                  end do
+#endif
 #if NENER>0
                   do irad = 1,nener
                      qtmp(8+irad) = qLL(l,8+irad)
@@ -2284,14 +2304,25 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   vLLx=qtmp(3); call find_speed_fast(qtmp,cLLx)
                   qtmp(1)=qLR(l,1); qtmp(2)=qLR(l,2); qtmp(7)=qLR(l,5); qtmp(8)=qLR(l,8)
                   qtmp(3)=qLR(l,3); qtmp(4)=qLR(l,6); qtmp(5)=qLR(l,4); qtmp(6)=qLR(l,7)
+#if NDUST>0
+                  do idust= 1,ndust
+                    qtmp(firstindex_ndust+idust)=qLR(l,firstindex_ndust+idust)
+                 end do
+#endif                  
 #if NENER>0
                   do irad = 1,nener
                      qtmp(8+irad) = qLR(l,8+irad)
                   end do
 #endif
                   vLRx=qtmp(3); call find_speed_fast(qtmp,cLRx)
+
                   qtmp(1)=qRL(l,1); qtmp(2)=qRL(l,2); qtmp(7)=qRL(l,5); qtmp(8)=qRL(l,8)
                   qtmp(3)=qRL(l,3); qtmp(4)=qRL(l,6); qtmp(5)=qRL(l,4); qtmp(6)=qRL(l,7)
+#if NDUST>0
+                  do idust= 1,ndust
+                     qtmp(firstindex_ndust+idust)=qRL(l,firstindex_ndust+idust)
+                  end do
+#endif                  
 #if NENER>0
                   do irad = 1,nener
                      qtmp(8+irad) = qRL(l,8+irad)
@@ -2300,6 +2331,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   vRLx=qtmp(3); call find_speed_fast(qtmp,cRLx)
                   qtmp(1)=qRR(l,1); qtmp(2)=qRR(l,2); qtmp(7)=qRR(l,5); qtmp(8)=qRR(l,8)
                   qtmp(3)=qRR(l,3); qtmp(4)=qRR(l,6); qtmp(5)=qRR(l,4); qtmp(6)=qRR(l,7)
+#if NDUST>0
+                  do idust= 1,ndust
+                     qtmp(firstindex_ndust+idust)=qRR(l,firstindex_ndust+idust)
+                  end do
+#endif                       
 #if NENER>0
                   do irad = 1,nener
                      qtmp(8+irad) = qRR(l,8+irad)
@@ -2310,6 +2346,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   ! Compute 4 fast magnetosonic velocity relative to y direction
                   qtmp(1)=qLL(l,1); qtmp(2)=qLL(l,2); qtmp(7)=qLL(l,5); qtmp(8)=qLL(l,8)
                   qtmp(3)=qLL(l,4); qtmp(4)=qLL(l,7); qtmp(5)=qLL(l,3); qtmp(6)=qLL(l,6)
+#if NDUST>0
+                  do idust= 1,ndust
+                     qtmp(firstindex_ndust+idust)=qLL(l,firstindex_ndust+idust)
+                  end do
+#endif                       
 #if NENER>0
                   do irad = 1,nener
                      qtmp(8+irad) = qLL(l,8+irad)
@@ -2318,6 +2359,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   vLLy=qtmp(3); call find_speed_fast(qtmp,cLLy)
                   qtmp(1)=qLR(l,1); qtmp(2)=qLR(l,2); qtmp(7)=qLR(l,5); qtmp(8)=qLR(l,8)
                   qtmp(3)=qLR(l,4); qtmp(4)=qLR(l,7); qtmp(5)=qLR(l,3); qtmp(6)=qLR(l,6)
+#if NDUST>0
+                  do idust= 1,ndust
+                     qtmp(firstindex_ndust+idust)=qLR(l,firstindex_ndust+idust)
+                  end do
+#endif                       
 #if NENER>0
                   do irad = 1,nener
                      qtmp(8+irad) = qLR(l,8+irad)
@@ -2326,6 +2372,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   vLRy=qtmp(3); call find_speed_fast(qtmp,cLRy)
                   qtmp(1)=qRL(l,1); qtmp(2)=qRL(l,2); qtmp(7)=qRL(l,5); qtmp(8)=qRL(l,8)
                   qtmp(3)=qRL(l,4); qtmp(4)=qRL(l,7); qtmp(5)=qRL(l,3); qtmp(6)=qRL(l,6)
+#if NDUST>0
+                  do idust= 1,ndust
+                     qtmp(firstindex_ndust+idust)=qRL(l,firstindex_ndust+idust)
+                  end do
+#endif     
 #if NENER>0
                   do irad = 1,nener
                      qtmp(8+irad) = qRL(l,8+irad)
@@ -2334,6 +2385,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   vRLy=qtmp(3); call find_speed_fast(qtmp,cRLy)
                   qtmp(1)=qRR(l,1); qtmp(2)=qRR(l,2); qtmp(7)=qRR(l,5); qtmp(8)=qRR(l,8)
                   qtmp(3)=qRR(l,4); qtmp(4)=qRR(l,7); qtmp(5)=qRR(l,3); qtmp(6)=qRR(l,6)
+#if NDUST>0
+                  do idust= 1,ndust
+                     qtmp(firstindex_ndust+idust)=qRR(l,firstindex_ndust+idust)
+                  end do
+#endif    
 #if NENER>0
                   do irad = 1,nener
                      qtmp(8+irad) = qRR(l,8+irad)
@@ -2666,7 +2722,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
               eint = etot-eken(l)*q(l,i,j,k,1)
               if(energy_fix)eint=uin(l,i,j,k,nvar)
             
-              call pressure_eos((1.0d0-sum_dust)*uin(l,i,j,k,1),eint,pp_eos)
+              call pressure_eos((1.0d0-sum_dust)*q(l,i,j,k,1),eint,pp_eos)
               q(l,i,j,k,5)=MAX(pp_eos,smallp)
            end do
 

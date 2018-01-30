@@ -1029,7 +1029,7 @@ SUBROUTINE find_speed_info(qvar,vel_info)
   B2 = A*A+B*B+C*C
   sum_dust=0.d0
 #if NDUST>0
-  do idust =1, ndust
+  do idust =1,ndust
      sum_dust=sum_dust+qvar(firstindex_ndust+idust)
   end do
 #endif

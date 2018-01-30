@@ -768,7 +768,7 @@ subroutine add_pdv_source_terms(ilevel)
            if(energy_fix)eps   = uold(ind_cell(i),nvar)
            sum_dust=0.0d0
 #if NDUST>0           
-            do idust = 1, Ndust
+            do idust = 1, ndust
                  sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
               end do
 #endif              
@@ -1008,10 +1008,10 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   ! Compute flux using second-order Godunov method
   !-----------------------------------------------
   ! modif nimhd
-!  call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache)
+  !  call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache)
+
   call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache,ind_grid,jcell)
   ! fin modif nimhd
-
   if(ischeme.eq.1)then
   !---------------------------------
   ! Reset all Euler variables fluxes
