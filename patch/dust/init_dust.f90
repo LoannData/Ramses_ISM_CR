@@ -4,42 +4,37 @@ subroutine init_dust_ratio(dustratio,epsilondust)
   implicit none
   real(dp) :: dustratio
   real(dp), dimension(1:ndust):: epsilondust
-  real(dp), dimension(1:ndust):: sdust
-  real(dp) :: epsilon_0,Anorm,Bnorm
+  real(dp), dimension(1:ndust+1):: sdust
+  real(dp) :: epsilon_0,Anorm
   integer  :: idust
   epsilon_0 = dustratio/(1.0d0+dustratio)
-  Anorm =  (1.0d0-mrn_index)/(size_max**(1.0d0-mrn_index)-size_min**(1.0d0-mrn_index))
-  Bnorm =(1.0D0-mrn_index)/DBLE(ndust)/Anorm
-  sdust(1)=size_min
-  !We bin the distribution
-  do idust =1,ndust-1
-     sdust(idust+1) = (sdust(idust)**(1.0d0-mrn_index)+Bnorm)**(1.0/(1.0-mrn_index))
+  Anorm = 1.0d0/(size_max**(4.0d0-mrn_index)-size_min**(4.0d0-mrn_index))
+  do idust =1,ndust+1
+     sdust(idust) = size_min+(size_max-size_min)*DBLE(idust-1)/DBLE(Ndust)
   enddo
-  ! We initialise it
   do idust=1,ndust
-     epsilondust(idust)= epsilon_0/DBLE(Ndust)
+     epsilondust(idust)= epsilon_0*Anorm*(sdust(idust+1)**(4.0d0-mrn_index)-sdust(idust)**(4.0d0-mrn_index))
   enddo
 end subroutine init_dust_ratio
 
-subroutine size_dust(sdust,dustratio)
+subroutine size_dust(sdust)
   use amr_commons
   use hydro_commons
   implicit none
   real(dp), dimension(1:ndust):: sdust
-  real(dp) :: dustratio
-  real(dp) :: Anorm, Bnorm, epsilon_0 
+  real(dp), dimension(1:ndust+1):: sdust_interval
+  real(dp) :: Bnorm
   integer  :: idust
-
-  epsilon_0 = dustratio/(1.0d0+dustratio)
-  !We bin the distribution
-  Anorm = epsilon_0 * (1.0d0-mrn_index)/(size_max**(1.0d0-mrn_index)-size_min**(1.0d0-mrn_index))
-  Bnorm =(1.0-mrn_index)*epsilon_0/DBLE(ndust)/Anorm
-  sdust(1)=size_min
-  !We bin the distribution
-  do idust =1,ndust-1
-     sdust(idust+1) = (sdust(idust)**(1.0d0-mrn_index)+Bnorm)**(1.0/(1.0-mrn_index))
+  Bnorm = (1.0d0-mrn_index)/(size_max**(1.0d0-mrn_index)-size_min**(1.0d0-mrn_index))
+  do idust =1,ndust+1
+     sdust_interval(idust) = size_min+(size_max-size_min)*DBLE(idust-1)/DBLE(Ndust)
   enddo
- 
+   !We compute the average dust size in the bin to get the correct stopping time 
+   do idust =1,ndust
+      sdust(idust) = Bnorm*(sdust_interval(idust+1)**(2.0d0-mrn_index)-sdust_interval(idust)**(2.0d0-mrn_index))/(2.0d0-mrn_index)
+      print*, sdust(idust), 'titi'
+   enddo
+   stop
 end subroutine size_dust
 
 

@@ -218,7 +218,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   
   pi =3.14159265358979323846_dp
   if(mrn.eqv..true.) then
-     call size_dust(l_grain,dust_ratio(1))
+     call size_dust(l_grain)
      do idust=1,ndust
        l_grain(idust) = l_grain(idust)/scale_l
        d_grain(idust)=grain_dens(idust)/scale_d
@@ -397,7 +397,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
 
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
               if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.dt_control)then
-                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel), sum_dust, t_stop
+                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel), sum_dust, t_stop, d*scale_d
                stop
             endif
             !if( dtnew(ilevel) .gt. dx*dx/sum_dust/t_stop/cs/cs.and.dust_barr)  then
@@ -461,7 +461,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               if(dust_barr) t_stop = 0.1_dp              
               uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp -sum_dust)
               if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
-                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (INTERP)', sum_dust*t_stop,dtnew(ilevel), sum_dust, t_stop
+                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (INTERP)', sum_dust*t_stop,dtnew(ilevel), sum_dust, t_stop, d*scale_d
                  stop
               endif    
               !(price&laibe 2015)

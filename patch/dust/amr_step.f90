@@ -613,9 +613,9 @@ recursive subroutine amr_step(ilevel,icount)
      ! Restriction operator
                                call timer('hydro upload fine','start')
      call upload_fine(ilevel)
-     do idust=1,ndust
-        call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
-     end do
+     !do idust=1,ndust
+     !   call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
+     !end do
      ! Update boundaries
                               call timer('hydro - ghostzones','start')
 #ifdef SOLVERmhd
