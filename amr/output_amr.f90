@@ -605,6 +605,9 @@ subroutine output_header(filename)
            write(ilun,'(a)',advance='no')'metal '
         endif
      endif
+     if(tracer)then
+        write(ilun,'(a)',advance='no')'tracer_rho tracer_tg tracer_tr tracer_ext tracer_b'
+     endif
      close(ilun)
 
   endif
