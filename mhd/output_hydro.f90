@@ -366,7 +366,8 @@ subroutine backup_hydro(filename)
               do i=1,ncache
                  xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+npscal)
               end do
-
+              write(ilun)xdp
+              
 #endif
               
               ! Write temperature
