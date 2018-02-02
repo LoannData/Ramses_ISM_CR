@@ -1195,7 +1195,10 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   ! If merged with the previous loop, unew(nvar-3) and unew(nvar-2)
   ! are overwritten with fluxes (when idim=2,3)
   !----------------------------------------------------------------
-  if(radiative_nimhdheating .and. (nambipolar.eq.1 .or. nmagdiffu.eq.1))then
+
+  ! Compute jcenter  even when running ideal MHD
+  ! to dump it in hydro output files
+!  if(radiative_nimhdheating .and. (nambipolar.eq.1 .or. nmagdiffu.eq.1))then
      do idim=1,ndim
         do k2=k2min,k2max
         do j2=j2min,j2max
@@ -1217,7 +1220,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         enddo
         enddo
      enddo
-  end if
+!  end if
 #endif
 
   !---------------------------------------------------------
