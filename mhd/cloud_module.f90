@@ -37,6 +37,7 @@ module cloud_module
   integer :: modrestart=0              ! name of model you want to restart from, this is an input
   real(dp):: facc_star_lum=0.75d0      ! fraction of the accretion luminosity radiated by the sinks
   real(dp):: facc_star=0.5d0           ! fraction of the sink accreted mass actually accreted by the star
+  real(dp):: facc_star_mom=1.0d0       ! fraction of the angular momentum accreted by the sinks
   integer::nmdot_PMS,nm_PMS,ndata_PMS
   integer ,allocatable,dimension(:)::nb_ligne_PMS
   real(dp),allocatable,dimension(:,:,:)::data_PMS
