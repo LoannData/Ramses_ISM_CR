@@ -25,16 +25,14 @@ subroutine size_dust(sdust)
   real(dp), dimension(1:ndust+1):: sdust_interval
   real(dp) :: Bnorm
   integer  :: idust
-  Bnorm = (1.0d0-mrn_index)/(size_max**(1.0d0-mrn_index)-size_min**(1.0d0-mrn_index))
+  Bnorm = 1.0d0/(size_max**(1.0d0-mrn_index)-size_min**(1.0d0-mrn_index))
   do idust =1,ndust+1
      sdust_interval(idust) = size_min+(size_max-size_min)*DBLE(idust-1)/DBLE(Ndust)
   enddo
    !We compute the average dust size in the bin to get the correct stopping time 
    do idust =1,ndust
-      sdust(idust) = Bnorm*(sdust_interval(idust+1)**(2.0d0-mrn_index)-sdust_interval(idust)**(2.0d0-mrn_index))/(2.0d0-mrn_index)
-      print*, sdust(idust), 'titi'
+      sdust(idust) = (0.5d0*(sdust_interval(idust)+sdust_interval(idust+1)))**(-1.0d0/mrn_index)*Bnorm**(1.0/mrn_index)
    enddo
-   stop
 end subroutine size_dust
 
 

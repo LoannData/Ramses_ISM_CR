@@ -396,14 +396,10 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               if(dust_barr) t_stop = 0.1_dp
 
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
-              if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.dt_control)then
-                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel), sum_dust, t_stop, d*scale_d
-               stop
-            endif
-            !if( dtnew(ilevel) .gt. dx*dx/sum_dust/t_stop/cs/cs.and.dust_barr)  then
-            !   write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (BARR)' , dtnew(ilevel), dx*dx/sum_dust/t_stop/cs/cs
-             !  stop
-            !endif
+               !if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.dt_control)then
+               !  write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel), sum_dust, t_stop, d*scale_d
+               !  stop
+               !endif
            !(price&laibe 2015)
            end do   
         end do
@@ -460,10 +456,10 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp              
               uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp -sum_dust)
-              if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
-                 write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (INTERP)', sum_dust*t_stop,dtnew(ilevel), sum_dust, t_stop, d*scale_d
-                 stop
-              endif    
+              !if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
+              !   write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (INTERP)', sum_dust*t_stop,dtnew(ilevel), sum_dust, t_stop, d*scale_d
+              !   stop
+              !endif    
               !(price&laibe 2015)
            enddo
         end do
