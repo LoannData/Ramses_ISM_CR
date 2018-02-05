@@ -23,7 +23,7 @@ x      = data["x"][order]
 amrlev = data["level"][order]
 er     = data["radiative_energy_1"][order]
 ux     = np.abs(data["velocity_x"][order])
-et     = data["passive_scalar_1"][order]
+et     = data["internal_energy"][order]
 
 # Compute analytical solution
 t = data["time"]
