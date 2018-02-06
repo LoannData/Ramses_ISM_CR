@@ -83,7 +83,7 @@ subroutine dump_all
         filename=TRIM(filedir)//'makefile.txt'
         call output_makefile(filename)
         filename=TRIM(filedir)//'patches.txt'
-        call output_patch(filename)
+        !call output_patch(filename)
         if(hydro)then
            filename=TRIM(filedir)//'hydro_file_descriptor.txt'
            call file_descriptor_hydro(filename)

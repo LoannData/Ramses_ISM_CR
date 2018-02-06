@@ -1162,6 +1162,38 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
   END DO
 #endif
 
+#if NDUST>0
+  ! Dust 
+  DO idust = 1, ndust
+     DO k = klo, khi
+        DO j = jlo, jhi
+           DO i = ilo, ihi
+              DO l = 1, ngrid
+                 r   = q(l,i,j,k,firstindex_ndust+idust)            ! Cell centered values
+                 u   = q(l,i,j,k,iu)
+                 v   = q(l,i,j,k,iv)
+                 drx = half * dq(l,i,j,k,firstindex_ndust+idust,1)   ! TVD slopes
+                 dry = half * dq(l,i,j,k,firstindex_ndust+idust,2)
+                 sr0 = -u*drx*dtdx -v*dry*dtdy    ! Source terms
+                 r   = r + sr0                  ! Predicted state
+                 !qp(l,i,j,k,firstindex_ndust+idust,1) = r - drx      ! Right state
+                 !qm(l,i,j,k,firstindex_ndust+idust,1) = r + drx      ! Left state
+                 !qp(l,i,j,k,firstindex_ndust+idust,2) = r - dry      ! Top state
+                 !qm(l,i,j,k,firstindex_ndust+idust,2) = r + dry      ! Bottom state
+                 !qp(l,i,j,k,firstindex_ndust+idust,3) = r - drz      ! Front state
+                 !qm(l,i,j,k,firstindex_ndust+idust,3) = r + drz      ! Back state
+                 qRT(l,i,j,k,firstindex_ndust+idust,3) = r + drx + dry 
+                 qRB(l,i,j,k,firstindex_ndust+idust,3) = r + drx - dry 
+                 qLT(l,i,j,k,firstindex_ndust+idust,3) = r - drx + dry  
+                 qLB(l,i,j,k,firstindex_ndust+idust,3) = r - drx - dry 
+
+              END DO
+           END DO
+        END DO
+     END DO
+  END DO
+#endif
+
 END SUBROUTINE trace2d
 #endif
 !###########################################################
@@ -1293,6 +1325,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
                  e(irad) = q(l,i,j,k,iC+irad)
               end do
 #endif
+         
 
               ! Face centered variables
               AL =  bf(l,i  ,j  ,k  ,1)
@@ -1770,7 +1803,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
                  if(irad.gt.nent)qLB(l,i,j,k,iC+irad,3) = max(small_er, qLB(l,i,j,k,iC+irad,3))
               end do
 #endif
-
            END DO
         END DO
      END DO
@@ -1805,6 +1837,48 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
   END DO
 #endif
 
+
+#if NDUST>0
+  ! Dust 
+  DO idust = 1, ndust
+     DO k = klo, khi
+        DO j = jlo, jhi
+           DO i = ilo, ihi
+              DO l = 1, ngrid
+                 r   = q(l,i,j,k,firstindex_ndust+idust)            ! Cell centered values
+                 u   = q(l,i,j,k,iu)
+                 v   = q(l,i,j,k,iv)
+                 w   = q(l,i,j,k,iw)
+                 drx = half * dq(l,i,j,k,firstindex_ndust+idust,1)   ! TVD slopes
+                 dry = half * dq(l,i,j,k,firstindex_ndust+idust,2)
+                 drz = half * dq(l,i,j,k,firstindex_ndust+idust,3)
+                 sr0 = -u*drx*dtdx -v*dry*dtdy -w*drz*dtdz   ! Source terms
+                 r   = r + sr0                  ! Predicted state
+                 !qp(l,i,j,k,firstindex_ndust+idust,1) = r - drx      ! Right state
+                 !qm(l,i,j,k,firstindex_ndust+idust,1) = r + drx      ! Left state
+                 !qp(l,i,j,k,firstindex_ndust+idust,2) = r - dry      ! Top state
+                 !qm(l,i,j,k,firstindex_ndust+idust,2) = r + dry      ! Bottom state
+                 !qp(l,i,j,k,firstindex_ndust+idust,3) = r - drz      ! Front state
+                 !qm(l,i,j,k,firstindex_ndust+idust,3) = r + drz      ! Back state
+                 qRT(l,i,j,k,firstindex_ndust+idust,1) = r + dry + drz 
+                 qRB(l,i,j,k,firstindex_ndust+idust,1) = r + dry - drz 
+                 qLT(l,i,j,k,firstindex_ndust+idust,1) = r - dry + drz 
+                 qLB(l,i,j,k,firstindex_ndust+idust,1) = r - dry - drz  
+                 qRT(l,i,j,k,firstindex_ndust+idust,2) = r + drx + drz  
+                 qRB(l,i,j,k,firstindex_ndust+idust,2) = r + drx - drz
+                 qLT(l,i,j,k,firstindex_ndust+idust,2) = r - drx + drz
+                 qLB(l,i,j,k,firstindex_ndust+idust,2) = r - drx - drz 
+                 qRT(l,i,j,k,firstindex_ndust+idust,3) = r + drx + dry 
+                 qRB(l,i,j,k,firstindex_ndust+idust,3) = r + drx - dry 
+                 qLT(l,i,j,k,firstindex_ndust+idust,3) = r - drx + dry  
+                 qLB(l,i,j,k,firstindex_ndust+idust,3) = r - drx - dry 
+
+              END DO
+           END DO
+        END DO
+     END DO
+  END DO
+#endif
 END SUBROUTINE trace3d
 #endif
 !###########################################################
@@ -2092,7 +2166,6 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                  qRL (l,firstindex_ndust+idust) = qLT(l,i,j,k,firstindex_ndust+idust,xdim)
                  qLR (l,firstindex_ndust+idust) = qRB(l,i,j,k,firstindex_ndust+idust,xdim)
                  qRR (l,firstindex_ndust+idust) = qLB(l,i,j,k,firstindex_ndust+idust,xdim)
-                 print *, 'toto'
               END DO
            end do
 #endif
