@@ -21,7 +21,7 @@ subroutine dump_all
 #endif
   character::nml_char
   character(LEN=5)::nchar,ncharcpu
-  character(LEN=80)::filename,filedir,filedirini,filecmd
+  character(LEN=120)::filename,filedir,filedirini,filecmd
   integer::irec,ierr
 
   if(nstep_coarse==nstep_coarse_old.and.nstep_coarse>0)return
@@ -83,7 +83,7 @@ subroutine dump_all
         filename=TRIM(filedir)//'makefile.txt'
         call output_makefile(filename)
         filename=TRIM(filedir)//'patches.txt'
-        !call output_patch(filename)
+        call output_patch(filename)
         if(hydro)then
            filename=TRIM(filedir)//'hydro_file_descriptor.txt'
            call file_descriptor_hydro(filename)

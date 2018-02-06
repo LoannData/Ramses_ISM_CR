@@ -1239,7 +1239,7 @@ subroutine ctoprim_sts(uin,q,ngrid)
                sum_dust=0.0_dp
 #if NDUST>0
                do idust = 1,ndust
-                  sum_dust=sum_dust+q(l,i,j,k,firstindex_ndust+idust)/q(l,i,j,k,1)
+                  sum_dust=sum_dust+q(l,i,j,k,firstindex_ndust+idust)
                enddo
 #endif
                   call pressure_eos((1.0_dp-sum_dust)*q(l,i,j,k,1),eint,pp_eos)

@@ -2092,7 +2092,7 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                  qRL (l,firstindex_ndust+idust) = qLT(l,i,j,k,firstindex_ndust+idust,xdim)
                  qLR (l,firstindex_ndust+idust) = qRB(l,i,j,k,firstindex_ndust+idust,xdim)
                  qRR (l,firstindex_ndust+idust) = qLB(l,i,j,k,firstindex_ndust+idust,xdim)
-                 print *, 'toto'
+                
               END DO
            end do
 #endif
