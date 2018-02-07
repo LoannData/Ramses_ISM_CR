@@ -72,8 +72,19 @@ subroutine condinit(x,u,dx,nn)
 
 
   if(bb_test)then
+     sum_dust=0.0d0
+#if NDUST>0
+     do idust =1,ndust
+        dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+     end do  
+     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
+     do idust =1,ndust
+           sum_dust = sum_dust + dustMRN(idust)
+        end do   
+#endif     
      ! cloud radius equal to unity
-     r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor))/scale_l
+     
+     r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
      ! cloud density equal to unity
      d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
      ! threshold for ambipolar fluxes
@@ -250,7 +261,6 @@ subroutine condinit(x,u,dx,nn)
 #if NDUST>0
         if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
         do idust =1,ndust
-          
            q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
            if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
            sum_dust = sum_dust + q(i, firstindex_ndust+idust)
@@ -864,7 +874,13 @@ subroutine calc_boxlen
   real(dp):: res_int,r_0,C_s
   integer::  np
   logical,save:: first=.true.
-
+  real(dp) :: sum_dust
+#if NDUST>0
+  integer :: idust
+  real(dp):: epsilon_0
+  real(dp),dimension(1:ndust):: dustMRN
+  epsilon_0 = dust_ratio(1)
+#endif  
     if (first) then
 
     pi=acos(-1.0d0)
@@ -877,7 +893,17 @@ subroutine calc_boxlen
 
     
     if(bb_test)then
-       r_0 = (alpha_dense_core*2.*6.67d-8*mass_c*mu_gas*mH/(5.*kB*Tr_floor))/scale_l* scale_m 
+     sum_dust=0.0d0
+#if NDUST>0
+     do idust =1,ndust
+        dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+     end do     
+     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
+     do idust =1,ndust
+           sum_dust = sum_dust + dustMRN(idust)
+        end do   
+#endif        
+       r_0 = (alpha_dense_core*2.*6.67d-8*mass_c*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l* scale_m 
        boxlen = r_0 * r0_box
        
        if (myid == 1) then 
@@ -947,7 +973,13 @@ function compute_db()
 
   integer::i
   real(dp)::res_int,d0,r0,pi,c_s,zeta,compute_db,mass_c2
-  
+  real(dp):: sum_dust
+#if NDUST>0
+  integer :: idust
+  real(dp):: epsilon_0
+  real(dp),dimension(1:ndust):: dustMRN
+  epsilon_0 = dust_ratio(1)
+#endif  
   C_s = sqrt( Tr_floor / scale_T2 )
   pi=acos(-1.0d0)
 
@@ -956,7 +988,16 @@ function compute_db()
   mass_c2 = mass_c * (Msun / scale_m )     
 
   if(bb_test)then
-     
+     sum_dust=0.0d0
+#if NDUST>0
+     do idust =1,ndust
+        dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+     end do     
+     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
+     do idust =1,ndust
+           sum_dust = sum_dust + dustMRN(idust)
+        end do   
+#endif      
      pi=2.0d0*asin(1.0d0)
      r0=(alpha_dense_core*2.*6.67d-8*mass_c2*scale_m*mu_gas*mH/(5.*kB*Tr_floor))/scale_l
      d0 = 3.0d0*mass_c2/(4.0d0*pi*r0**3.)
