@@ -121,7 +121,7 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp)::dx_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
-  real(dp) :: speed, sigma
+  real(dp) :: speed, sigma,dPdx
   integer::i,j,k,l,isl,idust, idens, ipress
   integer::jlo,jhi,klo,khi
 
@@ -138,6 +138,7 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
+        dPdx= (uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
         do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)/uin(l,i-1,j,k,idens)
            Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
@@ -145,15 +146,18 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
-           if(0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i-1,j,k,idust)/uin(l,i-1,j,k,idens))&
-                &.gt. dt.and..not.dust_barr.and..not.dt_control)then
-                    write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? x-dir', 0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i-1,j,k,idust)/uin(l,i-1,j,k,idens)), dt, uin(l,i,j,k,ipress)
-           stop
-           endif
         end do
         do idust=1,ndust
            !First order terms
-           speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i-1,j,k,idens))*(uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
+           speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i-1,j,k,idens))*dPdx
+           if (dt.gt. courant_factor * dx/abs(speed)) then
+              write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', dt,  courant_factor*dx/abs(speed), uin(l,i,j,k,idens)
+              if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
+                 speed = courant_factor*dx/dt
+              else
+                 stop
+              endif 
+           end if    
            if(speed.ge.0.0d0) fx(idust)= speed*uin(l,i-1,j,k,idust) 
            if(speed<0.0d0) fx(idust)= speed*uin(l,i,j,k,idust)
            !Second order terms
@@ -206,6 +210,7 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   ipress=2*ndust+2
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   do k=klo,khi
   do j=jf1,jf2
@@ -224,15 +229,18 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j-1,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
-           if(0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j-1,k,idust)/uin(l,i,j-1,k,idens))&
-                &.gt. dt.and..not.dust_barr.and..not.dt_control)then
-                    write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? y-dir', 0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j-1,k,idust))/uin(l,i,j-1,k,idens), dt, uin(l,i,j,k,ipress)
-           stop
-           endif
         end do
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j-1,k,idens))*dPdy1
+            if (dt.gt. courant_factor * dy/abs(speed)) then
+              write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', dt,  courant_factor*dy/abs(speed), uin(l,i,j,k,idens)*scale_d
+              if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
+                 speed = courant_factor*dy/dt
+              else
+                 stop
+              endif   
+           end if  
            if(speed.ge.0.0d0) fy(idust)= speed*uin(l,i,j-1,k,idust) 
            if(speed<0.0d0) fy(idust)= speed*uin(l,i,j,k,idust)
            !Second order terms
@@ -305,15 +313,18 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j,k-1,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
-           if(0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j,k-1,idust)/uin(l,i,j,k-1,idens))&
-                &.gt. dt.and..not.dust_barr.and..not.dt_control)then
-                    write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? z-dir', 0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j,k-1,idust)/uin(l,i,j,k-1,idens)), dt, uin(l,i,j,k,ipress)
-           stop
-           endif
         enddo
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j,k-1,idens))*dPdz1
+           if (dt.gt. courant_factor * dz/abs(speed)) then
+              write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', dt,  courant_factor*dz/abs(speed), uin(l,i,j,k,idens)
+              if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
+                 speed = courant_factor*dz/dt
+              else
+                 stop
+              endif 
+           end if  
            if(speed.ge.0.0d0) fz(idust)= speed*uin(l,i,j,k-1,idust) 
            if(speed<0.0d0) fz(idust)= speed*uin(l,i,j,k,idust)
            !Second order terms
