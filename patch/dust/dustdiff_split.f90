@@ -121,9 +121,10 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp)::dx_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
-  real(dp) :: speed, sigma,dPdx
+  real(dp) :: speed, sigma,dPdx,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   integer::i,j,k,l,isl,idust, idens, ipress
   integer::jlo,jhi,klo,khi
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
@@ -201,7 +202,7 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fy
   !Slopes and advection velocity
-  real(dp) :: speed, sigma
+  real(dp) :: speed, sigma,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress,isl
   integer::ilo,ihi,klo,khi
@@ -285,10 +286,11 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   real(dp),dimension(1:ndust)::fz
 
   !Slopes and advection velocity
-  real(dp) :: speed, sigma 
+  real(dp) :: speed, sigma ,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress, isl
   integer::ilo,ihi,jlo,jhi,klo,khi
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   idens=2*ndust+1
   ipress=2*ndust+2
