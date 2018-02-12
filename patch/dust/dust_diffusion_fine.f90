@@ -192,6 +192,9 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   integer::i1min,i1max,j1min,j1max,k1min,k1max
   integer::i2min,i2max,j2min,j2max,k2min,k2max
   integer::i3min,i3max,j3min,j3max,k3min,k3max
+  integer:: icycle, ncycle
+  real(dp):: dt_dustcycle
+  logical :: d_cycle_ok
   real(dp)::dx,scale,oneontwotondim
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp)::sum_dust,sum_dust_new,sum_dust_old
@@ -211,7 +214,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   uuuloc= 0.0d0
   facdx= 0.0d0
   ok   = .false.
-  
+  d_cycle_ok=.false.
   oneontwotondim = 1.d0/dble(twotondim)
   
   ! Initialisation of dust related quantities
@@ -233,7 +236,12 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
   dx=0.5D0**ilevel*scale
- 
+  icycle = 1
+  ncycle = 2
+  !Subcycling loop
+  do while (icycle .le. ncycle)
+     
+  if (icycle .eq. 1) ncycle = 1
   ! Integer constants
   i1min=0; i1max=0; i2min=0; i2max=0; i3min=1; i3max=1
   j1min=0; j1max=0; j2min=0; j2max=0; j3min=1; j3max=1
@@ -394,13 +402,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
               t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d!/d
               if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp
-
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
-               !if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr.and..not.dt_control)then
-               !  write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',  sum_dust*t_stop, dtnew(ilevel), sum_dust, t_stop, d*scale_d
-               !  stop
-               !endif
-           !(price&laibe 2015)
            end do   
         end do
 
@@ -450,17 +452,10 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
            uloc(ind_nexist(i),i3,j3,k3,2*ndust+2)=pressure
            do idust = 1, ndust
               ! different prescriptions for t-stop
-
               t_stop =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
-
               if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp              
               uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp -sum_dust)
-              !if(sum_dust*t_stop.gt. dtnew(ilevel).and..not.dust_barr)then
-              !   write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE? (INTERP)', sum_dust*t_stop,dtnew(ilevel), sum_dust, t_stop, d*scale_d
-              !   stop
-              !endif    
-              !(price&laibe 2015)
            enddo
         end do
 
@@ -472,12 +467,18 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   end do
   end do
   !End loop over neighboring grids
-
+  
+  !-----------------------------------------------
+  !Check if subcycling
+  !-----------------------------------------------
+  if(icycle.eq.1) call check_subcycle_dust(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache,ncycle,d_cycle_ok)
+  if(d_cycle_ok.and..not.icycle.eq.ncycle) dt_dustcycle = dtnew(ilevel)/dble(ncycle)
+  if(.not.d_cycle_ok) dt_dustcycle = dtnew(ilevel)
   !-----------------------------------------------
   ! Compute flux due to dust diffusion
   !-----------------------------------------------
 
-  call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache,facdx)
+  call dustdiff_split(uloc,flux,dx,dx,dx,dt_dustcycle,ncache,facdx)
 
   !Reset fluxes at refined interfaces
   do idim=1,ndim
@@ -657,7 +658,16 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel)
   end do
   ! End loop over dimensions
   end if
+  icycle = icycle +1
+  end do !end subcycling loop
+
 end subroutine dustdifffine1
+
+
+
+
+
+
 
 subroutine add_dust_terms(ilevel)
   use amr_commons
