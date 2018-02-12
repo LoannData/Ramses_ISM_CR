@@ -269,14 +269,14 @@ subroutine init_hydro
 
 #else
                  if(write_conservative) then
-                    do ivar=1,npscal ! Read conservative passive scalars if any
+                    do ivar=1,npscal-1 ! Read conservative passive scalars if any
                        read(ilun)xx
                        do i=1,ncache
                           uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
                        end do
                     end do
                  else
-                    do ivar=1,npscal ! Read passive scalars if any
+                    do ivar=1,npscal-1 ! Read passive scalars if any
                        read(ilun)xx
                        do i=1,ncache
                           uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
