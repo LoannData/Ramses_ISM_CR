@@ -707,6 +707,11 @@ function planck_ana(dens,Tp,Tr,igroup)
   jval = floor((y - y_opmesh(1)) / dy_opmesh) + 1
   kval = floor((z - z_opmesh(1)) / dz_opmesh) + 1
   
+  ! enforce to be in the table
+  ival = min(max(ival,1),nx_opmesh)
+  jval = min(max(jval,1),ny_opmesh)
+  kval = min(max(kval,1),nz_opmesh)
+
   ! Perform tri-linear interpolation
   
   ! Compute coordinate deltas
@@ -776,6 +781,11 @@ function rosseland_ana(dens,Tp,Tr,igroup)
   jval = floor((y - y_opmesh(1)) / dy_opmesh) + 1
   kval = floor((z - z_opmesh(1)) / dz_opmesh) + 1
   
+  ! enforce to be in the table
+  ival = min(max(ival,1),nx_opmesh)
+  jval = min(max(jval,1),ny_opmesh)
+  kval = min(max(kval,1),nz_opmesh)
+
   ! Perform tri-linear interpolation
   
   ! Compute coordinate deltas
