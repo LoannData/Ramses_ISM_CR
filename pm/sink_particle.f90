@@ -898,7 +898,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ! PH compute the part of the velocity associated to the momentum
            ! then the gas keeps part of its momentum which is not accreted onto the sink
            rr2 = r_rel(1)**2+r_rel(2)**2+r_rel(3)**2
-           v_mom(1:3) = (1.-facc_star_mom)* (v_rel(1:3) - (v_rel(1)*r_rel(1)+v_rel(2)*r_rel(2)+v_rel(3)*r_rel(3))/rr2*r_rel(1:3))
+           v_mom(1:3) = 0.0
+           if(.not.on_creation) v_mom(1:3) = (1.-facc_star_mom)* (v_rel(1:3) - (v_rel(1)*r_rel(1)+v_rel(2)*r_rel(2)+v_rel(3)*r_rel(3))/rr2*r_rel(1:3))
 
            ! Accreted relative momentum
            p_acc(1:3)=m_acc*(v_rel(1:3)-v_mom(1:3))
