@@ -9,8 +9,9 @@ subroutine init_dust_ratio(dustratio,epsilondust)
   integer  :: idust
   epsilon_0 = dustratio/(1.0d0+dustratio)
   Anorm = 1.0d0/(size_max**(4.0d0-mrn_index)-size_min**(4.0d0-mrn_index))
-  do idust =1,ndust+1
-     sdust(idust) = size_min+(size_max-size_min)*DBLE(idust-1)/DBLE(Ndust)
+  sdust(1)=size_min
+  do idust =1,ndust
+     sdust(idust+1) = sdust(idust)+10**(log10(size_max/size_min)/dble(ndust))
   enddo
   do idust=1,ndust
      epsilondust(idust)= epsilon_0*Anorm*(sdust(idust+1)**(4.0d0-mrn_index)-sdust(idust)**(4.0d0-mrn_index))
@@ -23,15 +24,13 @@ subroutine size_dust(sdust)
   implicit none
   real(dp), dimension(1:ndust):: sdust
   real(dp), dimension(1:ndust+1):: sdust_interval
-  real(dp) :: Bnorm
   integer  :: idust
-  Bnorm = 1.0d0/(size_max**(1.0d0-mrn_index)-size_min**(1.0d0-mrn_index))
-  do idust =1,ndust+1
-     sdust_interval(idust) = size_min+(size_max-size_min)*DBLE(idust-1)/DBLE(Ndust)
+  do idust =1,ndust
+     sdust(idust+1) = sdust(idust)+10**(log10(size_max/size_min)/dble(ndust))
   enddo
    !We compute the average dust size in the bin to get the correct stopping time 
    do idust =1,ndust
-      sdust(idust) = (0.5d0*(sdust_interval(idust)+sdust_interval(idust+1)))**(-1.0d0/mrn_index)*Bnorm**(1.0/mrn_index)
+      sdust(idust) = sqrt(sdust_interval(idust)*sdust_interval(idust+1))
    enddo
 end subroutine size_dust
 

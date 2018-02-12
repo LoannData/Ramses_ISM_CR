@@ -999,9 +999,9 @@ function compute_db()
         end do   
 #endif      
      pi=2.0d0*asin(1.0d0)
-     r0=(alpha_dense_core*2.*6.67d-8*mass_c2*scale_m*mu_gas*mH/(5.*kB*Tr_floor))/scale_l
+     r0=(alpha_dense_core*2.*6.67d-8*mass_c2*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
      d0 = 3.0d0*mass_c2/(4.0d0*pi*r0**3.)
-     compute_db=d0/contrast
+     compute_db=1.0d-19/scale_d!d0/contrast
      
   else
      !calculate an integral used to compute the cloud radius 
