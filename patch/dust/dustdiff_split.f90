@@ -1,5 +1,5 @@
-! ---------------------------------------------------------------
-!  DUSTDIFF_SPLIT  This routine solves the dust flux  
+! ------------------------------------------------------------------------------
+!  DUSTDIFF_SPLIT  This routine solves the dust flux after the operator splitting  
 !              
 !
 !  inputs/outputs
@@ -21,7 +21,7 @@
 !
 !  This routine was adapted from Yohan Dubois & Benoit Commerçon's
 !  heat conduction routine by Ugo Lebreuilly
-! ----------------------------------------------------------------
+! --------------------------------------------------------------------------
 subroutine dustdiff_split(uin,flux,dx,dy,dz,dt,ngrid,fdx)
   use amr_parameters
   use const             
@@ -122,9 +122,12 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
   real(dp) :: speed, sigma,dPdx,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp):: cs_left, cs_right, dust_left, dust_right,t_dyn,entho,pi
   integer::i,j,k,l,isl,idust, idens, ipress
   integer::jlo,jhi,klo,khi
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  entho= one /(gamma -one)
+  pi =3.14159265358979323846_dp
 
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
@@ -139,25 +142,34 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
+        dust_left=0.0d0
+        dust_right=0.0d0        
         dPdx= (uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
         do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)/uin(l,i-1,j,k,idens)
            Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
         end do
+
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
+           dust_left=dust_left+uin(l,i-1,j,k,idust)
+           dust_right=dust_right+uin(l,i,j,k,idust)
         end do
+        call soundspeed_eos(uin(l,i-1,j,k,idens)*(1.0d0-dust_left),uin(l,i-1,j,k,ipress)*entho,cs_left)
+        call soundspeed_eos(uin(l,i,j,k,idens)*(1.0d0-dust_right),uin(l,i,j,k,ipress)*entho,cs_right)
+        t_dyn = 0.5d0*(sqrt(pi/uin(l,i-1,j,k,idens))*cs_left+sqrt(pi/uin(l,i,j,k,idens))*cs_right)
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i-1,j,k,idens))*dPdx
-           if (dt.gt. courant_factor * dx/abs(speed)) then
-              write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', dt,  courant_factor*dx/abs(speed), uin(l,i,j,k,idens)
-              if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
-                 speed = courant_factor*dx/dt
-              else
+           if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i-1,j,k,idust)/uin(l,i-1,j,k,idens)).gt.t_dyn) then
+            !  if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
+            !     speed = courant_factor*dx/dt
+            !  else
+              write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', t_dyn,&
+                   &0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i-1,j,k,idust)/uin(l,i-1,j,k,idens)), uin(l,i,j,k,idens)
                  stop
-              endif 
+            !  endif 
            end if    
            if(speed.ge.0.0d0) fx(idust)= speed*uin(l,i-1,j,k,idust) 
            if(speed<0.0d0) fx(idust)= speed*uin(l,i,j,k,idust)
@@ -203,10 +215,13 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp),dimension(1:ndust)::fy
   !Slopes and advection velocity
   real(dp) :: speed, sigma,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp):: cs_left, cs_right, dust_left, dust_right,t_dyn,entho,pi
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress,isl
   integer::ilo,ihi,klo,khi
-  
+  entho= one /(gamma -one)
+  pi =3.14159265358979323846_dp
+
   idens=2*ndust+1
   ipress=2*ndust+2
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
@@ -222,6 +237,8 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
+        dust_left=0.0d0
+        dust_right=0.0d0  
         dPdy1=(uin(l,i,j,k,ipress)-uin(l,i,j-1,k,ipress))/dy
          do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)/uin(l,i,j-1,k,idens)
@@ -230,17 +247,24 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j-1,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
+           dust_left=dust_left+uin(l,i,j-1,k,idust)
+           dust_right=dust_right+uin(l,i,j,k,idust)
         end do
+        call soundspeed_eos(uin(l,i,j-1,k,idens)*(1.0d0-dust_left),uin(l,i,j-1,k,ipress)*entho,cs_left)
+        call soundspeed_eos(uin(l,i,j,k,idens)*(1.0d0-dust_right),uin(l,i,j,k,ipress)*entho,cs_right)
+        t_dyn = 0.5d0*(sqrt(pi/uin(l,i,j-1,k,idens))*cs_left+sqrt(pi/uin(l,i,j,k,idens))*cs_right)
+
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j-1,k,idens))*dPdy1
-            if (dt.gt. courant_factor * dy/abs(speed)) then
-              write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', dt,  courant_factor*dy/abs(speed), uin(l,i,j,k,idens)*scale_d
-              if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
-                 speed = courant_factor*dy/dt
-              else
+            if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j-1,k,idust)/uin(l,i,j-1,k,idens)).gt.t_dyn) then
+              !if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
+              !   speed = courant_factor*dy/dt
+              !else
+               write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', t_dyn,&
+                    &0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j-1,k,idust)/uin(l,i,j-1,k,idens)), uin(l,i,j,k,idens)*scale_d
                  stop
-              endif   
+              !endif   
            end if  
            if(speed.ge.0.0d0) fy(idust)= speed*uin(l,i,j-1,k,idust) 
            if(speed<0.0d0) fy(idust)= speed*uin(l,i,j,k,idust)
@@ -287,10 +311,13 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
 
   !Slopes and advection velocity
   real(dp) :: speed, sigma ,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp):: cs_left, cs_right, dust_left, dust_right,t_dyn ,entho, pi
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress, isl
   integer::ilo,ihi,jlo,jhi,klo,khi
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  entho= one /(gamma -one)
+  pi =3.14159265358979323846_dp
 
   idens=2*ndust+1
   ipress=2*ndust+2
@@ -300,13 +327,14 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   do k=kf1,kf2
   do j=jlo,jhi
   do i=ilo,ihi
- 
      do l = 1, ngrid
         dz_loc=max(ffdz(l,i,j,k),ffdz(l,i,j,k-1))
         Tksleft     = 0.0_dp
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
+        dust_left=0.0d0
+        dust_right=0.0d0  
         dPdz1=(uin(l,i,j,k,ipress)-uin(l,i,j,k-1,ipress))/dz
          do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)/uin(l,i,j,k-1,idens)
@@ -315,24 +343,30 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j,k-1,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
-        enddo
+           dust_left=dust_left+uin(l,i,j,k-1,idust)
+           dust_right=dust_right+uin(l,i,j,k,idust)
+        end do
+        call soundspeed_eos(uin(l,i,j,k-1,idens)*(1.0d0-dust_left),uin(l,i,j,k-1,ipress)*entho,cs_left)
+        call soundspeed_eos(uin(l,i,j,k,idens)*(1.0d0-dust_right),uin(l,i,j,k,ipress)*entho,cs_right)
+        t_dyn = 0.5d0*(sqrt(pi/uin(l,i,j,k-1,idens))*cs_left+sqrt(pi/uin(l,i,j,k,idens))*cs_right)
+
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j,k-1,idens))*dPdz1
-           if (dt.gt. courant_factor * dz/abs(speed)) then
-              write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', dt,  courant_factor*dz/abs(speed), uin(l,i,j,k,idens)
-              if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
-                 speed = courant_factor*dz/dt
-              else
+           if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j,k-1,idust)/uin(l,i,j,k-1,idens)).gt.t_dyn) then
+              !if(uin(l,i,j,k,idens).lt.1.0d-17/scale_d) then
+              !   speed = courant_factor*dz/dt
+              !else
+              write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',&
+                   & t_dyn, 0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j,k-1,idust)/uin(l,i,j,k-1,idens)), uin(l,i,j,k,idens)
                  stop
-              endif 
+              !endif 
            end if  
            if(speed.ge.0.0d0) fz(idust)= speed*uin(l,i,j,k-1,idust) 
            if(speed<0.0d0) fz(idust)= speed*uin(l,i,j,k,idust)
            !Second order terms
            if(speed.ge.0.0d0) isl = k-1
            if(speed<0.0d0) isl = k
-           
            call minmod_dust((uin(l,i,j,isl,idust)-uin(l,i,j,isl-1,idust))/dz,(uin(l,i,j,isl+1,idust)-uin(l,i,j,isl,idust))/dz,sigma)
            fz(idust) = fz(idust) + 0.5d0*abs(speed)*(dz-abs(speed)*dt)*sigma
         end do

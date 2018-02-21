@@ -866,15 +866,18 @@ subroutine add_dust_terms(ilevel)
            if(energy_fix)eps   = uold(ind_cell(i),nvar)
            sum_dust=0.0d0
             do idust = 1, Ndust
-                 sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
+               sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
             end do
+            do idust =1,Ndust
+            t_stop = t_stop + (uold(ind_cell(i),firstindex_ndust+idust)/d)*d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
+         end do
+         t_stop=sum_dust*t_stop
             call soundspeed_eos((1.0_dp-sum_dust)*d,eps, cs)
-            t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
             if(K_drag) t_stop = sum_dust*(1-sum_dust)*d/K_dust(idust)
             if(dust_barr) t_stop = 0.1_dp
            do idim=1,ndim
               unew(ind_cell(i),5) = unew(ind_cell(i),5) &
-                  & +  gradEintgradP(i)*t_stop * sum_dust/(1.0_dp+sum_dust)*dtnew(ilevel)/d
+                  & +  gradEintgradP(i)*t_stop * sum_dust/(1.0_dp-sum_dust)*dtnew(ilevel)/d
            end do
         end do
 

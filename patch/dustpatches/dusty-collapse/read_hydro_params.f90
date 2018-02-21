@@ -607,10 +607,10 @@ subroutine read_hydro_params(nml_ok)
 #if NDUST>0
     
      do j=1,ndust
-        sum_dust = sum_dust + dust_ratio(j)
+        sum_dust = sum_dust + dust_ratio(j)/(1.0d0+dust_ratio(j))
      end do
      do j=1,ndust
-        boundary_var(i,firstindex_ndust+j)=d_bound(i)*dust_ratio(j)
+        boundary_var(i,firstindex_ndust+j)=d_bound(i)*dust_ratio(j)/(1.0d0+dust_ratio(j))
      end do
 #endif
      d_bound(i)=d0

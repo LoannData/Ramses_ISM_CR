@@ -48,16 +48,18 @@ subroutine check_subcycle_dust(uin,myflux,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i-1,j,k,idens))*dPdx
+           if (speed .ne. 0.0d0) then           
            if (dt.gt. courant_factor * dx/abs(speed)) then
                !Check for diffusion approximation validity
-              if(uin(l,i,j,k,idust)*(Tksright(idust)+Tksleft(idust))/uin(l,i,j,k,idens).gt.dt) then
-                 write (*,*) 'Diffusion instable what have you done'
-                 stop
-              else
+              !if(uin(l,i,j,k,idust)*(Tksright(idust)+Tksleft(idust))/uin(l,i,j,k,idens).gt.dt) then
+              !   write (*,*) 'Diffusion instable what have you done'
+              !   stop
+              !else
                  dust_cycle=.true.
                  ncycle=max(ncycle,floor(dt*abs(speed)/(dx*courant_factor))+1) !+1 is to be sure to subcycle
+              !endif
               endif
-           endif           
+              endif
        end do    
     enddo
   enddo
@@ -89,16 +91,18 @@ subroutine check_subcycle_dust(uin,myflux,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j-1,k,idens))*dPdy
+           if (speed .ne. 0.0d0) then
            if (dt.gt. courant_factor * dy/abs(speed)) then
-               !Check for diffusion approximation validity
-              if(uin(l,i,j,k,idust)*(Tksright(idust)+Tksleft(idust))/uin(l,i,j,k,idens).gt.dt) then
-                 write (*,*) 'Diffusion instable what have you done'
-                 stop
-              else
+              ! !Check for diffusion approximation validity
+              !if(uin(l,i,j,k,idust)*(Tksright(idust)+Tksleft(idust))/uin(l,i,j,k,idens).gt.dt) then
+              !   write (*,*) 'Diffusion instable what have you done'
+              !!   stop
+              !else
                  dust_cycle=.true.
                  ncycle=max(ncycle,floor(dt*abs(speed)/(dy*courant_factor))+1) !+1 is for the residu
+              !endif
               endif
-           endif           
+           endif   
        end do    
     enddo
   enddo
@@ -130,16 +134,18 @@ subroutine check_subcycle_dust(uin,myflux,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j,k-1,idens))*dPdz
+           if (speed .ne. 0.0d0) then           
            if (dt.gt. courant_factor * dz/abs(speed)) then
-               !Check for diffusion approximation validity
-              if(uin(l,i,j,k,idust)*(Tksright(idust)+Tksleft(idust))/uin(l,i,j,k,idens).gt.dt) then
-                 write (*,*) 'Diffusion instable what have you done'
-                 stop
-              else
+              !Check for diffusion approximation validity
+              !if(uin(l,i,j,k,idust)*(Tksright(idust)+Tksleft(idust))/uin(l,i,j,k,idens).gt.dt) then
+              !   write (*,*) 'Diffusion instable what have you done'
+              !   stop
+              !else
                  dust_cycle=.true.
                  ncycle=max(ncycle,floor(dt*abs(speed)/(dz*courant_factor))+1) !+1 is for the residu
+              !endif
               endif
-           endif           
+              endif
        end do    
     enddo
   enddo
