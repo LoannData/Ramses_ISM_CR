@@ -1,4 +1,287 @@
-subroutine check_subcycle_dust(uin,myflux,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
+subroutine dustcycle1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
+  use amr_commons
+  use hydro_commons
+  use radiation_parameters, only:mu_gas
+  use poisson_commons
+  use cooling_module
+  implicit none
+  integer::ilevel,ncache
+  integer,dimension(1:nvector)::ind_grid
+  ! This routine check if subcycle is required in a patch
+
+  real(dp),dimension(1:nvector,0:twondim  ,1:nvar+3),save::u1
+  real(dp),dimension(1:nvector,1:twotondim,1:nvar+3),save::u2
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2),save::uloc
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::facdx
+  integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
+  integer ,dimension(1:nvector,1:twotondim       ),save::nbors_father_grids
+  integer ,dimension(1:nvector,0:twondim         ),save::ibuffer_father
+  integer ,dimension(1:nvector,0:twondim         ),save::ind1
+  integer ,dimension(1:nvector                   ),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
+
+  integer ::  ncycle
+  logical :: d_cycle_ok
+
+  integer::idust,ht
+  integer::i,j,ivar,idim,irad,ind_son,ind_father,iskip,nbuffer,ibuffer
+  integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh,nexist
+  integer::i1min,i1max,j1min,j1max,k1min,k1max
+  integer::i2min,i2max,j2min,j2max,k2min,k2max
+  integer::i3min,i3max,j3min,j3max,k3min,k3max
+  real(dp)::dx,scale,oneontwotondim
+  real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp)::sum_dust,sum_dust_new,sum_dust_old
+  real(dp)::d,u,v,w,A,B,C,enint,e_kin,e_mag,pressure,cs, temp
+  real(dp)::rho_gas, pi, t_stop
+  real(dp), dimension(1:ndust) ::d_grain,l_grain
+
+  ! Conversion factor from user units to cgs units
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  
+  !Saved variables set to 0
+  u1   = 0.0d0
+  u2   = 0.0d0
+  uloc = 0.0d0
+  facdx= 0.0d0
+  oneontwotondim = 1.d0/dble(twotondim)
+  
+  ! Initialisation of dust related quantities
+  
+  pi =3.14159265358979323846_dp
+  if(mrn.eqv..true.) then
+     call size_dust(l_grain)
+     do idust=1,ndust
+       l_grain(idust) = l_grain(idust)/scale_l
+       d_grain(idust)=grain_dens(idust)/scale_d
+    end do
+  else
+     do idust=1,ndust
+       d_grain(idust)=grain_dens(idust)/scale_d
+       l_grain(idust)=grain_size(idust)/scale_l
+    end do
+ endif
+  ! Mesh spacing in that level
+  nx_loc=icoarse_max-icoarse_min+1
+  scale=boxlen/dble(nx_loc)
+  dx=0.5D0**ilevel*scale
+     
+  ! Integer constants
+  i1min=0; i1max=0; i2min=0; i2max=0; i3min=1; i3max=1
+  j1min=0; j1max=0; j2min=0; j2max=0; j3min=1; j3max=1
+  k1min=0; k1max=0; k2min=0; k2max=0; k3min=1; k3max=1
+  if(ndim>0)then
+     i1max=2; i2max=1; i3max=2
+  end if
+  if(ndim>1)then
+     j1max=2; j2max=1; j3max=2
+  end if
+  if(ndim>2)then
+     k1max=2; k2max=1; k3max=2
+  end if
+
+  !------------------------------------------
+  ! Gather 3^ndim neighboring father cells
+  !------------------------------------------
+  do i=1,ncache
+     ind_cell(i)=father(ind_grid(i))
+  end do
+  call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncache,ilevel)
+  !---------------------------
+  ! Gather 6x6x6 cells stencil
+  !---------------------------
+  ! Loop over 3x3x3 neighboring father cells
+  do k1=k1min,k1max
+  do j1=j1min,j1max
+  do i1=i1min,i1max
+
+     !Check if neighboring grid exists
+     nbuffer=0
+     nexist=0
+     ind_father=1+i1+3*j1+9*k1
+     do i=1,ncache
+        igrid_nbor(i)=son(nbors_father_cells(i,ind_father))
+        if(igrid_nbor(i)>0) then
+           nexist=nexist+1
+           ind_exist(nexist)=i
+        else
+           nbuffer=nbuffer+1
+           ind_nexist(nbuffer)=i
+           ind_buffer(nbuffer)=nbors_father_cells(i,ind_father)
+        end if
+     end do
+     !If not, interpolate variables from parent cells
+     if(nbuffer>0)then
+        call getnborfather(ind_buffer,ibuffer_father,nbuffer,ilevel)
+        do j=0,twondim
+           do ivar=1,nvar+3 
+              do i=1,nbuffer
+                 u1(i,j,ivar)=uold(ibuffer_father(i,j),ivar)
+              end do
+           end do
+           do i=1,nbuffer
+              ind1(i,j)=son(ibuffer_father(i,j))
+           end do
+        end do
+        call interpol_hydro(u1,ind1,u2,nbuffer)
+     end if
+     !Loop over 2x2x2 cells
+     do k2=k2min,k2max
+     do j2=j2min,j2max
+     do i2=i2min,i2max
+        ind_son=1+i2+2*j2+4*k2
+        iskip=ncoarse+(ind_son-1)*ngridmax
+        do i=1,nexist
+           ind_cell(i)=iskip+igrid_nbor(ind_exist(i))
+        end do
+        i3=1; j3=1; k3=1
+        if(ndim>0)i3=1+2*(i1-1)+i2
+        if(ndim>1)j3=1+2*(j1-1)+j2
+        if(ndim>2)k3=1+2*(k1-1)+k2
+
+        !Gather dust variables
+        do idust=1,ndust
+           do i=1,nexist
+              uloc(ind_exist(i),i3,j3,k3,idust)=uold(ind_cell(i),firstindex_ndust+idust)
+              facdx(ind_exist(i),i3,j3,k3)=1.0d0
+           end do
+           do i=1,nbuffer
+              uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)
+           end do
+        end do
+        do i=1,nbuffer
+           if(interpol_type.gt.0)then
+              facdx(ind_nexist(i),i3,j3,k3)=1.0d0
+           else
+              facdx(ind_nexist(i),i3,j3,k3)=1.5d0
+           endif
+        end do
+        !Computes and stores (in uloc) the density(2ndust+1),
+        !the pressure(2ndust+2), and the stopping time (between ndust and 2ndust)
+        do i=1,nexist
+           if (energy_fix) then
+              d=uold(ind_cell(i),1)
+              enint=uold(ind_cell(i),nvar)
+           else
+              d=uold(ind_cell(i),1)
+
+              u=uold(ind_cell(i),2)/d
+              v=uold(ind_cell(i),3)/d
+              w=uold(ind_cell(i),4)/d
+
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+              B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+              C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+uold(ind_cell(i),8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=uold(ind_cell(i),5)
+              else   
+                 enint=uold(ind_cell(i),5)-e_kin- e_mag
+              endif
+           endif
+
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + uloc(ind_exist(i),i3,j3,k3,ndust)/d
+           end do
+
+           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pressure)
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
+
+           !We fill uloc with the quantities required to check for subcycling (d, P, epsilon, ts/d)
+           
+           uloc(ind_exist(i),i3,j3,k3,2*ndust+1)=d
+           uloc(ind_exist(i),i3,j3,k3,2*ndust+2)=pressure
+           do idust = 1, ndust
+              ! different prescriptions for t-stop
+              t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d!/d
+              if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
+              if(dust_barr) t_stop = 0.1_dp
+              uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
+           end do   
+        end do
+
+        do i=1,nbuffer
+           if (energy_fix) then
+              d=u2(i,ind_son,1)
+              enint=u2(i,ind_son,nvar)
+           else
+              d=u2(i,ind_son,1)
+              u=u2(i,ind_son,2)/d
+              v=u2(i,ind_son,3)/d
+              w=u2(i,ind_son,4)/d
+              e_mag=0.0_dp
+#ifdef SOLVERmhd             
+              A=0.5d0*(u2(i,ind_son,6)+u2(i,ind_son,nvar+1))
+              B=0.5d0*(u2(i,ind_son,7)+u2(i,ind_son,nvar+2))
+              C=0.5d0*(u2(i,ind_son,8)+u2(i,ind_son,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+
+#if NENER>0
+              do irad=1,nener
+                 e_kin=e_kin+u2(i,ind_son,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=u2(i,ind_son,5)
+              else   
+                 enint=u2(i,ind_son,5)-e_kin-e_mag
+              endif
+           endif
+ 
+           uloc(ind_nexist(i),i3,j3,k3,2*ndust+1)=d
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + u2(i,ind_son,firstindex_ndust+idust)/u2(i,ind_son,1)
+           end do
+
+           call pressure_eos((1.0_dp-sum_dust)*d,enint,pressure)
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint,cs) 
+
+           if(dust_barr) cs = 1.0_dp
+           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
+
+           uloc(ind_nexist(i),i3,j3,k3,2*ndust+1)=d
+           uloc(ind_nexist(i),i3,j3,k3,2*ndust+2)=pressure
+           do idust = 1, ndust
+              ! different prescriptions for t-stop
+              t_stop =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
+              if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
+              if(dust_barr) t_stop = 0.1_dp              
+              uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp -sum_dust)
+           enddo
+        end do
+
+     end do
+     end do
+     end do
+     !End loop over cells
+  end do
+  end do
+  end do
+  !End loop over neighboring grids
+  
+  !-----------------------------------------------
+  !Check if subcycling
+  !-----------------------------------------------
+  call check_subcycle_dust(uloc,dx,dx,dx,dtnew(ilevel),ncache,ncycle,d_cycle_ok)
+  if(.not.d_cycle_ok)  ncycle = 1 
+
+end subroutine dustcycle1
+
+subroutine check_subcycle_dust(uin,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
   use amr_parameters
   use const             
   use hydro_parameters
@@ -8,7 +291,6 @@ subroutine check_subcycle_dust(uin,myflux,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
   real(dp)::dx,dy,dz,dt
 
   ! Output fluxes
-  real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndust)::myflux
 
   ! Primitive variables
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin

@@ -122,7 +122,7 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
   real(dp) :: speed, sigma,dPdx,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
-  real(dp):: cs_left, cs_right, dust_left, dust_right,t_dyn,entho,pi
+  real(dp):: t_dyn,entho,pi
   integer::i,j,k,l,isl,idust, idens, ipress
   integer::jlo,jhi,klo,khi
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -142,8 +142,6 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        dust_left=0.0d0
-        dust_right=0.0d0        
         dPdx= (uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
         do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)/uin(l,i-1,j,k,idens)
@@ -153,12 +151,8 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
-           dust_left=dust_left+uin(l,i-1,j,k,idust)
-           dust_right=dust_right+uin(l,i,j,k,idust)
         end do
-        call soundspeed_eos(uin(l,i-1,j,k,idens)*(1.0d0-dust_left),uin(l,i-1,j,k,ipress)*entho,cs_left)
-        call soundspeed_eos(uin(l,i,j,k,idens)*(1.0d0-dust_right),uin(l,i,j,k,ipress)*entho,cs_right)
-        t_dyn = 0.5d0*(sqrt(pi/uin(l,i-1,j,k,idens))*cs_left+sqrt(pi/uin(l,i,j,k,idens))*cs_right)
+        t_dyn = 0.5d0*(sqrt(pi/uin(l,i-1,j,k,idens))+sqrt(pi/uin(l,i,j,k,idens)))
         do idust=1,ndust
            !First order terms
            speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i-1,j,k,idens))*dPdx
@@ -215,7 +209,7 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp),dimension(1:ndust)::fy
   !Slopes and advection velocity
   real(dp) :: speed, sigma,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
-  real(dp):: cs_left, cs_right, dust_left, dust_right,t_dyn,entho,pi
+  real(dp):: t_dyn,entho,pi
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress,isl
   integer::ilo,ihi,klo,khi
@@ -237,8 +231,6 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        dust_left=0.0d0
-        dust_right=0.0d0  
         dPdy1=(uin(l,i,j,k,ipress)-uin(l,i,j-1,k,ipress))/dy
          do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)/uin(l,i,j-1,k,idens)
@@ -247,12 +239,8 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j-1,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
-           dust_left=dust_left+uin(l,i,j-1,k,idust)
-           dust_right=dust_right+uin(l,i,j,k,idust)
         end do
-        call soundspeed_eos(uin(l,i,j-1,k,idens)*(1.0d0-dust_left),uin(l,i,j-1,k,ipress)*entho,cs_left)
-        call soundspeed_eos(uin(l,i,j,k,idens)*(1.0d0-dust_right),uin(l,i,j,k,ipress)*entho,cs_right)
-        t_dyn = 0.5d0*(sqrt(pi/uin(l,i,j-1,k,idens))*cs_left+sqrt(pi/uin(l,i,j,k,idens))*cs_right)
+        t_dyn = 0.5d0*(sqrt(pi/uin(l,i,j-1,k,idens))+sqrt(pi/uin(l,i,j,k,idens)))
 
         do idust=1,ndust
            !First order terms
@@ -311,7 +299,7 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
 
   !Slopes and advection velocity
   real(dp) :: speed, sigma ,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
-  real(dp):: cs_left, cs_right, dust_left, dust_right,t_dyn ,entho, pi
+  real(dp):: t_dyn ,entho, pi
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress, isl
   integer::ilo,ihi,jlo,jhi,klo,khi
@@ -333,8 +321,6 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        dust_left=0.0d0
-        dust_right=0.0d0  
         dPdz1=(uin(l,i,j,k,ipress)-uin(l,i,j,k-1,ipress))/dz
          do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)/uin(l,i,j,k-1,idens)
@@ -343,12 +329,8 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j,k-1,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
-           dust_left=dust_left+uin(l,i,j,k-1,idust)
-           dust_right=dust_right+uin(l,i,j,k,idust)
-        end do
-        call soundspeed_eos(uin(l,i,j,k-1,idens)*(1.0d0-dust_left),uin(l,i,j,k-1,ipress)*entho,cs_left)
-        call soundspeed_eos(uin(l,i,j,k,idens)*(1.0d0-dust_right),uin(l,i,j,k,ipress)*entho,cs_right)
-        t_dyn = 0.5d0*(sqrt(pi/uin(l,i,j,k-1,idens))*cs_left+sqrt(pi/uin(l,i,j,k,idens))*cs_right)
+         end do
+        t_dyn = 0.5d0*(sqrt(pi/uin(l,i,j,k-1,idens))+sqrt(pi/uin(l,i,j,k,idens)))
 
         do idust=1,ndust
            !First order terms
