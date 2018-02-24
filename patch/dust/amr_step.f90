@@ -28,8 +28,8 @@ recursive subroutine amr_step(ilevel,icount)
   ! Each routine is called using a specific order, don't change it,   !
   ! unless you check all consequences first                           !
   !-------------------------------------------------------------------!
-  integer::i,idim,ivar,idust
-  logical::ok_defrag,output_now_all
+  integer::i,idim,ivar,idust,icycle, ncycle
+  logical::ok_defrag,output_now_all,d_cycle_ok
   logical,save::first_step=.true.
 #if NIMHD==1
   !!! sts !!!
@@ -607,12 +607,16 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDUST>0
   if(dust_diffusion)then
                              call timer('dust - diffusion','start')
-     call dust_diffusion_fine(ilevel)
-     call set_uold_dust(ilevel)
+     call dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
 
+ do icycle = 1,ncycle
+        call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle)
+        call set_uold_dust(ilevel)
+     
      ! Restriction operator
                                call timer('hydro upload fine','start')
-     call upload_fine(ilevel)
+        call upload_fine(ilevel)
+      
      !do idust=1,ndust
      !   call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
      !end do
@@ -630,7 +634,8 @@ recursive subroutine amr_step(ilevel,icount)
   end do
 #endif
   if(simple_boundary)call make_boundary_hydro(ilevel)
-end if  
+end do
+end if
 #endif
 !End of dust diffusion 
 

@@ -1,3 +1,44 @@
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+subroutine dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
+  use amr_commons
+  use hydro_commons
+  implicit none
+  integer::ilevel
+  !--------------------------------------------------------------------------
+  ! This routine is a wrapper to the dust diffusion scheme.
+  ! Small grids (2x2x2) are gathered from level ilevel and sent to the
+  ! hydro solver. On entry, hydro variables are gathered from array uold.
+  ! On exit, unew has been updated.
+  !--------------------------------------------------------------------------
+  integer::i,ivar,igrid,ncache,ngrid,ind,iskip,icpu,idust
+  integer,dimension(1:nvector),save::ind_grid
+  logical:: d_cycle_ok
+  integer :: icycle, ncycle
+  if(numbtot(1,ilevel)==0)return
+  d_cycle_ok=.false.
+  ncycle =0
+
+   !Loop over active grids by vector sweeps
+  ncache=active(ilevel)%ngrid
+  do igrid=1,ncache,nvector
+     ngrid=MIN(nvector,ncache-igrid+1)
+     do i=1,ngrid
+        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+     end do
+     call dustcycle1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle)
+  end do
+  if(.not.d_cycle_ok) ncycle =1
+  write(*,112) ilevel, ncycle
+112 format('   Subcycling level ',i2, ' for dust with ncycle = ',i2)
+
+end subroutine dust_cycle_fine
+  !###########################################################
+  !###########################################################
+  !###########################################################
+  !###########################################################    
 subroutine dustcycle1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
   use amr_commons
   use hydro_commons
@@ -277,7 +318,6 @@ subroutine dustcycle1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
   !Check if subcycling
   !-----------------------------------------------
   call check_subcycle_dust(uloc,dx,dx,dx,dtnew(ilevel),ncache,ncycle,d_cycle_ok)
-  if(.not.d_cycle_ok)  ncycle = 1 
 
 end subroutine dustcycle1
 

@@ -114,7 +114,7 @@ end subroutine set_uold_dust
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine dust_diffusion_fine(ilevel)
+subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle)
   use amr_commons
   use hydro_commons
   implicit none
@@ -132,19 +132,6 @@ subroutine dust_diffusion_fine(ilevel)
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
-
-  !Loop over active grids by vector sweeps
-  ncache=active(ilevel)%ngrid
-  do igrid=1,ncache,nvector
-     ngrid=MIN(nvector,ncache-igrid+1)
-     do i=1,ngrid
-        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
-     end do
-     call dustcycle1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle)
-  end do
-  
-  if(d_cycle_ok) write(*,112) ncycle
-  
   ncache=active(ilevel)%ngrid
   do icycle =1,ncycle
      do igrid=1,ncache,nvector
@@ -160,7 +147,7 @@ subroutine dust_diffusion_fine(ilevel)
   end do
 
 111 format('   Entering dust_diffusion_fine for level ',i2)
-112 format('   Subcycling this level for dust with ncycle ',i2)
+
 
 end subroutine dust_diffusion_fine
 !###########################################################
@@ -550,13 +537,13 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
               sum_dust_old=0.0_dp
               do idust=1,ndust
                  !We compute the old dust density
-                 sum_dust_old=sum_dust_old+uloc(i,i3,j3,k3,idust)
+                 sum_dust_old=sum_dust_old+uold(ind_cell(i),firstindex_ndust+idust)
               enddo
               !we deduce rho_gas 
               rho_gas = uold(ind_cell(i),1)-sum_dust_old
               do idust=1,ndust
                  !Update epsilon taking in account small fluxes from refined interfaces
-                 unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+uloc(i,i3,j3,k3,idust)& 
+                 unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+uold(ind_cell(i),firstindex_ndust+idust)& 
      &+dflux_dust(ind_cell(i),idust)
               
               enddo
