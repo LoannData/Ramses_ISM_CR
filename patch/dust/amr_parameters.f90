@@ -57,6 +57,7 @@ module amr_parameters
   ! Run control
   logical::verbose =.false.   ! Write everything
   logical::verbosed=.false.   ! Write everything for dust diffusion
+  logical :: sub_cycle_dust=.true.
   logical::hydro   =.false.   ! Hydro activated
   logical::pic     =.false.   ! Particle In Cell activated
   logical::poisson =.false.   ! Poisson solver activated

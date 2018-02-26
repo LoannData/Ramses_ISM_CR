@@ -607,8 +607,8 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDUST>0
   if(dust_diffusion)then
                              call timer('dust - diffusion','start')
-     call dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
-
+     if(sub_cycle_dust) call dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
+     if(.not.sub_cycle_dust) ncycle =1
  do icycle = 1,ncycle
         call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle)
         call set_uold_dust(ilevel)

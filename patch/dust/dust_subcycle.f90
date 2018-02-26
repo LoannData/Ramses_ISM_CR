@@ -16,7 +16,7 @@ subroutine dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
   integer::i,ivar,igrid,ncache,ngrid,ind,iskip,icpu,idust
   integer,dimension(1:nvector),save::ind_grid
   logical:: d_cycle_ok
-  integer :: icycle, ncycle
+  integer :: icycle, ncycle,nycle_all
   if(numbtot(1,ilevel)==0)return
   d_cycle_ok=.false.
   ncycle =0
@@ -30,8 +30,15 @@ subroutine dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
      end do
      call dustcycle1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle)
   end do
-  if(.not.d_cycle_ok) ncycle =1
-  write(*,112) ilevel, ncycle
+
+#ifndef WITHOUTMPI
+  call MPI_ALLREDUCE(ncycle,ncycle_all,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,info)
+  ncycle=ncycle_all
+#endif
+  if(ncycle.gt.1) d_cycle_ok =.true.
+  if(.not.d_cycle_ok) ncycle =1  
+
+  if (myid==1)  write(*,112) ilevel, ncycle
 112 format('   Subcycling level ',i2, ' for dust with ncycle = ',i2)
 
 end subroutine dust_cycle_fine
@@ -387,7 +394,7 @@ subroutine check_subcycle_dust(uin,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
   enddo
   enddo
   enddo
-
+#if NDIM>1
   !y direction
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
@@ -430,7 +437,8 @@ subroutine check_subcycle_dust(uin,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
   enddo
   enddo
   enddo
-
+#endif
+#if NDIM>2
   !z direction
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
@@ -472,5 +480,6 @@ subroutine check_subcycle_dust(uin,dx,dy,dz,dt,ngrid,ncycle,dust_cycle)
     enddo
   enddo
   enddo
-  enddo
+enddo
+#endif
 end subroutine check_subcycle_dust

@@ -147,7 +147,9 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
            Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)/uin(l,i-1,j,k,idens)
            Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
         end do
-
+        !print *,Tksleft_tot , Tksright_tot
+        if (no_interaction) Tksleft_tot = 0.0d0
+        if (no_interaction) Tksright_tot = 0.0d0
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
@@ -236,6 +238,8 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
            Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)/uin(l,i,j-1,k,idens)
            Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
         end do
+        if (no_interaction) Tksleft_tot = 0.0d0
+        if (no_interaction) Tksright_tot = 0.0d0
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j-1,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
@@ -326,6 +330,8 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
            Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)/uin(l,i,j,k-1,idens)
            Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
         end do
+        if (no_interaction) Tksleft_tot = 0.0d0
+        if (no_interaction) Tksright_tot = 0.0d0
         do idust= 1, ndust
            Tksleft(idust)=  uin(l,i,j,k-1,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
