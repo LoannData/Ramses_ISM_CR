@@ -609,10 +609,11 @@ recursive subroutine amr_step(ilevel,icount)
                              call timer('dust - diffusion','start')
      if(sub_cycle_dust) call dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
      if(.not.sub_cycle_dust) ncycle =1
- do icycle = 1,ncycle
+     do icycle = 1,ncycle
         call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle)
         call set_uold_dust(ilevel)
-     
+     end do
+
      ! Restriction operator
                                call timer('hydro upload fine','start')
         call upload_fine(ilevel)
@@ -634,7 +635,6 @@ recursive subroutine amr_step(ilevel,icount)
   end do
 #endif
   if(simple_boundary)call make_boundary_hydro(ilevel)
-end do
 end if
 #endif
 !End of dust diffusion 

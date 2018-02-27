@@ -6,6 +6,9 @@ subroutine dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
   use amr_commons
   use hydro_commons
   implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'
+#endif
   integer::ilevel
   !--------------------------------------------------------------------------
   ! This routine is a wrapper to the dust diffusion scheme.
@@ -16,7 +19,7 @@ subroutine dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
   integer::i,ivar,igrid,ncache,ngrid,ind,iskip,icpu,idust
   integer,dimension(1:nvector),save::ind_grid
   logical:: d_cycle_ok
-  integer :: icycle, ncycle,nycle_all
+  integer :: icycle, ncycle,ncycle_all,info
   if(numbtot(1,ilevel)==0)return
   d_cycle_ok=.false.
   ncycle =0
@@ -38,7 +41,8 @@ subroutine dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
   if(ncycle.gt.1) d_cycle_ok =.true.
   if(.not.d_cycle_ok) ncycle =1  
 
-  if (myid==1)  write(*,112) ilevel, ncycle
+  !if (myid==1)
+  write(*,112) ilevel, ncycle
 112 format('   Subcycling level ',i2, ' for dust with ncycle = ',i2)
 
 end subroutine dust_cycle_fine
