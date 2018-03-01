@@ -114,7 +114,7 @@ end subroutine set_uold_dust
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle)
+subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   use amr_commons
   use hydro_commons
   implicit none
@@ -133,15 +133,13 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle)
   if(verbose)write(*,111)ilevel
 
   ncache=active(ilevel)%ngrid
-  do icycle =1,ncycle
      do igrid=1,ncache,nvector
         ngrid=MIN(nvector,ncache-igrid+1)
         do i=1,ngrid
            ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
         end do
-        call dustdifffine1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle)
+        call dustdifffine1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle,icycle)
      end do
-  end do
   do idust=1,ndust
       call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
   end do
@@ -154,7 +152,7 @@ end subroutine dust_diffusion_fine
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
+subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   use amr_commons
   use hydro_commons
   use radiation_parameters, only:mu_gas
@@ -193,19 +191,19 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
   integer::i1min,i1max,j1min,j1max,k1min,k1max
   integer::i2min,i2max,j2min,j2max,k2min,k2max
   integer::i3min,i3max,j3min,j3max,k3min,k3max
-  integer::  ncycle
+  integer::  ncycle,icycle
   real(dp):: dt_dustcycle
   logical :: d_cycle_ok
   real(dp)::dx,scale,oneontwotondim
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp)::sum_dust,sum_dust_new,sum_dust_old
   real(dp)::d,u,v,w,A,B,C,enint,e_kin,e_mag,pressure,cs, temp
-  real(dp)::rho_gas, pi, t_stop
+  real(dp)::rho_gas, pi, t_stop,t_stop_floor
   real(dp), dimension(1:ndust) ::d_grain,l_grain
 
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-  
+  t_stop_floor =0.0d0
   !Saved variables set to 0
   u1   = 0.0d0
   u2   = 0.0d0
@@ -389,6 +387,8 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
               t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d!/d
               if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp
+              if (d*scale_d .le. 1e-18) t_stop =t_stop_floor 
+
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
            end do   
         end do
@@ -441,7 +441,9 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
               ! different prescriptions for t-stop
               t_stop =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
               if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
-              if(dust_barr) t_stop = 0.1_dp              
+              if(dust_barr) t_stop = 0.1_dp
+              if (d*scale_d .le. 1e-18) t_stop =t_stop_floor 
+
               uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp -sum_dust)
            enddo
         end do
@@ -543,8 +545,8 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
               rho_gas = uold(ind_cell(i),1)-sum_dust_old
               do idust=1,ndust
                  !Update epsilon taking in account small fluxes from refined interfaces
-                 unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+uold(ind_cell(i),firstindex_ndust+idust)& 
-     &+dflux_dust(ind_cell(i),idust)
+                 unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+uold(ind_cell(i),firstindex_ndust+idust)
+                 if(icycle==1)unew(ind_cell(i),firstindex_ndust+idust)=unew(ind_cell(i),firstindex_ndust+idust)+ dflux_dust(ind_cell(i),idust)
               
               enddo
               !We compute the new dust density

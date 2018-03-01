@@ -48,6 +48,12 @@ subroutine dustdiff_split(uin,flux,dx,dy,dz,dt,ngrid,fdx)
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
 
   flux=0.0d0
+  Xflux=0.0d0
+  Yflux=0.0d0
+  Zflux=0.0d0
+
+
+  
  ! Compute the dust flux in X direction
   call dustXflx(uin,Xflux,dx,dt,ngrid,fdx)
 
@@ -62,8 +68,6 @@ subroutine dustdiff_split(uin,flux,dx,dy,dz,dt,ngrid,fdx)
   enddo
   enddo
   enddo
-
-
 #if NDIM>1
   ! Compute dust flux in Y direction
   call dustYflx(uin,Yflux,dy,dt,ngrid,fdx)
@@ -79,6 +83,7 @@ subroutine dustdiff_split(uin,flux,dx,dy,dz,dt,ngrid,fdx)
   enddo
   enddo
 #endif
+  
 #if NDIM>2
   ! Compute the dust flux in Z direction
   call dustZflx(uin,Zflux,dz,dt,ngrid,fdx)
@@ -94,6 +99,9 @@ subroutine dustdiff_split(uin,flux,dx,dy,dz,dt,ngrid,fdx)
   enddo
   enddo
 #endif
+
+
+
 
 end subroutine dustdiff_split
 
@@ -167,16 +175,15 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
                  stop
             !  endif 
            end if    
-           if(speed.ge.0.0d0) fx(idust)= speed*uin(l,i-1,j,k,idust) 
-           if(speed<0.0d0) fx(idust)= speed*uin(l,i,j,k,idust)
+           fx(idust)= max(speed*uin(l,i-1,j,k,idust),0.0d0) +min(speed*uin(l,i,j,k,idust),0.0d0)
            !Second order terms
            if(speed.ge.0.0d0) isl = i-1
-           if(speed<0.0d0) isl = i       
+           if(speed.lt.0.0d0) isl = i
            call minmod_dust((uin(l,isl,j,k,idust)-uin(l,isl-1,j,k,idust))/dx,(uin(l,isl+1,j,k,idust)-uin(l,isl,j,k,idust))/dx,sigma)
            fx(idust) = fx(idust) + 0.5d0*abs(speed)*(dx-abs(speed)*dt)*sigma
         end do
         do idust= 1, ndust
-           myflux(l,i,j,k,idust)=fx(idust)*dt/dx/dx_loc
+           myflux(l,i,j,k,idust)=fx(idust)*dt/dx!/dx_loc
         end do
     enddo
   enddo
@@ -258,12 +265,10 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
                  stop
               !endif   
            end if  
-           if(speed.ge.0.0d0) fy(idust)= speed*uin(l,i,j-1,k,idust) 
-           if(speed<0.0d0) fy(idust)= speed*uin(l,i,j,k,idust)
+           fy(idust)= max(speed*uin(l,i,j-1,k,idust),0.0d0)+ min(speed*uin(l,i,j,k,idust),0.0d0)
            !Second order terms
            if(speed.ge.0.0d0) isl = j-1
-           if(speed<0.0d0) isl = j
-
+           if(speed.lt.0.0d0) isl = j
            call minmod_dust((uin(l,i,isl,k,idust)-uin(l,i,isl-1,k,idust))/dy,(uin(l,i,isl+1,k,idust)-uin(l,i,isl,k,idust))/dy,sigma)
            fy(idust) = fy(idust) + 0.5d0*abs(speed)*(dy-abs(speed)*dt)*sigma
         end do
@@ -350,11 +355,10 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
                  stop
               !endif 
            end if  
-           if(speed.ge.0.0d0) fz(idust)= speed*uin(l,i,j,k-1,idust) 
-           if(speed<0.0d0) fz(idust)= speed*uin(l,i,j,k,idust)
+           fz(idust)= max(speed*uin(l,i,j,k-1,idust),0.0d0)+ min(speed*uin(l,i,j,k,idust),0.0d0)
            !Second order terms
            if(speed.ge.0.0d0) isl = k-1
-           if(speed<0.0d0) isl = k
+           if(speed.lt.0.0d0) isl = k
            call minmod_dust((uin(l,i,j,isl,idust)-uin(l,i,j,isl-1,idust))/dz,(uin(l,i,j,isl+1,idust)-uin(l,i,j,isl,idust))/dz,sigma)
            fz(idust) = fz(idust) + 0.5d0*abs(speed)*(dz-abs(speed)*dt)*sigma
         end do

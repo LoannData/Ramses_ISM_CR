@@ -61,15 +61,15 @@ subroutine dustcycle1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle)
   integer,dimension(1:nvector)::ind_grid
   ! This routine check if subcycle is required in a patch
 
-  real(dp),dimension(1:nvector,0:twondim  ,1:nvar+3),save::u1
-  real(dp),dimension(1:nvector,1:twotondim,1:nvar+3),save::u2
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2),save::uloc
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::facdx
-  integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
-  integer ,dimension(1:nvector,1:twotondim       ),save::nbors_father_grids
-  integer ,dimension(1:nvector,0:twondim         ),save::ibuffer_father
-  integer ,dimension(1:nvector,0:twondim         ),save::ind1
-  integer ,dimension(1:nvector                   ),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
+  real(dp),dimension(1:nvector,0:twondim  ,1:nvar+3)::u1
+  real(dp),dimension(1:nvector,1:twotondim,1:nvar+3)::u2
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uloc
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::facdx
+  integer ,dimension(1:nvector,1:threetondim     )::nbors_father_cells
+  integer ,dimension(1:nvector,1:twotondim       )::nbors_father_grids
+  integer ,dimension(1:nvector,0:twondim         )::ibuffer_father
+  integer ,dimension(1:nvector,0:twondim         )::ind1
+  integer ,dimension(1:nvector                   )::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
 
   integer ::  ncycle
   logical :: d_cycle_ok

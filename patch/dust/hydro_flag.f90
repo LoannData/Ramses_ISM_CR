@@ -261,3 +261,12 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
   end do
 
 end subroutine jeans_length_refine
+
+subroutine dust_refine()
+  use amr_commons
+  use hydro_commons
+  implicit none
+   
+ 
+end subroutine dust_refine
+
