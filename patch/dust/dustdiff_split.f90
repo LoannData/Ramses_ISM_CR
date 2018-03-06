@@ -159,7 +159,7 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         if (no_interaction) Tksleft_tot = 0.0d0
         if (no_interaction) Tksright_tot = 0.0d0
         do idust= 1, ndust
-           Tksleft(idust)=  uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
+           Tksleft(idust) = uin(l,i-1,j,k,ndust+idust)+Tksleft_tot
            Tksright(idust)= uin(l,i,j,k,ndust+idust)+Tksright_tot
         end do
         t_dyn = 0.5d0*(sqrt(pi/uin(l,i-1,j,k,idens))+sqrt(pi/uin(l,i,j,k,idens)))

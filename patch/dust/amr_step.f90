@@ -606,45 +606,29 @@ recursive subroutine amr_step(ilevel,icount)
 !Dust diffusion step
 #if NDUST>0
   if(dust_diffusion)then
-                             call timer('dust - diffusion','start')
+                          call timer('dust - diffusion','start')
      if(sub_cycle_dust) call dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
      if(.not.sub_cycle_dust) ncycle =1
-
+     !d_cycle_ok=.true.
+     !ncycle=4
      do icycle = 1,ncycle
+        call set_unew_dust(ilevel)
         call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
-        
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
-        call make_virtual_reverse_dp(unew(1,ivar),ilevel)
-#ifdef SOLVERmhd
-     end do
-#else
-     end do
-#endif        
-        call set_uold_dust(ilevel)
-                              call timer('hydro upload fine','start')
-      call upload_fine(ilevel)
-      do idust=1,ndust
-         call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
-      end do
-     ! Update boundaries
-                              call timer('hydro - ghostzones','start')
-#ifdef SOLVERmhd
-  do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
-        call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
-     end do
-#else
-  end do
-#endif
-  if(simple_boundary)call make_boundary_hydro(ilevel)
-      end do
+        do idust=1,ndust
+           call make_virtual_reverse_dp(unew(1,firstindex_ndust+idust),ilevel)
+        end do
+           !call make_virtual_reverse_dp(unew(1,5),ilevel)
+           call set_uold_dust(ilevel)
+           call upload_fine(ilevel)
+        do idust=1,ndust
+           call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
+        end do
+        do idust=1,ndust
+           call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
+        end do
+        call make_virtual_fine_dp(uold(1,5),ilevel)
+        if(simple_boundary)call make_boundary_hydro(ilevel)
+        end do
 
 end if
 #endif

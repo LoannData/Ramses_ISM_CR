@@ -60,15 +60,25 @@ subroutine set_unew_dust(ilevel)
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
         do i=1,active(ilevel)%ngrid
-           unew(active(ilevel)%igrid(i)+iskip,1) = uold(active(ilevel)%igrid(i)+iskip,1)
-           unew(active(ilevel)%igrid(i)+iskip,2) = uold(active(ilevel)%igrid(i)+iskip,2)
-           unew(active(ilevel)%igrid(i)+iskip,3) = uold(active(ilevel)%igrid(i)+iskip,3)
-           unew(active(ilevel)%igrid(i)+iskip,4) = uold(active(ilevel)%igrid(i)+iskip,4)
            unew(active(ilevel)%igrid(i)+iskip,5) = uold(active(ilevel)%igrid(i)+iskip,5)
            do idust=1,ndust
               unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
            end do
         end do
+     end do
+  ! Set unew to 0 for virtual boundary cells
+  do icpu=1,ncpu
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do idust=1,ndust
+        do i=1,reception(icpu,ilevel)%ngrid
+           unew(reception(icpu,ilevel)%igrid(i)+iskip,firstindex_ndust+idust)=0.0d0
+        end do
+     end do
+     do i=1,reception(icpu,ilevel)%ngrid
+        unew(reception(icpu,ilevel)%igrid(i)+iskip,5)=0.0d0
+     end do
+  end do
   end do
 
 111 format('   Entering set_unew_dust for level ',i2)
@@ -86,19 +96,62 @@ subroutine set_uold_dust(ilevel)
   use amr_commons
   use hydro_commons
   implicit none
+  integer,dimension(1:nvector)::ind_grid
+  
   integer::ilevel
   !--------------------------------------------------------------------------
   ! This routine sets array uold =unew for the quantities that have been updated because of dust diffusion.
   !--------------------------------------------------------------------------
-  integer::i,ivar,ind,icpu,iskip,irad,idust
-
+  integer::i,ivar,ind,icpu,iskip,irad,idust,ht,ncache
+  real (dp):: rho_gas ,sum_dust_old,sum_dust_new, d, u ,v ,w, enint,temp, e_mag, e_kin, A,B,C
+  
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
-
+ 
+  !call add_dust_terms(ilevel)
   !Set unew to uold for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,active(ilevel)%ngrid
+     do i=1,active(ilevel)%ngrid
+           sum_dust_old=0.0_dp
+           do idust=1,ndust
+               !We compute the old dust density
+               sum_dust_old=sum_dust_old+uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
+           enddo
+           sum_dust_new=0.0_dp
+           do idust=1,ndust
+              !We compute the old dust density
+              sum_dust_new=sum_dust_new+unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
+           enddo
+           if(dust_barr.eqv. .false.) then
+              !Update all the quantities that depend on rho
+              rho_gas = uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_old
+                 d = uold(active(ilevel)%igrid(i)+iskip,1)
+                 u = uold(active(ilevel)%igrid(i)+iskip,2)/d
+                 v = uold(active(ilevel)%igrid(i)+iskip,3)/d
+                 w = uold(active(ilevel)%igrid(i)+iskip,4)/d
+                 e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,6)+uold(active(ilevel)%igrid(i)+iskip,nvar+1))
+              B=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,7)+uold(active(ilevel)%igrid(i)+iskip,nvar+2))
+              C=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,8)+uold(active(ilevel)%igrid(i)+iskip,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+uold(active(ilevel)%igrid(i)+iskip,8+irad)
+              end do
+#endif
+                 call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5) -e_kin -e_mag , temp, ht )
+                 rho_gas =  uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_new
+                 call enerint_eos (rho_gas, temp , enint)
+                
+                 unew(active(ilevel)%igrid(i)+iskip,5) = enint + e_kin +e_mag
+              else
+                 !If we test barenblatt we only update P
+                  unew(active(ilevel)%igrid(i)+iskip,5)=(1.0_dp-sum_dust_new)*uold(active(ilevel)%igrid(i)+iskip,1)/(gamma-1.0_dp)
+           endif
            uold(active(ilevel)%igrid(i)+iskip,5) = unew(active(ilevel)%igrid(i)+iskip,5)
            do idust=1,ndust
               uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
@@ -129,6 +182,7 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   integer,dimension(1:nvector),save::ind_grid
   logical:: d_cycle_ok
   integer :: icycle, ncycle
+
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
@@ -140,9 +194,7 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
         end do
         call dustdifffine1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle,icycle)
      end do
-  do idust=1,ndust
-      call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
-  end do
+
 
 111 format('   Entering dust_diffusion_fine for level ',i2)
 
@@ -387,7 +439,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
               t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d!/d
               if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp
-              if (d*scale_d .le. 1e-18) t_stop =t_stop_floor 
+            !  if (d*scale_d .le. 1e-18) t_stop =t_stop_floor 
 
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
            end do   
@@ -442,7 +494,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
               t_stop =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
               if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp
-              if (d*scale_d .le. 1e-18) t_stop =t_stop_floor 
+            !  if (d*scale_d .le. 1e-18) t_stop =t_stop_floor 
 
               uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp -sum_dust)
            enddo
@@ -536,42 +588,11 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
         k3=1+k2
         do i=1,ncache
            if(son(ind_cell(i))==0)then
-              sum_dust_old=0.0_dp
-              do idust=1,ndust
-                 !We compute the old dust density
-                 sum_dust_old=sum_dust_old+uold(ind_cell(i),firstindex_ndust+idust)
-              enddo
-              !we deduce rho_gas 
-              rho_gas = uold(ind_cell(i),1)-sum_dust_old
               do idust=1,ndust
                  !Update epsilon taking in account small fluxes from refined interfaces
-                 unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+uold(ind_cell(i),firstindex_ndust+idust)
+                 unew(ind_cell(i),firstindex_ndust+idust)=uuloc(i,i3,j3,k3,idust)+unew(ind_cell(i),firstindex_ndust+idust)
                  if(icycle==1)unew(ind_cell(i),firstindex_ndust+idust)=unew(ind_cell(i),firstindex_ndust+idust)+ dflux_dust(ind_cell(i),idust)
-              
               enddo
-              !We compute the new dust density
-              sum_dust_new=0.0_dp              
-              do idust=1,ndust
-               sum_dust_new = sum_dust_new + unew(ind_cell(i),firstindex_ndust+idust)
-               enddo
-          
-               !write(*,*) rho_gas, sum_dust_old, sum_dust_new, unew(ind_cell(i),firstindex_ndust+1),uold(ind_cell(i),firstindex_ndust+1),uuloc(i,i3,j3,k3,1),dflux_dust(ind_cell(i),1)
-   
-              if(dust_barr.eqv. .false.) then
-                 !Update all the quantities that depend on rho
-                 call temperature_eos(rho_gas, uuuloc(i,i3,j3,k3,5) , temp, ht )
-                 
-                 rho_gas =  uold(ind_cell(i),1)-sum_dust_new
-                 call enerint_eos (rho_gas, temp , enint)
-                 d = uuuloc(i,i3,j3,k3,1)
-                 u = uuuloc(i,i3,j3,k3,2)
-                 v = uuuloc(i,i3,j3,k3,3)
-                 w = uuuloc(i,i3,j3,k3,4)
-                 unew(ind_cell(i),5) = enint + 0.5d0*d*(u**2+v**2+w**2)
-              else
-                 !If we test barenblatt we only update P
-                  unew(ind_cell(i),5)=(1.0_dp-sum_dust_new)*uold(ind_cell(i),1)/(gamma-1.0_dp)
-              endif
            end if
      end do
   end do

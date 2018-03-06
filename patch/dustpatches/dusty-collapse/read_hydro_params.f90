@@ -29,10 +29,11 @@ subroutine read_hydro_params(nml_ok)
   real(dp):: sum_dust
   character(len=2):: rad_trans_model='m1'
 
-  integer::ii,jj,kk,ee,hh,gg,ie,ir,k,it
+  integer::ii,jj,kk,ee,hh,gg,ie,ir,k,it,idust
   real(dp)::dummy,compute_db,d0
   real(dp)::xx,yy,vv,ww,zz
-  real(dp)::dtemp1,Temp_new2,epsilon_n,eint_old,T0,temp_new,d_loc,eint_new,pi
+  real(dp)::dtemp1,Temp_new2,epsilon_n,eint_old,T0,temp_new,d_loc,eint_new,pi,epsilon_0
+  real(dp),dimension(1:ndust):: dustMRN
 
   !--------------------------------------------------
   ! Namelist definitions
@@ -605,12 +606,16 @@ subroutine read_hydro_params(nml_ok)
      d_bound(i)=d0
      sum_dust=0.0d0
 #if NDUST>0
-    
+    epsilon_0 = dust_ratio(1)
+     do idust =1,ndust
+        dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+     end do
+     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
      do j=1,ndust
-        sum_dust = sum_dust + dust_ratio(j)/(1.0d0+dust_ratio(j))
+        sum_dust = sum_dust + dustMRN(j)
      end do
      do j=1,ndust
-        boundary_var(i,firstindex_ndust+j)=d_bound(i)*dust_ratio(j)/(1.0d0+dust_ratio(j))
+        boundary_var(i,firstindex_ndust+j)=d_bound(i)*dustMRN(j)
      end do
 #endif
      d_bound(i)=d0

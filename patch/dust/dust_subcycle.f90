@@ -41,8 +41,7 @@ subroutine dust_cycle_fine(ilevel,d_cycle_ok,ncycle)
   if(ncycle.gt.1) d_cycle_ok =.true.
   if(.not.d_cycle_ok) ncycle =1  
 
-  !if (myid==1)
-  write(*,112) ilevel, ncycle
+  if (myid==1) write(*,112) ilevel, ncycle
 112 format('   Subcycling level ',i2, ' for dust with ncycle = ',i2)
 
 end subroutine dust_cycle_fine
