@@ -180,6 +180,7 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
            if(speed.ge.0.0d0) isl = i-1
            if(speed.lt.0.0d0) isl = i
            call minmod_dust((uin(l,isl,j,k,idust)-uin(l,isl-1,j,k,idust))/dx,(uin(l,isl+1,j,k,idust)-uin(l,isl,j,k,idust))/dx,sigma)
+           
            fx(idust) = fx(idust) + 0.5d0*abs(speed)*(dx-abs(speed)*dt)*sigma
         end do
         do idust= 1, ndust

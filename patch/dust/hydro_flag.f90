@@ -254,7 +254,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
      endif
      
      ! compute the Jeans length (remember G=1)
-     lamb_jeans = sqrt( tempe * pi / dens / factG )
+     lamb_jeans = sqrt( (1.0_dp-sum_dust)*tempe * pi / dens / factG )
      ! the Jeans length must be smaller
      ! than n_jeans times the size of the pixel
      ok(i) = ok(i) .or. ( n_jeans*tail_pix >= lamb_jeans )

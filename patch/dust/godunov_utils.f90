@@ -2,6 +2,15 @@
 !###########################################################
 !###########################################################
 !###########################################################
+#if NDUST>0
+#if NIMHD==1
+! modif nimhd
+subroutine cmpdt(uu,gg,uudust,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
+! fin modif nimhd
+#else
+subroutine cmpdt(uu,gg,uudust,dx,dt,ncell)
+#endif
+#else
 #if NIMHD==1
 ! modif nimhd
 subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
@@ -9,6 +18,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
 #else
 subroutine cmpdt(uu,gg,dx,dt,ncell)
 #endif
+#endif  
   use amr_parameters
   use hydro_parameters
   use const
@@ -37,6 +47,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   real(dp)::sum_dust
 #if NDUST>0
   integer::idust
+  real(dp),dimension(1:nvector,1:ndust)::uudust  
 #endif
 #if NENER>0
   integer::irad
@@ -98,7 +109,6 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      do idust=1,ndust
      sum_dust= sum_dust + uu(k,firstindex_ndust+idust)/rho(k)
      enddo
-
 #endif
      uu(k,5) = max((gamma-one)*uu(k,5),smallp)
      a2(k)=gamma*uu(k,5)/uu(k,1)/(1.0d0-sum_dust)
@@ -119,6 +129,11 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      do idim = 1,ndim   ! WARNING: ndim instead of 3
         do k = 1, ncell
            ctot(k)=ctot(k)+abs(uu(k,idim+1))
+#if NDUST>0           
+           do idust=1,ndust
+              ctot(k)= max(ctot(k),uudust(k,idust))
+           enddo
+#endif           
         end do
      end do
   else
@@ -128,6 +143,11 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
            BN=half*(uu(k,5+idim)+uu(k,nvar+idim))
            cf=sqrt(cc+sqrt(cc**2-a2(k)*BN**2/rho(k)))
            ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf
+#if NDUST>0           
+           do idust=1,ndust
+              ctot(k)= max(ctot(k),uudust(k,idust))
+           enddo
+#endif             
         end do
      end do
   endif

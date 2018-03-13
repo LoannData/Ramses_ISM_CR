@@ -10,7 +10,7 @@ module hydro_commons
   real(dp),allocatable,dimension(:,:,:,:)::resistivite_chimie_x ! resistivites chimie
 #if NDUST>0  
   real(dp),allocatable,dimension(:,:):: dflux_dust ! Dust flux from refined interfaces
-  real(dp),allocatable,dimension(:,:,:):: delta_vdust ! Differential velocity of the dust phases
+  real(dp),allocatable,dimension(:,:,:):: v_dust ! Differential velocity of the dust phases
 #endif  
   real(dp),allocatable,dimension(:)::rho_barotrop,temp_barotrop
   real(dp)::mass_tot=0.0D0,mass_tot_0=0.0D0
