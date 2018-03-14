@@ -217,7 +217,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
           &firstindex_ndust+idust)/dens
      enddo
 
-#endif      
+#endif
      call soundspeed_eos((1.0_dp-sum_dust)*dens,etherm,tempe)
      tempe=tempe**2
      ! prevent numerical crash due to negative temperature
@@ -252,12 +252,21 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
            tempe=iso_cs2
         end if
      endif
-
+     
      ! compute the Jeans length (remember G=1)
-     lamb_jeans = sqrt( tempe * pi / dens / factG )
+     lamb_jeans = sqrt( (1.0_dp-sum_dust)*tempe * pi / dens / factG )
      ! the Jeans length must be smaller
      ! than n_jeans times the size of the pixel
      ok(i) = ok(i) .or. ( n_jeans*tail_pix >= lamb_jeans )
   end do
 
 end subroutine jeans_length_refine
+
+subroutine dust_refine()
+  use amr_commons
+  use hydro_commons
+  implicit none
+   
+ 
+end subroutine dust_refine
+

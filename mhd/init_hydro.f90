@@ -243,21 +243,54 @@ subroutine init_hydro
 #endif
 
 #if NPSCAL>0
+#if NIMHD==1
                  if(write_conservative) then
-                    do ivar=1,npscal ! Read conservative passive scalars if any
+                    do ivar=1,npscal-4 ! Read conservative passive scalars if any
                        read(ilun)xx
                        do i=1,ncache
                           uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
                        end do
                     end do
                  else
-                    do ivar=1,npscal ! Read passive scalars if any
+                    do ivar=1,npscal-4 ! Read passive scalars if any
                        read(ilun)xx
                        do i=1,ncache
                           uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
                        end do
                     end do
                  endif
+
+                 do ivar=npscal-3,npscal-1 ! Read current
+                    read(ilun)xx
+                    do i=1,ncache
+                       uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
+                    end do
+                 end do
+
+#else
+                 if(write_conservative) then
+                    do ivar=1,npscal-1 ! Read conservative passive scalars if any
+                       read(ilun)xx
+                       do i=1,ncache
+                          uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
+                       end do
+                    end do
+                 else
+                    do ivar=1,npscal-1 ! Read passive scalars if any
+                       read(ilun)xx
+                       do i=1,ncache
+                          uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                       end do
+                    end do
+                 endif
+#endif
+
+                 ! Read internal energy
+                 read(ilun)xx
+                 do i=1,ncache
+                    uold(ind_grid(i)+iskip,firstindex_pscal+npscal)=xx(i)
+                 end do
+
 #endif
 
                  ! Read in the temperature

@@ -164,7 +164,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   use amr_commons
   use pm_commons
   use poisson_commons
-  use hydro_commons, ONLY: uold,smallr,gamma,nvar,ngrp, firstindex_extinct
+  use hydro_commons, ONLY: uold,smallr,gamma,nvar,ngrp, firstindex_extinct, ndust, firstindex_ndust
   use cooling_module,ONLY:kB,mH,clight
   use radiation_parameters,only:mu_gas,energy_fix,aR
   use hydro_parameters,only:firstindex_er,nener
@@ -471,7 +471,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            eps=uold(indp(j,ind),5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)-e_r
            if(energy_fix)eps=uold(indp(j,ind),nvar)
            sum_dust =0.0_dp
-#if Ndust >0
+#if NDUST>0
            do idust = 1, ndust
               sum_dust = sum_dust + uold(indp(j,ind),firstindex_ndust+idust)/d
            end do

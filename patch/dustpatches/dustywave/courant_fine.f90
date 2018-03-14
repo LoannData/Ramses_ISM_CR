@@ -299,7 +299,7 @@ subroutine courant_fine(ilevel)
 #endif
 
   if(dt_control)dtnew(ilevel)=dtdiff_params(1)*dtdiff_params(2)**nstep_coarse
-  if(dt_control)dtnew(ilevel)=1.0e-4!courant_factor*dx*dx/0.1/0.1
+  if(dt_control)dtnew(ilevel)=dtdiff_params(1)!courant_factor*dx*dx/0.1/0.1
   if(dust_barr.and.dt_control)dtnew(ilevel)=courant_factor*dx*dx/0.1/0.1
 
 111 format('   Entering courant_fine for level ',I2)

@@ -275,7 +275,9 @@ subroutine backup_hydro(filename)
 #endif
                     sum_dust=0.0d0
 #if NDUST>0
-                    sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+idust)/d
+                    do idust=1,ndust
+                       sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+idust)/d
+                    end do
 #endif                    
                     call pressure_eos((1.0d0-sum_dust)*d,e,p)
                     xdp(i)=p
@@ -346,7 +348,9 @@ subroutine backup_hydro(filename)
                  endif
                  sum_dust=0.0d0
 #if NDUST>0
-                 sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+idust)/d
+                 do idust=1,ndust
+                    sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+idust)/d
+                 end do
 #endif                    
                  call temperature_eos((1.0d0-sum_dust)*d,e,cmp_temp,ht)
                  xdp(i)=cmp_temp

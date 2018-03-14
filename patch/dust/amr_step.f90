@@ -28,8 +28,8 @@ recursive subroutine amr_step(ilevel,icount)
   ! Each routine is called using a specific order, don't change it,   !
   ! unless you check all consequences first                           !
   !-------------------------------------------------------------------!
-  integer::i,idim,ivar,idust
-  logical::ok_defrag,output_now_all
+  integer::i,idim,ivar,idust,icycle, ncycle
+  logical::ok_defrag,output_now_all,d_cycle_ok
   logical,save::first_step=.true.
 #if NIMHD==1
   !!! sts !!!
@@ -393,6 +393,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Dust diffusion step
   if(dust_diffusion)then
      call set_dflux_dust_new(ilevel)
+
   end if
 #endif
 
@@ -548,8 +549,8 @@ recursive subroutine amr_step(ilevel,icount)
 
                                call timer('cooling','start')
   if((hydro).and.(.not.static_gas)) then
-     !if((neq_chem.or.cooling .or. barotrop .or. extinction .or. isothermal) .and. T2_star>0.0)
-     if(isothermal.and.dust_diffusion) call cooling_fine(ilevel)
+     if((neq_chem.or.cooling .or. barotrop .or. extinction .or. isothermal) .and. T2_star>0.0) call cooling_fine(ilevel)
+     !if(isothermal.and.dust_diffusion)
      ! Romain master version
      ! if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
   endif
@@ -606,31 +607,29 @@ recursive subroutine amr_step(ilevel,icount)
 !Dust diffusion step
 #if NDUST>0
   if(dust_diffusion)then
-                             call timer('dust - diffusion','start')
-     call dust_diffusion_fine(ilevel)
-     call set_uold_dust(ilevel)
+                          call timer('dust - diffusion','start')
+     d_cycle_ok=.false.
+     ncycle=1
+        call set_unew_dust(ilevel)
 
-     ! Restriction operator
-                               call timer('hydro upload fine','start')
-     call upload_fine(ilevel)
-     do idust=1,ndust
-        call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
-     end do
-     ! Update boundaries
-                              call timer('hydro - ghostzones','start')
-#ifdef SOLVERmhd
-  do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
-        call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
-     end do
-#else
-  end do
-#endif
-  if(simple_boundary)call make_boundary_hydro(ilevel)
-end if  
+        call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
+        do idust=1,ndust
+           call make_virtual_reverse_dp(unew(1,firstindex_ndust+idust),ilevel)
+        end do
+        do idust=1,ndust
+           call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
+        end do
+           !call make_virtual_reverse_dp(unew(1,5),ilevel)
+           call set_uold_dust(ilevel)
+           call upload_fine(ilevel)
+
+        do idust=1,ndust
+           call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
+        end do
+        !call make_virtual_fine_dp(uold(1,5),ilevel)
+        if(simple_boundary)call make_boundary_hydro(ilevel)
+        call set_vdust(ilevel)
+end if
 #endif
 !End of dust diffusion 
 

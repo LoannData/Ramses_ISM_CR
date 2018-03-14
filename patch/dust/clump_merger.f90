@@ -151,8 +151,8 @@ subroutine compute_clump_properties(xx)
 #endif
         eint=uold(icellp(ipart),5)-ekin_loc-emag_loc-erad_loc
         if(energy_fix)eint=uold(icellp(ipart),nvar)
-                sum_dust=0.0_dp
-#if Ndust >0
+       sum_dust=0.0_dp
+#if NDUST>0
         do idust = 1, Ndust
            sum_dust =  sum_dust + uold(icellp(ipart),firstindex_ndust+idust)/d
         enddo

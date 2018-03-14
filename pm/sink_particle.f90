@@ -731,6 +731,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   use amr_commons
   use pm_commons
   use hydro_commons
+  use cloud_module, only:facc_star_mom
   implicit none
   integer::ng,np,ilevel
   integer,dimension(1:nvector)::ind_grid
@@ -759,13 +760,13 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   ! Particle based arrays
   logical,dimension(1:nvector,1:twotondim)::ok
   integer ,dimension(1:nvector,1:twotondim)::indp
-  real(dp),dimension(1:3)::vv
+  real(dp),dimension(1:3)::vv,v_mom
 
   real(dp),dimension(1:3)::r_rel,v_rel,x_acc,p_acc,l_acc
   real(dp)::fbk_ener_AGN,fbk_mom_AGN
   logical,dimension(1:ndim)::period
 
-  real(dp)::tan_theta,cone_dist,orth_dist
+  real(dp)::tan_theta,cone_dist,orth_dist,rr2
   real(dp),dimension(1:3)::cone_dir
 
 #if NDIM==3
@@ -817,6 +818,10 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ! Compute the gas total specific energy (kinetic plus thermal)
            ! removing all the other energies, if any.
            e=uold(indp(j,ind),5)
+
+           ! PH retrieve the kinetic energy as well
+           ! we change the velocity of the gas to conserve angular momentum
+           e = e - 0.5*(uold(indp(j,ind),2)**2+uold(indp(j,ind),3)**2+uold(indp(j,ind),4)**2)/uold(indp(j,ind),1)
 
 #ifdef SOLVERmhd
            bx1=uold(indp(j,ind),6)
@@ -890,11 +895,17 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ! Accreted relative center of mass
            x_acc(1:3)=m_acc*r_rel(1:3)
 
+           ! PH compute the part of the velocity associated to the momentum
+           ! then the gas keeps part of its momentum which is not accreted onto the sink
+           rr2 = r_rel(1)**2+r_rel(2)**2+r_rel(3)**2
+           v_mom(1:3) = 0.0
+           if(.not.on_creation) v_mom(1:3) = (1.-facc_star_mom)* (v_rel(1:3) - (v_rel(1)*r_rel(1)+v_rel(2)*r_rel(2)+v_rel(3)*r_rel(3))/rr2*r_rel(1:3))
+
            ! Accreted relative momentum
-           p_acc(1:3)=m_acc*v_rel(1:3)
+           p_acc(1:3)=m_acc*(v_rel(1:3)-v_mom(1:3))
 
            ! Accreted relative angular momentum
-           l_acc(1:3)=m_acc*cross(r_rel(1:3),v_rel(1:3))
+           l_acc(1:3)=m_acc*cross(r_rel(1:3),v_rel(1:3)-v_mom(1:3))
 
            ! Add accreted properties to sink variables
            msink_new(isink)=msink_new(isink)+m_acc
@@ -922,7 +933,12 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 
            ! Accrete mass, momentum and gas total energy
            unew(indp(j,ind),1)=unew(indp(j,ind),1)-m_acc/vol_loc
-           unew(indp(j,ind),2:4)=unew(indp(j,ind),2:4)-m_acc*vv(1:3)/vol_loc
+           ! Retrieve part of the angular momentum
+           unew(indp(j,ind),2:4)=unew(indp(j,ind),2:4)-m_acc*(vv(1:3)-v_mom(1:3))/vol_loc
+
+           ! Add the new specific kinetic energy
+           if(energy_fix)unew(indp(j,ind),nvar)=unew(indp(j,ind),nvar)-m_acc*e/vol_loc
+           e = e + 0.5* ( (vv(1)-v_mom(1))**2 + (vv(2)-v_mom(2))**2 + (vv(3)-v_mom(3))**2 )
            unew(indp(j,ind),5)=unew(indp(j,ind),5)-m_acc*e/vol_loc
            ! Note that we do not accrete magnetic fields and non-thermal energies.
 
@@ -2811,6 +2827,7 @@ end subroutine f_sink_sink
 subroutine read_sink_params()
   use pm_commons
   use amr_commons
+  use cloud_module,only:facc_star_mom
   implicit none
 
   !------------------------------------------------------------------------
@@ -2820,7 +2837,7 @@ subroutine read_sink_params()
   real(dp)::dx_min,scale,cty
   integer::nx_loc
   namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,merging_timescale,jeans_accretion,&
-       ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,c_acc,create_sinks,mass_sink_seed,&
+       ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,c_acc,facc_star_mom,create_sinks,mass_sink_seed,&
        eddington_limit,sink_drag,acc_sink_boost,mass_merger_vel_check_AGN,&
        clump_core,verbose_AGN,T2_AGN,v_AGN,cone_opening,mass_halo_AGN,mass_clump_AGN,feedback_scheme
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v

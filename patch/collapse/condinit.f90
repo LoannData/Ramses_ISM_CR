@@ -597,75 +597,93 @@ subroutine condinit(x,u,dx,nn)
 
      ENDDO
 
+     if(uniform_bmag) then
 
-     dxmin=boxlen*0.5d0**(levelmin+3)
+        DO i=1,nn
+           q(i,6     ) = B_c
+           q(i,nvar+1) = q(i,6)
+           
+           !By component
+           q(i,7     ) = 0.
+           q(i,nvar+2) = 0.
+           
+           !Bz component
+           q(i,8     ) = 0.
+           q(i,nvar+3) = 0.
 
-     if( dx .lt. dxmin) then 
-        write(*,*) 'dxmin too large'
-        write(*,*) 'dx ',dx/boxlen
-        write(*,*) 'dxmin ',dxmin/boxlen
-        stop
-     endif
+        end DO
+           
+     else
 
-     nticks=dx/dxmin
+        dxmin=boxlen*0.5d0**(levelmin+3)
+        
+        if( dx .lt. dxmin) then 
+           write(*,*) 'dxmin too large'
+           write(*,*) 'dx ',dx/boxlen
+           write(*,*) 'dxmin ',dxmin/boxlen
+           stop
+        endif
 
-
-
-     DO i=1,nn
-        q(i,6)=0.
-
-        xl=x(i,1)-0.5*dx
-        yl=x(i,2)-0.5*dx
-        zl=x(i,3)-0.5*dx
+        nticks=dx/dxmin
 
 
-        !the magnetic field in cells must be subdivided in order to insure that the magnetic
-        !flux is the same in coarse and refined grids
-        DO jj=1,nticks
-           DO kk=1,nticks
 
-              yy=yl+(dble(jj)-0.5d0)*dxmin
-              zz=zl+(dble(kk)-0.5d0)*dxmin
+        DO i=1,nn
+           q(i,6)=0.
+           
+           xl=x(i,1)-0.5*dx
+           yl=x(i,2)-0.5*dx
+           zl=x(i,3)-0.5*dx
+           
+           
+           !the magnetic field in cells must be subdivided in order to insure that the magnetic
+           !flux is the same in coarse and refined grids
+           DO jj=1,nticks
+              DO kk=1,nticks
+                 
+                 yy=yl+(dble(jj)-0.5d0)*dxmin
+                 zz=zl+(dble(kk)-0.5d0)*dxmin
 
-              !this formula comes from the integration of the density distribution along x
-              eli = (yy/r_0)**2 + (zz/r_0/rap)**2
-              if( eli .lt. zeta**2) then
-                 col_d = r_0*d_c/sqrt(1.+eli)*atan( sqrt( (zeta**2-eli)/(1.+eli) ) )
-                 col_d = max(col_d,min_col_d)
-              else 
-                 col_d = min_col_d
-              endif
+                 !this formula comes from the integration of the density distribution along x
+                 eli = (yy/r_0)**2 + (zz/r_0/rap)**2
+                 if( eli .lt. zeta**2) then
+                    col_d = r_0*d_c/sqrt(1.+eli)*atan( sqrt( (zeta**2-eli)/(1.+eli) ) )
+                    col_d = max(col_d,min_col_d)
+                 else 
+                    col_d = min_col_d
+                 endif
+                 
+                 !Bx component
+                 if(uniform_bmag)then
+                    q(i,6     ) = q(i,6) + B_c
+                 else
+                    q(i,6     ) = q(i,6) + B_c * col_d / max_col_d
+                 end if
+                 q(i,nvar+1) = q(i,6)
 
-              !Bx component
-              if(uniform_bmag)then
-                 q(i,6     ) = q(i,6) + B_c
-              else
-                 q(i,6     ) = q(i,6) + B_c * col_d / max_col_d
-              end if
-              q(i,nvar+1) = q(i,6)
+                 !By component
+                 q(i,7     ) = 0.
+                 q(i,nvar+2) = 0.
+                 
+                 !Bz component
+                 q(i,8     ) = 0.
+                 q(i,nvar+3) = 0.
 
-              !By component
-              q(i,7     ) = 0.
-              q(i,nvar+2) = 0.
-
-              !Bz component
-              q(i,8     ) = 0.
-              q(i,nvar+3) = 0.
-
+              ENDDO
            ENDDO
+
+           q(i,6:8)           = q(i,6:8)           / dble(nticks)**2
+
+           !new version rotates the rotation velocity 
+           !rotates the magnetic field of an angle theta
+           !       bx=q(i,6)
+           !       by=q(i,7)
+           !       q(i,6) =  bx*cos(theta_mag_radians) + by*sin(theta_mag_radians)
+           !       q(i,7) =  bx*sin(theta_mag_radians) - by*cos(theta_mag_radians)
+           
+           q(i,nvar+1:nvar+3) = q(i,6:8)
         ENDDO
-
-        q(i,6:8)           = q(i,6:8)           / dble(nticks)**2
-
-        !new version rotates the rotation velocity 
-        !rotates the magnetic field of an angle theta
-        !       bx=q(i,6)
-        !       by=q(i,7)
-        !       q(i,6) =  bx*cos(theta_mag_radians) + by*sin(theta_mag_radians)
-        !       q(i,7) =  bx*sin(theta_mag_radians) - by*cos(theta_mag_radians)
-
-        q(i,nvar+1:nvar+3) = q(i,6:8)
-     ENDDO
+     end if
   end if
 
   ! Convert primitive to conservative variables

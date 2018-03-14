@@ -110,17 +110,37 @@ endif
   end do
 #endif
 #if NPSCAL>0
+#if NIMHD==1
+  ! Passive scalars excluding current and internal energy
   if(write_conservative) then
-     ! Passive scalars
-     do ivar=1,npscal
+     do ivar=1,npscal-4
         write(ilun,'("variable #",I2,": passive_scalar_cons_",I1)')firstindex_pscal+3+ivar,ivar
      end do
   else
-     ! Passive scalars
-     do ivar=1,npscal
+     do ivar=1,npscal-4
         write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+3+ivar,ivar
      end do
   endif
+  ivar=npscal-3
+  write(ilun,'("variable #",I2,": current_x")')firstindex_pscal+3+ivar
+  ivar=npscal-2
+  write(ilun,'("variable #",I2,": current_y")')firstindex_pscal+3+ivar
+  ivar=npscal-1
+  write(ilun,'("variable #",I2,": current_z")')firstindex_pscal+3+ivar
+#else
+  ! Passive scalars excluding internal energy
+  if(write_conservative) then
+     do ivar=1,npscal-1
+        write(ilun,'("variable #",I2,": passive_scalar_cons_",I1)')firstindex_pscal+3+ivar,ivar
+     end do
+  else
+     do ivar=1,npscal-1
+        write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+3+ivar,ivar
+     end do
+  endif
+#endif
+  ivar=npscal
+  write(ilun,'("variable #",I2,": internal_energy")')firstindex_pscal+3+ivar
 #endif
   ! Temperature
   ivar=firstindex_pscal+3+npscal+1
@@ -300,21 +320,54 @@ subroutine backup_hydro(filename)
 #endif
 
 #if NPSCAL>0
+#if NIMHD==1
               if(write_conservative) then
-                 do ivar=1,npscal ! Write conservative passive scalars if any
+                 do ivar=1,npscal-4 ! Write conservative passive scalars if any
                     do i=1,ncache
                        xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)
                     end do
                     write(ilun)xdp
                  end do
               else
-                 do ivar=1,npscal ! Write passive scalars if any
+                 do ivar=1,npscal-4 ! Write passive scalars if any
                     do i=1,ncache
                        xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
                     end do
                     write(ilun)xdp
                  end do
               endif
+
+              do ivar=npscal-3,npscal-1 ! Write current
+                 do i=1,ncache
+                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)
+                 end do
+                 write(ilun)xdp
+              end do
+
+#else
+              if(write_conservative) then
+                 do ivar=1,npscal-1 ! Write conservative passive scalars if any
+                    do i=1,ncache
+                       xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)
+                    end do
+                    write(ilun)xdp
+                 end do
+              else
+                 do ivar=1,npscal-1 ! Write passive scalars if any
+                    do i=1,ncache
+                       xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
+                    end do
+                    write(ilun)xdp
+                 end do
+              endif
+#endif
+              
+              ! Write internal energy
+              do i=1,ncache
+                 xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+npscal)
+              end do
+              write(ilun)xdp
+              
 #endif
               
               ! Write temperature
