@@ -128,12 +128,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   if(ischeme.eq.1)then
      do idim = 1,ndim   ! WARNING: ndim instead of 3
         do k = 1, ncell
-           ctot(k)=ctot(k)+abs(uu(k,idim+1))
-#if NDUST>0           
-           do idust=1,ndust
-              ctot(k)= max(ctot(k),uudust(k,idust))
-           enddo
-#endif           
+           ctot(k)=ctot(k)+abs(uu(k,idim+1))  
         end do
      end do
   else
@@ -143,11 +138,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
            BN=half*(uu(k,5+idim)+uu(k,nvar+idim))
            cf=sqrt(cc+sqrt(cc**2-a2(k)*BN**2/rho(k)))
            ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf
-#if NDUST>0           
-           do idust=1,ndust
-              ctot(k)= max(ctot(k),uudust(k,idust))
-           enddo
-#endif             
+            
         end do
      end do
   endif
@@ -169,6 +160,11 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   ! Compute maximum time step for each authorized cell
   dt = courant_factor*dx/smallc
   do k = 1,ncell
+#if NDUST>0           
+           do idust=1,ndust
+              ctot(k)= max(ctot(k),uudust(k,idust))
+           enddo
+#endif      
      dtcell=dx/ctot(k)*(sqrt(one+two*courant_factor*rho(k))-one)/rho(k)
      dt = min(dt,dtcell)
   end do

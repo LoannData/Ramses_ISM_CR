@@ -53,7 +53,6 @@ subroutine condinit(x,u,dx,nn)
   real(dp)::ener_rot,ener_grav,ener_therm,ener_grav2,ener_turb,dd,ee,theta_mag_radians
   real(dp),dimension(1000):: mass_rad    
   real(dp),dimension(1:3,1:3):: rot_M,rot_invM,rot_tilde
-
   
   real(dp) :: sum_dust
 #if NDUST>0
@@ -61,7 +60,9 @@ subroutine condinit(x,u,dx,nn)
   real(dp):: epsilon_0
   real(dp),dimension(1:ndust):: dustMRN
   epsilon_0 = dust_ratio(1)
-#endif  
+#endif
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+
   small_er=eray_min/(scale_d*scale_v**2)
   id=1; iu=2; iv=3; iw=4; ip=5
   x0=0.5*boxlen
@@ -161,7 +162,7 @@ subroutine condinit(x,u,dx,nn)
            v_rms = Mach*C_s/v_rms
            if (myid == 1) print *, 'correction factor for turbulent field =',v_rms
         end if
-
+        
         if(myid==1)then
            print*,'alpha_dense_core=',alpha_dense_core
            print*,'beta_dense_core=',beta_dense_core
@@ -999,10 +1000,10 @@ function compute_db()
         end do   
 #endif      
      pi=2.0d0*asin(1.0d0)
+        
      r0=(alpha_dense_core*2.*6.67d-8*mass_c2*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
      d0 = 3.0d0*mass_c2/(4.0d0*pi*r0**3.)
      compute_db=d0/contrast
-     
   else
      !calculate an integral used to compute the cloud radius 
      res_int=0.
