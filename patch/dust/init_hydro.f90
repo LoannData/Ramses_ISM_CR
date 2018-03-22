@@ -54,7 +54,7 @@ subroutine init_hydro
      divu=0.0d0; enew=0.0d0
   end if
 #if NDUST>0
-  allocate(dflux_dust(1:ncell,1:ndust))
+  allocate(dflux_dust(1:ncell,1:ndust,1:ndim))
   allocate(v_dust(1:ncell,1:ndust,1:ndim))
   dflux_dust =0.0d0; v_dust=0.0d0;
 #endif

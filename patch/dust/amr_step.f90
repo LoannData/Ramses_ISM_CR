@@ -554,32 +554,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
   endif
 #endif
-!Dust diffusion step
-#if NDUST>0
-  if(dust_diffusion)then
-                          call timer('dust - diffusion','start')
-     d_cycle_ok=.false.
-     ncycle=1
-        call set_unew_dust(ilevel)
-        call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
-        do idust=1,ndust
-           call make_virtual_reverse_dp(unew(1,firstindex_ndust+idust),ilevel)
-        end do
-        do idust=1,ndust
-           call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
-        end do
-           !call make_virtual_reverse_dp(unew(1,5),ilevel)
-           call set_uold_dust(ilevel)
-           call upload_fine(ilevel)
-        do idust=1,ndust
-           call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
-        end do
-        call make_virtual_fine_dp(uold(1,5),ilevel)
-        if(simple_boundary)call make_boundary_hydro(ilevel)
-        call set_vdust(ilevel)
 
-end if
-#endif
 !End of dust diffusion 
   
   !---------------
@@ -630,7 +605,31 @@ end if
      if(simple_boundary)call make_boundary_hydro(ilevel)
   endif
 
+!Dust diffusion step
+#if NDUST>0
+  if(dust_diffusion)then
+                          call timer('dust - diffusion','start')
+     call set_unew_dust(ilevel)
+     call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
+     do idust=1,ndust
+        call make_virtual_reverse_dp(unew(1,firstindex_ndust+idust),ilevel)
+     end do
+     call set_uold_dust(ilevel)
+     do idim=1,ndim
+     do idust=1,ndust
+        call make_virtual_reverse_dp(dflux_dust(1,idust,idim),ilevel)
+     end do
+     end do
+     call upload_fine(ilevel)
+     do idust=1,ndust
+        call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
+     end do
+     call make_virtual_fine_dp(uold(1,5),ilevel)
+     if(simple_boundary)call make_boundary_hydro(ilevel)
+     call set_vdust(ilevel)
 
+end if
+#endif
 
 
 #ifdef SOLVERmhd
