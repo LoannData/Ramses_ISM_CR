@@ -547,7 +547,7 @@ recursive subroutine amr_step(ilevel,icount)
 #else
 
                                call timer('cooling','start')
-  if((hydro).and.(.not.static_gas)) then
+  if((hydro).and.(.not.static_gas).and..not. dust_barr) then
      if((neq_chem.or.cooling .or. barotrop .or. extinction .or. isothermal) .and. T2_star>0.0) call cooling_fine(ilevel)
      !if(isothermal.and.dust_diffusion)
      ! Romain master version
@@ -615,11 +615,9 @@ recursive subroutine amr_step(ilevel,icount)
         call make_virtual_reverse_dp(unew(1,firstindex_ndust+idust),ilevel)
      end do
      call set_uold_dust(ilevel)
-     do idim=1,ndim
-     do idust=1,ndust
-        call make_virtual_reverse_dp(dflux_dust(1,idust,idim),ilevel)
-     end do
-     end do
+        do idust=1,ndust
+           call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
+        end do
      call upload_fine(ilevel)
      do idust=1,ndust
         call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
@@ -627,7 +625,6 @@ recursive subroutine amr_step(ilevel,icount)
      call make_virtual_fine_dp(uold(1,5),ilevel)
      if(simple_boundary)call make_boundary_hydro(ilevel)
      call set_vdust(ilevel)
-
 end if
 #endif
 

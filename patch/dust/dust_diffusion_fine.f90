@@ -44,7 +44,8 @@ subroutine set_vdust(ilevel)
   t_stop=0.0d0
   sum_dust=0.0d0
   pi =3.14159265358979323846_dp
-
+  dens_floor=0.0d0
+#if DUSTY_COLL>0  
 #if NDUST>0
      do idust =1,ndust
         dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
@@ -57,6 +58,7 @@ subroutine set_vdust(ilevel)
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
   dens_floor=d0
+#endif  
   if(mrn.eqv..true.) then
      call size_dust(l_grain)
      do idust=1,ndust
@@ -225,7 +227,7 @@ subroutine set_vdust(ilevel)
             do idust = 1,ndust
                t_stop(idust) = t_stop(idust)+tstop_tot
             do idim=1,ndim
-               v_dust(ind_cell(i),idust,idim) = t_stop(idust)* gradP(i,idim)/d
+               v_dust(ind_cell(i),idust,idim) = t_stop(idust)*gradP(i,idim)/d
             end do
             end do
         end do
@@ -253,30 +255,26 @@ subroutine set_dflux_dust_new(ilevel)
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
   ! Set fdust = 0 for myid cells
-  do idim=1,ndim
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
      do idust=1,ndust
         do i=1,active(ilevel)%ngrid
-           dflux_dust(active(ilevel)%igrid(i)+iskip,idust,idim) = 0.0d0
+           dflux_dust(active(ilevel)%igrid(i)+iskip,idust) = 0.0d0
         end do
      end do
   end do
-  end do
   ! Set fdust to 0 for virtual boundary cells
-  do idim=1,ndim
   do icpu=1,ncpu
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
      do idust=1,ndust
         do i=1,reception(icpu,ilevel)%ngrid
-          dflux_dust(reception(icpu,ilevel)%igrid(i)+iskip,idust,idim)= 0.0d0
+          dflux_dust(reception(icpu,ilevel)%igrid(i)+iskip,idust)= 0.0d0
         end do
      end do
   end do
   end do
-  end do
-
+ v_dust=0.0d0
 111 format('   Entering set_dflux_dust for level ',i2)
 
 end subroutine set_dflux_dust_new
@@ -303,12 +301,11 @@ subroutine set_unew_dust(ilevel)
         do i=1,active(ilevel)%ngrid
             !unew(active(ilevel)%igrid(i)+iskip,5) = uold(active(ilevel)%igrid(i)+iskip,5)
            do idust=1,ndust
-              unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
+              unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)+dflux_dust(active(ilevel)%igrid(i)+iskip,idust)
            end do
         end do
      end do
-     ! Set unew to 0 for virtual boundary cells
-     
+  ! Set unew to 0 for virtual boundary cells
   do icpu=1,ncpu
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
@@ -365,14 +362,14 @@ subroutine set_uold_dust(ilevel)
 !              !We compute the old dust density
               sum_dust_new=sum_dust_new+unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)/d
            enddo
-!           if(dust_barr.eqv. .false..and.isothermal) then
+           if(dust_barr.eqv. .false.) then
               !Update all the quantities that depend on rho
               rho_gas = uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_old*d
-                 d = uold(active(ilevel)%igrid(i)+iskip,1)
-                 u = uold(active(ilevel)%igrid(i)+iskip,2)/d
-                 v = uold(active(ilevel)%igrid(i)+iskip,3)/d
-                 w = uold(active(ilevel)%igrid(i)+iskip,4)/d
-                 e_mag= 0.0_dp
+              d = uold(active(ilevel)%igrid(i)+iskip,1)
+              u = uold(active(ilevel)%igrid(i)+iskip,2)/d
+              v = uold(active(ilevel)%igrid(i)+iskip,3)/d
+              w = uold(active(ilevel)%igrid(i)+iskip,4)/d
+              e_mag= 0.0_dp
 #ifdef SOLVERmhd                           
               A=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,6)+uold(active(ilevel)%igrid(i)+iskip,nvar+1))
               B=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,7)+uold(active(ilevel)%igrid(i)+iskip,nvar+2))
@@ -381,20 +378,19 @@ subroutine set_uold_dust(ilevel)
 #endif
               e_kin=0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
-               do irad=1,nener
+              do irad=1,nener
                  e_mag=e_mag+uold(active(ilevel)%igrid(i)+iskip,8+irad)
               end do
 #endif
               enint=0.0d0
-                 call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5) -e_kin -e_mag , temp, ht )
-                 rho_gas =  uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_new*d
-                 call enerint_eos (rho_gas, temp , enint)
-!                
-                 unew(active(ilevel)%igrid(i)+iskip,5) = enint + e_kin +e_mag
-!              else
-!                 !If we test barenblatt we only update P
-!                  unew(active(ilevel)%igrid(i)+iskip,5)=(1.0_dp-sum_dust_new)*uold(active(ilevel)%igrid(i)+iskip,1)/(gamma-1.0_dp)
-!           endif
+              call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5) -e_kin -e_mag , temp, ht )
+              rho_gas =  uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_new*d
+              call enerint_eos (rho_gas, temp , enint)
+              unew(active(ilevel)%igrid(i)+iskip,5) = enint + e_kin +e_mag
+           else
+              !If we test barenblatt we only update P
+              unew(active(ilevel)%igrid(i)+iskip,5)=(1.0_dp-sum_dust_new)*uold(active(ilevel)%igrid(i)+iskip,1)/(gamma-1.0_dp)
+           endif
            uold(active(ilevel)%igrid(i)+iskip,5) = unew(active(ilevel)%igrid(i)+iskip,5)
            do idust=1,ndust
               uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
@@ -436,8 +432,6 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
         end do
         call dustdifffine1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle,icycle)
      end do
-
-
 111 format('   Entering dust_diffusion_fine for level ',i2)
 
 
@@ -501,15 +495,14 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   real(dp), dimension(1:ndust) ::d_grain,l_grain
   real(dp):: epsilon_0
   real(dp),dimension(1:ndust):: dustMRN
-  epsilon_0 = dust_ratio(1)
-
-  
+  epsilon_0 = dust_ratio(1)  
   pi =3.14159265358979323846_dp
-
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   t_stop_floor =0.0d0
+  dens_floor=0.0d0
   sum_dust=0.0d0
+#if DUSTY_COLL>0  
 #if NDUST>0
      do idust =1,ndust
         dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
@@ -517,13 +510,12 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
      if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
      do idust =1,ndust
            sum_dust = sum_dust + dustMRN(idust)
-        end do   
+     end do   
 #endif
-        
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
   dens_floor=d0
-
+#endif
   !Saved variables set to 0
   u1   = 0.0d0
   u2   = 0.0d0
@@ -700,7 +692,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
               if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
               if(dust_barr) t_stop = 0.1_dp
               if (d .le. dens_floor) t_stop =t_stop_floor 
-
               uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
            end do   
         end do
@@ -819,7 +810,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
               do idust=1,ndust
                  !Update rhodust
                  unew(ind_cell(i),firstindex_ndust+idust)=unew(ind_cell(i),firstindex_ndust+idust) +(flux(i,i3,j3,k3,idust,idim)&
-                      &-flux(i,i3+i0,j3+j0,k3+k0,idust,idim))+dflux_dust(ind_cell(i),idust,idim)
+                      &-flux(i,i3+i0,j3+j0,k3+k0,idust,idim))
               enddo
            end if
      end do
@@ -859,7 +850,7 @@ end do
         do j3=j3min,j3max-j0
         do i3=i3min,i3max-i0
            do i=1,nb_noneigh
-              dflux_dust(ind_buffer(i),idust,idim)=dflux_dust(ind_buffer(i),idust,idim) &
+              dflux_dust(ind_buffer(i),idust)=dflux_dust(ind_buffer(i),idust) &
                    &-flux(ind_cell(i),i3,j3,k3,idust,idim)*oneontwotondim         
            end do
         end do
@@ -887,7 +878,7 @@ end do
         do j3=j3min+j0,j3max
         do i3=i3min+i0,i3max
            do i=1,nb_noneigh
-              dflux_dust(ind_buffer(i),idust,idim)=dflux_dust(ind_buffer(i),idust,idim) &
+              dflux_dust(ind_buffer(i),idust)=dflux_dust(ind_buffer(i),idust) &
                    &+flux(ind_cell(i),i3+i0,j3+j0,k3+k0,idust,idim)*oneontwotondim
            end do
         end do

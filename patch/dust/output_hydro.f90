@@ -8,7 +8,7 @@ subroutine file_descriptor_hydro(filename)
 
   character(LEN=80)::filename
   character(LEN=80)::fileloc
-  integer::ivar,ilun
+  integer::ivar,ilun,idust
 
   if(verbose)write(*,*)'Entering file_descriptor_hydro'
 
@@ -19,7 +19,7 @@ subroutine file_descriptor_hydro(filename)
   open(unit=ilun,file=fileloc,form='formatted')
 
   ! Write run parameters
-  write(ilun,'("nvar        =",I11)')nvar+4
+  write(ilun,'("nvar        =",I11)')nvar+4+ndust*ndim
   ivar=1
   write(ilun,'("variable #",I2,": density")')ivar
   if(write_conservative) then
@@ -125,7 +125,14 @@ endif
   ! Temperature
   ivar=firstindex_pscal+3+npscal+1
   write(ilun,'("variable #",I2,": temperature")')ivar
-
+#if NDUST>0
+  do idust=1,ndust
+     write(ilun,'("variable #",I2,":v_dust_x_",I1)')ivar+idust,idust
+     write(ilun,'("variable #",I2,":v_dust_y_",I1)')ivar+idust+1,idust
+     write(ilun,'("variable #",I2,":v_dust_z_",I1)')ivar+idust+2,idust
+     ivar=ivar+3
+  end do
+#endif   
   close(ilun)
 
 end subroutine file_descriptor_hydro
@@ -139,7 +146,7 @@ subroutine backup_hydro(filename)
   integer::dummy_io,info2
 #endif
   character(LEN=80)::filename
-  integer::i,ivar,ncache,ind,ilevel,igrid,iskip,ilun,istart,ibound,ht
+  integer::i,ivar,ncache,ind,ilevel,igrid,iskip,ilun,istart,ibound,ht,idim
   real(dp)::d,u,v,w,A,B,C,e
   real(dp):: sum_dust
 #if NDUST>0
@@ -354,11 +361,27 @@ subroutine backup_hydro(filename)
 #endif                    
                  call temperature_eos((1.0d0-sum_dust)*d,e,cmp_temp,ht)
                  xdp(i)=cmp_temp
+             
               end do
-              write(ilun)xdp
-
+              write(ilun)xdp   
+#if NDUST>0
+           do idust=1,ndust
+              do idim=1,ndim           
+                 do i=1,ncache
+                    d=max(uold(ind_grid(i)+iskip,1),smallr)
+                    sum_dust=0.0d0
+                 do ivar=1,ndust
+                    sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+ivar)/d
+                 end do
+                    xdp(i)=v_dust(ind_grid(i)+iskip,idust,idim)/(1.0d0-sum_dust)
+                 end do
+                 write(ilun)xdp
+              end do
            end do
-           deallocate(ind_grid, xdp)
+#endif
+        end do
+        
+        deallocate(ind_grid, xdp)
         end if
      end do
   end do

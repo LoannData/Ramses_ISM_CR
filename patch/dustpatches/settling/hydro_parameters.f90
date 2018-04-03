@@ -247,8 +247,11 @@ module hydro_parameters
   logical :: K_drag = .false.
   logical :: mrn = .false.
   logical :: flag_dust=.true.
-
   logical :: no_interaction = .false.
+  real(dp):: omega_rot=1.0d-2
+  real(dp):: Temper = 10.d0
+  real(dp):: rho_0= 10.d0
+
   real(dp),dimension(1:ndust) :: K_dust = 1.0_dp
   real(dp),dimension(1:ndust):: grain_size = 1.0e-7_dp ! Dust properties (1:ndust) where the sizes of the grains are stocked
   real(dp),dimension(1:ndust):: grain_dens = 1.0_dp ! Dust properties (1:ndust) where the intrinsic of the grains are stocked
