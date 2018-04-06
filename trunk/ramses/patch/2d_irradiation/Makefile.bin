@@ -10,40 +10,47 @@ NDIM = 2
 SOLVER = mhd
 NIMHD=0
 
-NENT = 0
+NCR = 0
+NENT =0+$(NCR)
 
 USE_FLD=1
 USE_M_1=0
-NGRP = 1
+NGRP=1
+#NGRP=2
+
+USE_TURB=0
 
 NEXTINCT = 0
 NPSCAL = 0
-
+NDUST  = 0
 NENER = $(NENT)+$(NGRP)
 
 #for RT
-NGROUPS = 1
-NIONS = 3
+NGROUPS = 0
+NIONS = 0
 
-PATCH =../patch/2d_irradiation
+#PATCH = ../patch/irradiation
+PATCH = ../patch/irradiation/test_2D
+#PATCH = ../patch/collapse
+
 
 GRACKLE = 0
 EXEC = ramses
 
-MPI = 1
+MPI = 0
 COMP = "GNU"
 #COMP = "INTEL"
 
 
 ifeq ($(NIMHD),1)
-   NPSCAL := $(NPSCAL)+$(NIONS)+4 # for internal energy + current
+   NPSCAL := $(NPSCAL)+$(NIONS)+$(NDUST)+4 # for internal energy + current
 else
-   NPSCAL := $(NPSCAL)+$(NIONS)+1 # for internal energy
+   NPSCAL := $(NPSCAL)+$(NIONS)+$(NDUST)+1 # for internal energy
 endif
 NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
-#ifeq ($(USE_M_1),1)
-#   NVAR=$(NVAR)+$(NDIM)*$(NGRP)
-#endif
+ifeq ($(USE_M_1),1)
+   NVAR=$(NVAR)+$(NDIM)*$(NGRP)
+endif
 
 
 ##note be vary careful with the variables allocation
@@ -52,9 +59,11 @@ NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
 ## 2:4 velocity
 ## 5 pressure
 ## 6:8 magnetic field
-## 9:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
+## 9:9+ncr : cosmic rays energy density (ncr groups of energy)
+## 9+ncr:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
 ## 9+nener9+nener+1:9+nener+nextinct : for extinction (look at definition of firstindex_pscal in mhd/read_hydro_param)
-## 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine) 
+## 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine)
+## 9+nener+nextinct+nions+1:9+nener+nextinct+nions+ndust : dust species 
 ## note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
 ## then in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
 ## nvar-4:nvar-1 : current (used in godfine1 if IMHD==1) unew(....,nvar-4+idim)
@@ -76,7 +85,7 @@ GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR=$(NVAR) -DNENER=$(NENER) \
           -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL) -DNIMHD=$(NIMHD) \
-	  -DNEXTINCT=$(NEXTINCT) #-DQUADHILBERT=$(QUADHILBERT)
+	  -DNEXTINCT=$(NEXTINCT) -DNCR=$(NCR) -DUSE_TURB=$(USE_TURB) -DNDUST=$(NDUST) #-DQUADHILBERT=$(QUADHILBERT)
 ifneq ($(NIONS)$(NGROUPS),00)
 DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)
 endif
@@ -108,13 +117,15 @@ endif
 ifeq ($(COMP),"INTEL")
    ifeq ($(MPI),1)
       F90 = mpif90
-      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
+#      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
+      FFLAGS = -cpp $(DEFINES) -DNOSYSTEM
    else
       F90 = ifort
       FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
    endif
-   FFLAGS += -O3
+   FFLAGS += -O3 -fp-model source
 #   FFLAGS += -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds
+#   FFLAGS +=  -O0 -g -traceback -ftrapuv -fp-model source #-check bounds
 endif
 
 # INTEL
@@ -181,8 +192,7 @@ endif
 #############################################################################
 # Sources directories are searched in this exact order
 BINDIR = .
-VPATH = $(PATCH):../$(SOLVER):../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
-#VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
+VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../turb:../cr:../fld:../nimhd:../aton:../rt:../hydro:../pm:../poisson:../amr
 #############################################################################
 # All objects
 MODOBJ = amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o 
@@ -190,11 +200,11 @@ ifeq ($(GRACKLE),1)
 MODOBJ += grackle_parameters.o
 endif
 MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
-         clfind_commons.o gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o
+         clfind_commons.o gadgetreadfile.o write_gitinfo.o #write_makefile.o write_gitinfo.o write_patch.o 
 
 MODOBJ += radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
 	  rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o \
-	  feedback_module.o cloud_module.o
+	  table_1d_module.o singlestar_module.o feedback_module.o cloud_module.o
 ifeq ($(NIMHD),1)
 MODOBJ +=  variables_X.o
 endif
@@ -206,7 +216,7 @@ AMROBJ = read_params.o init_amr.o init_time.o init_refine.o adaptive_loop.o amr_
 PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o newdt_fine.o particle_tree.o \
         add_list.o remove_list.o star_formation.o sink_particle.o feedback.o clump_finder.o clump_merger.o \
         flag_formation_sites.o init_sink.o output_sink.o stellar_particle.o init_stellar.o output_stellar.o \
-	sink_RT_feedback.o
+	sink_RT_feedback.o output_clumps.o
 # Poisson solver objects
 POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o multigrid_coarse.o multigrid_fine_commons.o \
              multigrid_fine_fine.o multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o output_poisson.o
@@ -215,26 +225,40 @@ HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_f
            uplmde.o umuscl.o interpol_hydro.o godunov_utils.o condinit.o hydro_flag.o hydro_boundary.o \
            boundana.o read_hydro_params.o synchro_hydro_fine.o \
            multigroup.o m1_utils.o \
-           radiative_transfer_bicg.o radiation_boundary.o cooling_module_frig.o
+	   radiative_transfer_cg.o radiation_boundary.o cooling_module_frig.o \
+	   crdiffusion.o crdiff_split.o crdiffusion_fine.o	
+           #radiative_transfer_bicg.o radiation_boundary.o cooling_module_frig.o \
 # RT objects
 RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o rt_output_hydro.o rt_godunov_fine.o \
         rt_interpol_hydro.o rt_godunov_utils.o rt_condinit.o rt_hydro_flag.o rt_hydro_boundary.o rt_boundana.o \
         rt_read_hydro_params.o rt_units.o
+#Dust objects
+ifneq ($(NDUST),0)
+DUSTOBJ = dust_diffusion_fine.o dustdiff_split.o init_dust.o
+else
+DUSTOBJ =
+endif
 
 ifeq ($(NIMHD),1)
 HYDROOBJ += uplmde_sts_ohm.o uplmde_sts_ohm_dtu.o
 endif
 # Turbulence objects
-#MODOBJ += turb_parameters.o turb_commons.o
-#TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
-#          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
-#          add_turb_forcing.o write_pymses.o libfftw3.a
+ifeq ($(USE_TURB),1)
+MODOBJ += turb_parameters.o turb_commons.o
+TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
+          turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
+          add_turb_forcing.o libfftw3.a
+endif
+
 # Patch objects
 FortranFiles = $(wildcard $(addsuffix /*.f90,$(shell [ -z $(PATCH) ] || find $(PATCH)/* -type d)))
 PATCHOBJ = $(notdir $(patsubst %.f90, %.o, $(FortranFiles)))
 
+sinclude $(PATCH)/Makefile
+
 # All objects
-AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(RTOBJ) # $(TURBOBJ)
+AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ) $(RTOBJ) $(DUSTOBJ) $(TURBOBJ)
+
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
 ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o rad_backup.o $(BINDIR)/../aton/atonlib/libaton.a
