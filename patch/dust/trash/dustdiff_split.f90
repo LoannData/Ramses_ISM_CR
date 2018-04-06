@@ -123,13 +123,13 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndust)::myflux
 
   ! Primitive variables
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust*ndim+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdx
 
   real(dp)::dx_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
-  real(dp) :: speed, sigma,dPdx,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp) :: speed,dspeed,speedtempr,speedtempl, sigma,dPdxl,dPdxr,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2,sgn
   real(dp):: t_dyn,entho,pi
   integer::i,j,k,l,isl,idust, idens, ipress
   integer::jlo,jhi,klo,khi
@@ -150,7 +150,9 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        dPdx= (uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
+        dPdxl= (uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
+        dPdxr= (uin(l,i,j,k,ipress)-uin(l,i-1,j,k,ipress))/dx
+
         do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i-1,j,k,idust)*uin(l,i-1,j,k,ndust+idust)/uin(l,i-1,j,k,idens)
            Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
@@ -165,8 +167,12 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
         t_dyn = 0.5d0*(sqrt(pi/uin(l,i-1,j,k,idens))+sqrt(pi/uin(l,i,j,k,idens)))
         do idust=1,ndust
            !First order terms
-           speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i-1,j,k,idens))*dPdx
-           if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i-1,j,k,idust)/uin(l,i-1,j,k,idens)).gt.t_dyn) then
+           speedtempl =Tksleft(idust)/uin(l,i-1,j,k,idens)*dPdxl
+           speedtempr =Tksright(idust)/uin(l,i,j,k,idens)*dPdxr
+           dspeed = (speedtempr-speedtempl)/dx
+           call regularize_dust(speed,0.5d0*(speedtempl+speedtempr),dspeed)
+
+           if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i-1,j,k,idust)/uin(l,i-1,j,k,idens)).gt.t_dyn.and.flag_dust) then
               write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', t_dyn,&
                    &0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i-1,j,k,idust)/uin(l,i-1,j,k,idens)), uin(l,i,j,k,idens)
                  stop
@@ -212,11 +218,11 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdy
 
-  real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp)::dPdyl,dPdyr,dy_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fy
   !Slopes and advection velocity
-  real(dp) :: speed, sigma,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp) :: speed,dspeed,speedtempr,speedtempl, sigma,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp):: t_dyn,entho,pi
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress,isl
@@ -239,7 +245,8 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        dPdy1=(uin(l,i,j,k,ipress)-uin(l,i,j-1,k,ipress))/dy
+        dPdyl=(uin(l,i,j-1,k,ipress)-uin(l,i,j-2,k,ipress))/dy
+        dPdyr=(uin(l,i,j+1,k,ipress)-uin(l,i,j,k,ipress))/dy
          do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i,j-1,k,idust)*uin(l,i,j-1,k,ndust+idust)/uin(l,i,j-1,k,idens)
            Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
@@ -254,8 +261,12 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
 
         do idust=1,ndust
            !First order terms
-           speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j-1,k,idens))*dPdy1
-            if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j-1,k,idust)/uin(l,i,j-1,k,idens)).gt.t_dyn) then
+           speedtempl =Tksleft(idust)/uin(l,i,j-1,k,idens)*dPdyl
+           speedtempr =Tksright(idust)/uin(l,i,j,k,idens)*dPdyr
+           dspeed = (speedtempr-speedtempl)/dy
+           call regularize_dust(speed,0.5d0*(speedtempl+speedtempr),dspeed)
+
+            if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j-1,k,idust)/uin(l,i,j-1,k,idens)).gt.t_dyn.and.flag_dust) then
                write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?', t_dyn,&
                     &0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j-1,k,idust)/uin(l,i,j-1,k,idens)), uin(l,i,j,k,idens)*scale_d
                  stop
@@ -300,12 +311,12 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   ! Primitive variables
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdz
-  real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp)::dPdzl,dPdzr,dz_loc,sum_dust,Tksleft_tot,Tksright_tot
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fz
 
   !Slopes and advection velocity
-  real(dp) :: speed, sigma ,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp) :: speed,speedtempr,speedtempl,dspeed, sigma ,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp):: t_dyn ,entho, pi
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress, isl
@@ -328,7 +339,9 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
         Tksright    = 0.0_dp
         Tksleft_tot = 0.0_dp
         Tksright_tot= 0.0_dp
-        dPdz1=(uin(l,i,j,k,ipress)-uin(l,i,j,k-1,ipress))/dz
+        dPdzl=(uin(l,i,j,k-1,ipress)-uin(l,i,j,k,ipress))/dz
+        dPdzr=(uin(l,i,j,k+1,ipress)-uin(l,i,j,k,ipress))/dz
+
          do idust= 1, ndust
            Tksleft_tot=Tksleft_tot-uin(l,i,j,k-1,idust)*uin(l,i,j,k-1,ndust+idust)/uin(l,i,j,k-1,idens)
            Tksright_tot=Tksright_tot-uin(l,i,j,k,idust)*uin(l,i,j,k,ndust+idust)/uin(l,i,j,k,idens)
@@ -343,8 +356,11 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
 
         do idust=1,ndust
            !First order terms
-           speed  = 0.5d0*(Tksright(idust)/uin(l,i,j,k,idens)+Tksleft(idust)/uin(l,i,j,k-1,idens))*dPdz1
-           if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j,k-1,idust)/uin(l,i,j,k-1,idens)).gt.t_dyn) then
+           speedtempl =Tksleft(idust)/uin(l,i,j,k-1,idens)*dPdzl
+           speedtempr =Tksright(idust)/uin(l,i,j,k,idens)*dPdzr
+           dspeed = (speedtempr-speedtempl)/dz
+           call regularize_dust(speed,0.5d0*(speedtempl+speedtempr),dspeed)
+           if (0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j,k-1,idust)/uin(l,i,j,k-1,idens)).gt.t_dyn.and.flag_dust) then
               write (*,*) 'DUST DIFFUSION UNSTABLE WHAT HAVE YOU DONE?',&
                    & t_dyn, 0.5d0*(Tksright(idust)*uin(l,i,j,k,idust)/uin(l,i,j,k,idens)+Tksleft(idust)*uin(l,i,j,k-1,idust)/uin(l,i,j,k-1,idens)), uin(l,i,j,k,idens)
                  stop
@@ -392,3 +408,17 @@ subroutine vanleer(a,b,c,sigma)
   call minmod_dust(sigma2,c,sigma)
 
 end subroutine vanleer
+
+subroutine regularize_dust(speedr,speed,dspeed)
+  use amr_parameters
+  use hydro_parameters
+  implicit none
+  real(dp)::speedr,reg1
+  real(dp)::speed,dspeed
+  if(visco_dust.eqv..true.) then
+     speedr= tanh(sign(1.0d0,dspeed)/(eta_dust))*abs(speed)
+  else
+     speedr=speed
+  endif
+
+end subroutine regularize_dust

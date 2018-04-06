@@ -1,247 +1,3 @@
-subroutine set_vdust(ilevel)
-  use amr_commons
-  use hydro_commons
-  use units_commons
-  use cloud_module
-  use cooling_module,ONLY:kB,mH
-  use radiation_parameters
-
-  implicit none
-  integer::ilevel
-  integer::i,j,k,ivar,irad,ind,iskip,nx_loc,ind_cell1,idust
-  integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2
-  integer,dimension(1:3,1:2,1:8)::iii,jjj
-  real(dp)::scale,dx,dx_loc,d,u,v,w,eold,A,B,C,pressure
-
-  integer ,dimension(1:nvector),save::ind_grid,ind_cell
-  integer ,dimension(1:nvector,0:twondim),save::igridn
-  integer ,dimension(1:nvector,1:ndim),save::ind_left,ind_right
-  real(dp),dimension(1:nvector,1:ndim),save::dx_g,dx_d
-  real(dp)::usquare,emag,erad_loc,ekin,eps,sum_dust,enint
-  real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,fact,e_r
-  real(dp)::Pgdivu,u_square,d_loc,Tp_loc,Tr_loc,cal_Teg
-  real(dp),dimension(1:nvector,1:ndim),save::Pleft,Pright
-  real(dp),dimension(1:nvector,1:ndim)       ::gradP
-  real(dp),dimension(1:ndust)  :: t_stop
-  real(dp)  ::cs,pi,tstop_tot,t_stop_floor,dens_floor
-  real(dp), dimension(1:ndust) ::d_grain,l_grain
-  real(dp) :: dd,ee,cmp_Cv_eos,d0,r0
-  integer  :: ht
-  real(dp):: epsilon_0
-  real(dp),dimension(1:ndust):: dustMRN
-  epsilon_0 = dust_ratio(1)
- 
-  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-
-  if(numbtot(1,ilevel)==0)return
-  nx_loc=icoarse_max-icoarse_min+1
-  scale=boxlen/dble(nx_loc)
-  dx=0.5d0**ilevel
-  dx_loc=dx*scale
-  t_stop_floor=0.0d0
-  sum_dust=0.0d0
-  Pleft=0.0; Pright=0.0
-  t_stop=0.0d0
-  sum_dust=0.0d0
-  pi =3.14159265358979323846_dp
-  dens_floor=0.0d0
-#if DUSTY_COLL>0  
-#if NDUST>0
-     do idust =1,ndust
-        dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-     end do     
-     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
-     do idust =1,ndust
-           sum_dust = sum_dust + dustMRN(idust)
-        end do   
-#endif   
-  r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
-  d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
-  dens_floor=d0
-#endif  
-  if(mrn.eqv..true.) then
-     call size_dust(l_grain)
-     do idust=1,ndust
-       l_grain(idust) = l_grain(idust)/scale_l
-       d_grain(idust)=grain_dens(idust)/scale_d
-    end do
-  else
-     do idust=1,ndust
-       d_grain(idust)=grain_dens(idust)/scale_d
-       l_grain(idust)=grain_size(idust)/scale_l
-    end do
- endif
-  
-  iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
-  iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
-  iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
-  iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
-  iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
-  iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
-  ncache=active(ilevel)%ngrid
-  do igrid=1,ncache,nvector
-   
-     ! Gather nvector grids
-     ngrid=MIN(nvector,ncache-igrid+1)
-     do i=1,ngrid
-        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
-     end do
-     
-     ! Gather neighboring grids
-     do i=1,ngrid
-        igridn(i,0)=ind_grid(i)
-     end do
-     do idim=1,ndim
-        do i=1,ngrid
-           ind_left (i,idim)=nbor(ind_grid(i),2*idim-1)
-           ind_right(i,idim)=nbor(ind_grid(i),2*idim  )
-           igridn(i,2*idim-1)=son(ind_left (i,idim))
-           igridn(i,2*idim  )=son(ind_right(i,idim))
-        end do
-     end do
-     
-     ! Loop over cells
-     do ind=1,twotondim
-        
-        ! Compute central cell index
-        iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,ngrid
-           ind_cell(i)=iskip+ind_grid(i)
-        end do
-        
-        ! Gather all neighboring velocities
-        do idim=1,ndim
-           id1=jjj(idim,1,ind); ig1=iii(idim,1,ind)
-           ih1=ncoarse+(id1-1)*ngridmax
-           do i=1,ngrid
-              dx_d(i,idim)=dx_loc
-
-              if(energy_fix)then
-               eold=uold(ind_left(i,idim),nvar)
-              else
-              ! Gather left thermal energy
-              d=max(uold(ind_left(i,idim),1),smallr)
-              u=0.0; v=0.0; w=0.0
-              if(ndim>0)u=uold(ind_left(i,idim),2)/d
-              if(ndim>1)v=uold(ind_left(i,idim),3)/d
-              if(ndim>2)w=uold(ind_left(i,idim),4)/d
-              A=0.5d0*(uold(ind_left(i,idim),6)+uold(ind_left(i,idim),nvar+1))
-              B=0.5d0*(uold(ind_left(i,idim),7)+uold(ind_left(i,idim),nvar+2))
-              C=0.5d0*(uold(ind_left(i,idim),8)+uold(ind_left(i,idim),nvar+3))
-              eold=uold(ind_left(i,idim),5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
-#if NENER>0
-              do irad=1,nener
-                 eold=eold-uold(ind_left(i,idim),8+irad)
-              end do
-#endif
-              endif    
-              sum_dust=0.0d0
-              do idust = 1, Ndust
-                 sum_dust=sum_dust+uold(ind_left(i,idim),firstindex_ndust+idust)/d
-              end do
-              call pressure_eos((1.0_dp-sum_dust)*d,eold,Pleft(i,idim))
-      enddo
-           id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
-           ih2=ncoarse+(id2-1)*ngridmax
-           do i=1,ngrid             
-              dx_g(i,idim)=dx_loc
-
-              if(energy_fix)then
-              eold=uold(ind_left(i,idim),nvar)
-              else
-              ! Gather right thermal energy
-              d=max(uold(ind_right(i,idim),1),smallr)
-              u=0.0; v=0.0; w=0.0
-              if(ndim>0)u=uold(ind_right(i,idim),2)/d
-              if(ndim>1)v=uold(ind_right(i,idim),3)/d
-              if(ndim>2)w=uold(ind_right(i,idim),4)/d
-              A=0.5d0*(uold(ind_right(i,idim),6)+uold(ind_right(i,idim),nvar+1))
-              B=0.5d0*(uold(ind_right(i,idim),7)+uold(ind_right(i,idim),nvar+2))
-              C=0.5d0*(uold(ind_right(i,idim),8)+uold(ind_right(i,idim),nvar+3))
-              eold=uold(ind_right(i,idim),5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
-#if NENER>0
-              do irad=1,nener
-                 eold=eold-uold(ind_right(i,idim),8+irad)
-              end do
-#endif
-              endif                  
-              sum_dust=0.0d0
-              do idust = 1, Ndust
-                 sum_dust=sum_dust+uold(ind_right(i,idim),firstindex_ndust+idust)/d
-              end do
-              call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))
-           enddo
-        end do
-        do i=1,ngrid
-           do j=1,ndim
-            gradP(i,j) = (Pright(i,j)-Pleft(i,j))/(dx_g(i,j)+dx_d(i,j))
-           enddo
-        end do
-        
-        do i=1,ngrid
-           if (energy_fix) then
-              d=uold(ind_cell(i),1)
-              enint=uold(ind_cell(i),nvar)
-           else
-              d=uold(ind_cell(i),1)
-              u=uold(ind_cell(i),2)/d
-              v=uold(ind_cell(i),3)/d
-              w=uold(ind_cell(i),4)/d
-              e_mag= 0.0_dp
-#ifdef SOLVERmhd                           
-              A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-              B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-              C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-              e_mag=0.5d0*(A**2+B**2+C**2)
-#endif
-              e_kin=0.5d0*d*(u**2+v**2+w**2)
-#if NENER>0
-              do irad=1,nener
-                 e_mag=e_mag+uold(ind_cell(i),8+irad)
-              end do
-#endif
-              if(dust_barr) then
-                 enint=uold(ind_cell(i),5)
-              else   
-                 enint=uold(ind_cell(i),5)-e_kin- e_mag
-              endif
-           endif
-           sum_dust=0.0_dp
-           do idust = 1, ndust
-              sum_dust = sum_dust + uold(ind_cell(i),firstindex_ndust+idust)/d
-           end do
-           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pressure)
-           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
-           if(dust_barr)  cs = 1.0_dp
-           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
-            sum_dust=0.0d0
-            do idust = 1, Ndust
-               sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
-            end do
-            tstop_tot=0.0d0            
-            do idust = 1,ndust
-               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
-               if (d .le. dens_floor) t_stop(idust) =t_stop_floor 
-               tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
-            end do
-            do idust = 1,ndust
-               t_stop(idust) = t_stop(idust)+tstop_tot
-            do idim=1,ndim
-               v_dust(ind_cell(i),idust,idim) = t_stop(idust)*gradP(i,idim)/d
-            end do
-            end do
-        end do
-     enddo
-     ! End loop over cells
-  end do
-  ! End loop over grids
-
-end subroutine set_vdust
-
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
 subroutine set_dflux_dust_new(ilevel)
   use amr_commons
   use hydro_commons
@@ -274,7 +30,6 @@ subroutine set_dflux_dust_new(ilevel)
      end do
   end do
   end do
- v_dust=0.0d0
 111 format('   Entering set_dflux_dust for level ',i2)
 
 end subroutine set_dflux_dust_new
@@ -405,6 +160,7 @@ end subroutine set_uold_dust
 !###########################################################
 !###########################################################
 !###########################################################
+   
 subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   use amr_commons
   use hydro_commons
@@ -466,8 +222,9 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
 
   real(dp),dimension(1:nvector,0:twondim  ,1:nvar+3),save::u1
   real(dp),dimension(1:nvector,1:twotondim,1:nvar+3),save::u2
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2),save::uloc
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::facdx
+  real(dp),dimension(1:nvector,0:twondim  ,1:ndust*ndim),save::u1dust
+  real(dp),dimension(1:nvector,1:twotondim,1:ndust*ndim),save::u2dust
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust*ndim+2),save::uloc
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndust,1:ndim),save::flux
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
   integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
@@ -521,7 +278,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   u2   = 0.0d0
   flux = 0.0d0  
   uloc = 0.0d0
-  facdx= 0.0d0
   ok   = .false.
   oneontwotondim = 1.d0/dble(twotondim)
   
@@ -591,6 +347,11 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
      if(nbuffer>0)then
         call getnborfather(ind_buffer,ibuffer_father,nbuffer,ilevel)
         do j=0,twondim
+           do idim=1,ndim
+              do idust=1,ndust
+                  u1dust(i,j,idim*idust)=v_dust(ibuffer_father(i,j),idust,idim)
+              end do   
+           end do
            do ivar=1,nvar+3 
               do i=1,nbuffer
                  u1(i,j,ivar)=uold(ibuffer_father(i,j),ivar)
@@ -601,6 +362,8 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
            end do
         end do
         call interpol_hydro(u1,ind1,u2,nbuffer)
+        call interpol_hydro_dust(u1dust,ind1,u2dust,nbuffer)
+
      end if
      !Loop over 2x2x2 cells
      do k2=k2min,k2max
@@ -622,135 +385,21 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
         do i=1,nbuffer
            ok(ind_nexist(i),i3,j3,k3)=.false.
         end do
-
         !Gather dust variables
         do idust=1,ndust
            do i=1,nexist
               uloc(ind_exist(i),i3,j3,k3,idust)=uold(ind_cell(i),firstindex_ndust+idust)
-              facdx(ind_exist(i),i3,j3,k3)=1.0d0
+              do idim= 1,ndim
+                 uloc(ind_exist(i),i3,j3,k3,ndust+idust*idim)= v_dust(ind_cell(i),idust,idim)
+              end do
            end do
            do i=1,nbuffer
               uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)
-           end do
-        end do
-        do i=1,nbuffer
-           if(interpol_type.gt.0)then
-              facdx(ind_nexist(i),i3,j3,k3)=1.0d0
-           else
-              facdx(ind_nexist(i),i3,j3,k3)=1.5d0
-           endif
-        end do
-        !Computes and stores (in uloc) the density(2ndust+1),
-        !the pressure(2ndust+2), and the stopping time (between ndust and 2ndust)
-        do i=1,nexist
-           if (energy_fix) then
-              d=uold(ind_cell(i),1)
-              enint=uold(ind_cell(i),nvar)
-           else
-              d=uold(ind_cell(i),1)
-
-              u=uold(ind_cell(i),2)/d
-              v=uold(ind_cell(i),3)/d
-              w=uold(ind_cell(i),4)/d
-
-              e_mag= 0.0_dp
-#ifdef SOLVERmhd                           
-              A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-              B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-              C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-              e_mag=0.5d0*(A**2+B**2+C**2)
-#endif
-              e_kin=0.5d0*d*(u**2+v**2+w**2)
-#if NENER>0
-              do irad=1,nener
-                 e_mag=e_mag+uold(ind_cell(i),8+irad)
+              do idim= 1,ndim
+                 uloc(ind_nexist(i),i3,j3,k3,ndust+idust*idim)= u2dust(i,ind_son,idust*idim)
               end do
-#endif
-              if(dust_barr) then
-                 enint=uold(ind_cell(i),5)
-              else   
-                 enint=uold(ind_cell(i),5)-e_kin- e_mag
-              endif
-           endif
-
-           sum_dust=0.0_dp
-           do idust = 1, ndust
-              sum_dust = sum_dust + uloc(ind_exist(i),i3,j3,k3,ndust)/d
            end do
-
-           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pressure)
-           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
-           if(dust_barr)  cs = 1.0_dp
-           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
-
-           !We fill uloc with the quantities required to compute the fluxes (d, P, epsilon, ts/d)
-           uloc(ind_exist(i),i3,j3,k3,2*ndust+1)=d
-           uloc(ind_exist(i),i3,j3,k3,2*ndust+2)=pressure
-           do idust = 1, ndust
-              ! different prescriptions for t-stop
-              t_stop = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d!/d
-              if(K_drag) t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
-              if(dust_barr) t_stop = 0.1_dp
-              if (d .le. dens_floor) t_stop =t_stop_floor 
-              uloc(ind_exist(i),i3,j3,k3,ndust+idust)= t_stop / (1.0_dp - sum_dust)
-           end do   
         end do
-
-        do i=1,nbuffer
- 
-           if (energy_fix) then
-              d=u2(i,ind_son,1)
-              enint=u2(i,ind_son,nvar)
-           else
-              d=u2(i,ind_son,1)
-              u=u2(i,ind_son,2)/d
-              v=u2(i,ind_son,3)/d
-              w=u2(i,ind_son,4)/d
-              e_mag=0.0_dp
-#ifdef SOLVERmhd             
-              A=0.5d0*(u2(i,ind_son,6)+u2(i,ind_son,nvar+1))
-              B=0.5d0*(u2(i,ind_son,7)+u2(i,ind_son,nvar+2))
-              C=0.5d0*(u2(i,ind_son,8)+u2(i,ind_son,nvar+3))
-              e_mag=0.5d0*(A**2+B**2+C**2)
-#endif
-              e_kin=0.5d0*d*(u**2+v**2+w**2)
-
-#if NENER>0
-              do irad=1,nener
-                 e_kin=e_kin+u2(i,ind_son,8+irad)
-              end do
-#endif
-              if(dust_barr) then
-                 enint=u2(i,ind_son,5)
-              else   
-                 enint=u2(i,ind_son,5)-e_kin-e_mag
-              endif
-           endif
- 
-           uloc(ind_nexist(i),i3,j3,k3,2*ndust+1)=d
-           sum_dust=0.0_dp
-           do idust = 1, ndust
-              sum_dust = sum_dust + u2(i,ind_son,firstindex_ndust+idust)/u2(i,ind_son,1)
-           end do
-
-           call pressure_eos((1.0_dp-sum_dust)*d,enint,pressure)
-           call soundspeed_eos((1.0_dp-sum_dust)*d,enint,cs) 
-
-           if(dust_barr) cs = 1.0_dp
-           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
-
-           uloc(ind_nexist(i),i3,j3,k3,2*ndust+1)=d
-           uloc(ind_nexist(i),i3,j3,k3,2*ndust+2)=pressure
-           do idust = 1, ndust
-              ! different prescriptions for t-stop
-              t_stop =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d
-              if(K_drag)  t_stop = sum_dust*(1.0_dp-sum_dust)*d/K_dust(idust)
-              if(dust_barr) t_stop = 0.1_dp
-              if (d .le. dens_floor) t_stop =t_stop_floor 
-              uloc(ind_nexist(i),i3,j3,k3,ndust+idust) = t_stop /(1.0_dp -sum_dust)
-           enddo
-        end do
-
      end do
      end do
      end do
@@ -764,7 +413,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   ! Compute flux due to dust diffusion
   !-----------------------------------------------
 
-  call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache,facdx)
+  call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
 
   !Reset fluxes at refined interfaces
   do idim=1,ndim

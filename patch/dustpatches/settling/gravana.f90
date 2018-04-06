@@ -21,16 +21,9 @@ subroutine gravana(x,f,dx,ncell)
   !================================================================
   integer::idim,i,idust
   real(dp)::gmass,emass,xmass,ymass,zmass,rr,rx,ry,rz,cs2,sum_dust
-  f=0.0d0
   ! Constant vector
-  if(gravity_type==1)then
-     do idim=1,ndim
-        do i=1,ncell
-           f(i,idim)=gravity_params(idim)
-        end do
-     end do
-  end if
-
+ 
+  f=0.0d0
   ! Point mass
   if(gravity_type==2)then
      gmass=gravity_params(1)! delta_rho
@@ -40,23 +33,14 @@ subroutine gravana(x,f,dx,ncell)
      ymass=gravity_params(4)
      zmass=gravity_params(5)
      do i=1,ncell
-        rx=0.0d0; ry=0.0d0; rz=0.0d0
-        rx=x(i,1)-xmass
-#if NDIM>1
-        ry=x(i,2)-ymass
-#endif
-#if NDIM>2
-        rz=x(i,3)-zmass
-#endif
         cs2=gamma*kb*Temper/mu_gas/mH/scale_v/scale_v
         sum_dust=0.0d0
         do idust=1,ndust
            sum_dust=sum_dust+dust_ratio(idust)/(1.0+dust_ratio(idust))
         end do
         
-         f(i,2)=-cs2*(1.0d0-sum_dust)*log(1.0/gmass)/(emass)
-
-     end do
+         f(i,2)=cs2*(1.0d0-sum_dust)*log(gmass)/(emass)
+      end do
   end if
 
 end subroutine gravana

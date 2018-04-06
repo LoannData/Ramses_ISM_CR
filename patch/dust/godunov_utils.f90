@@ -30,7 +30,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   real(dp)::dx,dt
 #if NIMHD==1  
   ! modif nimhd
-  real(dp)::dtambdiff,dtohmdiss,dthallbis    ! ambipolar, Ohmic and Hall diffusiom times
+  real(dp)::dtambdiff,dtohmdiss,dthallbis ! ambipolar, Ohmic and Hall diffusiom times
   real(dp)::dtambdiffb,dtohmdissb,dthallb
   real(dp),dimension(1:nvector),save::bsqrt  ! corresponds to sqrt(B*B)
   real(dp)::xx,betaadbricolo,betaad
@@ -44,7 +44,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   real(dp),dimension(1:nvector),save::a2,B2,rho,ctot
   real(dp)::dtcell,smallp,cf,cc,bc,bn
   integer::k,idim
-  real(dp)::sum_dust
+  real(dp)::sum_dust,dt_dust 
 #if NDUST>0
   integer::idust
   real(dp),dimension(1:nvector,1:ndust)::uudust  
@@ -160,13 +160,14 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   ! Compute maximum time step for each authorized cell
   dt = courant_factor*dx/smallc
   do k = 1,ncell
-#if NDUST>0           
-           do idust=1,ndust
-              ctot(k)= max(ctot(k),uudust(k,idust))
-           enddo
-#endif      
-     dtcell=dx/ctot(k)*(sqrt(one+two*courant_factor*rho(k))-one)/rho(k)
-     dt = min(dt,dtcell)
+   
+           dtcell=dx/ctot(k)*(sqrt(one+two*courant_factor*rho(k))-one)/rho(k)
+           dt = min(dt,dtcell)
+#if NDUST>0
+           dt_dust=dt
+           if(uudust(k,idust).gt.0.0d0) dt_dust =courant_factor*dx*eta_dust/abs(uudust(k,idust))
+           dt =min(dt,dt_dust)
+#endif   
   end do
 
 #if NIMHD==1

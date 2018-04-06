@@ -106,7 +106,7 @@ subroutine courant_fine(ilevel)
         do i=1,nleaf
         do idim=1,ndim
            do idust=1,ndust
-              uudust(i,idust)=uudust(i,idust)+abs(v_dust(ind_leaf(i),idust,idim))
+              uudust(i,idust)=max(uudust(i,idust),v_dust(ind_leaf(i),idust,idim))
            end do
         end do
         end do

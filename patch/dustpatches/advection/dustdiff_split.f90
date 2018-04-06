@@ -126,10 +126,10 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdx
 
-  real(dp)::dx_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp)::dx_loc,sum_dust,Tksleft_tot,Tksright_tot,speedxx
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fx
-  real(dp) :: speed, sigma,dPdx,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp) :: sigma,dPdx,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp):: t_dyn,entho,pi
   integer::i,j,k,l,isl,idust, idens, ipress
   integer::jlo,jhi,klo,khi
@@ -145,19 +145,19 @@ subroutine dustXflx(uin,myflux,dx,dt,ngrid,ffdx)
   do j=jlo,jhi
   do i=if1,if2
      do l = 1, ngrid
-           speed = 1.0d0
-           fx(idust)= max(speed*uin(l,i-1,j,k,idust),0.0d0) +min(speed*uin(l,i,j,k,idust),0.0d0)
+        speedxx= sign(1.0d0,uin(l,i-1,j,k,idens))*speedx
+        print *, speedx
+           fx(idust)= max(speedxx*uin(l,i-1,j,k,idust),0.0d0) +min(speedxx*uin(l,i,j,k,idust),0.0d0)
            !Second order terms
-           if(speed.ge.0.0d0) isl = i-1
-           if(speed.lt.0.0d0) isl = i
+           if(speedxx.ge.0.0d0) isl = i-1
+           if(speedxx.lt.0.0d0) isl = i
            if(slope_dust.eq.1)sigma=0.0d0
            if(slope_dust.eq.2)call minmod_dust((uin(l,isl,j,k,idust)-uin(l,isl-1,j,k,idust))/dx,(uin(l,isl+1,j,k,idust)-uin(l,isl,j,k,idust))/dx,sigma)
            if(slope_dust.eq.3)call vanleer(0.5d0*(uin(l,isl+1,j,k,idust)-uin(l,isl-1,j,k,idust))/dx,2.0d0*(uin(l,isl,j,k,idust)-uin(l,isl-1,j,k,idust))/dx,&
                  &2.0d0*(uin(l,isl+1,j,k,idust)-uin(l,isl,j,k,idust))/dx,sigma)             
-           fx(idust) = fx(idust) + 0.5d0*abs(speed)*(dx-abs(speed)*dt)*sigma
-        end do
+           fx(idust) = fx(idust) + 0.5d0*abs(speedxx)*(dx-abs(speedxx)*dt)*sigma
         do idust= 1, ndust
-           myflux(l,i,j,k,idust)=fx(idust)*dt/dx!/dx_loc
+           myflux(l,i,j,k,idust)=fx(idust)*dt/dx
         end do
     enddo
   enddo
@@ -187,11 +187,11 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdy
 
-  real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp)::dPdy1,dy_loc,sum_dust,Tksleft_tot,Tksright_tot,speedyy
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fy
   !Slopes and advection velocity
-  real(dp) :: speed, sigma,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp) ::  sigma,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp):: t_dyn,entho,pi
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress,isl
@@ -204,22 +204,21 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid,ffdy)
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-
+  
   do k=klo,khi
   do j=jf1,jf2
   do i=ilo,ihi
      do l = 1, ngrid
-           speed = 1.0d0
-           fy(idust)= max(speed*uin(l,i,j-1,k,idust),0.0d0)+ min(speed*uin(l,i,j,k,idust),0.0d0)
+        speedyy= sign(1.0d0,uin(l,i,j-1,k,idens))*speedy
+           fy(idust)= max(speedyy*uin(l,i,j-1,k,idust),0.0d0)+ min(speedyy*uin(l,i,j,k,idust),0.0d0)
            !Second order terms
-           if(speed.ge.0.0d0) isl = j-1
-           if(speed.lt.0.0d0) isl = j
+           if(speedyy.ge.0.0d0) isl = j-1
+           if(speedyy.lt.0.0d0) isl = j
            if(slope_dust.eq.1)sigma=0.0d0
            if(slope_dust.eq.2)call minmod_dust((uin(l,i,isl,k,idust)-uin(l,i,isl-1,k,idust))/dy,(uin(l,i,isl+1,k,idust)-uin(l,i,isl,k,idust))/dy,sigma)
            if(slope_dust.eq.3)call vanleer(0.5d0*(uin(l,i,isl+1,k,idust)-uin(l,i,isl-1,k,idust))/dy,2.0d0*(uin(l,i,isl,k,idust)-uin(l,i,isl-1,k,idust))/dy,&
                  &2.0d0*(uin(l,i,isl+1,k,idust)-uin(l,i,isl,k,idust))/dy,sigma)           
-           fy(idust) = fy(idust) + 0.5d0*abs(speed)*(dy-abs(speed)*dt)*sigma
-        end do
+           fy(idust) = fy(idust) + 0.5d0*abs(speedyy)*(dy-abs(speedyy)*dt)*sigma
         do idust= 1, ndust
            myflux(l,i,j,k,idust)=fy(idust)*dt/dy
         end do  
@@ -250,12 +249,12 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   ! Primitive variables
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust+2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ffdz
-  real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot
+  real(dp)::dPdz1,dz_loc,sum_dust,Tksleft_tot,Tksright_tot,speedzz
   real(dp),dimension(1:ndust)::fdust, Tksleft, Tksright
   real(dp),dimension(1:ndust)::fz
 
   !Slopes and advection velocity
-  real(dp) :: speed, sigma ,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
+  real(dp) :: sigma ,scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp):: t_dyn ,entho, pi
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust, idens, ipress, isl
@@ -273,17 +272,17 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid,ffdz)
   do j=jlo,jhi
   do i=ilo,ihi
      do l = 1, ngrid
-           speed =1.0d0
-           fz(idust)= max(speed*uin(l,i,j,k-1,idust),0.0d0)+ min(speed*uin(l,i,j,k,idust),0.0d0)
+           speedzz= sign(1.0d0,uin(l,i,j,k-1,idens))*speedzz
+
+           fz(idust)= max(speedzz*uin(l,i,j,k-1,idust),0.0d0)+ min(speedzz*uin(l,i,j,k,idust),0.0d0)
            !Second order terms
-           if(speed.ge.0.0d0) isl = k-1
-           if(speed.lt.0.0d0) isl = k
+           if(speedzz.ge.0.0d0) isl = k-1
+           if(speedzz.lt.0.0d0) isl = k
            if(slope_dust.eq.1)sigma=0.0d0
            if(slope_dust.eq.2)call minmod_dust((uin(l,i,j,isl,idust)-uin(l,i,j,isl-1,idust))/dz,(uin(l,i,j,isl+1,idust)-uin(l,i,j,isl,idust))/dz,sigma)
            if(slope_dust.eq.3)call vanleer(0.5d0*(uin(l,i,j,isl+1,idust)-uin(l,i,j,isl-1,idust))/dz,2.0d0*(uin(l,i,j,isl,idust)-uin(l,i,j,isl-1,idust))/dz,&
                  &2.0d0*(uin(l,i,j,isl+1,idust)-uin(l,i,j,isl,idust))/dz,sigma)
-           fz(idust) = fz(idust) + 0.5d0*abs(speed)*(dz-abs(speed)*dt)*sigma
-        end do
+           fz(idust) = fz(idust) + 0.5d0*abs(speedzz)*(dz-abs(speedzz)*dt)*sigma
         do idust= 1, ndust
            myflux(l,i,j,k,idust)=fz(idust)*dt/dz
         end do  

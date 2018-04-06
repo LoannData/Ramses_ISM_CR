@@ -26,6 +26,10 @@ subroutine courant_fine(ilevel)
   real(kind=8)::mass_all,ekin_all,eint_all,emag_all,dt_all
   real(dp),dimension(1:nvector,1:nvar+3),save::uu
   real(dp),dimension(1:nvector,1:ndim),save::gg
+#if NDUST>0
+  integer::idust
+  real(dp),dimension(1:nvector,1:ndust),save::uudust
+#endif
 #if NIMHD==1
   ! modif nimhd
   real(dp)::dtwad_loc,dtwad_lev,dtwad_all
@@ -97,7 +101,16 @@ subroutine courant_fine(ilevel)
               uu(i,ivar)=uold(ind_leaf(i),ivar)
            end do
         end do
-
+#if NDUST>0
+        uudust=0.0d0
+        do i=1,nleaf
+        do idim=1,ndim
+           do idust=1,ndust
+              uudust(i,idust)=max(uudust(i,idust),v_dust(ind_leaf(i),idust,idim))
+           end do
+        end do
+        end do
+#endif        
         ! Gather gravitational acceleration
         gg=0.0d0
         if(poisson)then
@@ -165,11 +178,25 @@ subroutine courant_fine(ilevel)
 
         ! Compute CFL time-step
         if(nleaf>0)then
+#if NDUST>0
+#if NIMHD==1
+           ! modif nimhd
+           call cmpdt(uu,gg,,uudust,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
+           dt_loc=min(dt_loc,dt_lev)
+           dtambdiff_loc=min(dtambdiff_loc,dtambdiff_lev)
+           dtmagdiff_loc=min(dtmagdiff_loc,dtmagdiff_lev)
+           dtwad_loc=min(dtwad_loc,dt_lev)
+           dthall_loc=min(dthall_loc,dthall_lev)
+           ! fin modif nimhd
+#else
+           call cmpdt(uu,gg,uudust,dx,dt_lev,nleaf)
+           dt_loc=min(dt_loc,dt_lev)
+#endif
+#else           
 #if NIMHD==1
            ! modif nimhd
            call cmpdt(uu,gg,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
            dt_loc=min(dt_loc,dt_lev)
-           
            dtambdiff_loc=min(dtambdiff_loc,dtambdiff_lev)
            dtmagdiff_loc=min(dtmagdiff_loc,dtmagdiff_lev)
            dtwad_loc=min(dtwad_loc,dt_lev)
@@ -179,6 +206,7 @@ subroutine courant_fine(ilevel)
            call cmpdt(uu,gg,dx,dt_lev,nleaf)
            dt_loc=min(dt_loc,dt_lev)
 #endif
+#endif           
         end if
 
      end do
@@ -298,9 +326,7 @@ subroutine courant_fine(ilevel)
   ! fin modif nimhd
 #endif
 
-  if(dt_control)dtnew(ilevel)=dtdiff_params(1)*dtdiff_params(2)**nstep_coarse
-  if(dt_control)dtnew(ilevel)=dtdiff_params(1)!courant_factor*dx*dx/0.1/0.1
-  if(dust_barr.and.dt_control)dtnew(ilevel)=courant_factor*dx*dx/0.1/0.1
+  if(dt_control)dtnew(ilevel)=dtdiff_params(1)
 
 111 format('   Entering courant_fine for level ',I2)
 
@@ -391,7 +417,7 @@ subroutine velocity_fine(ilevel)
 
         ! Impose induction variables
         do i=1,ngrid
-           uold(ind_cell(i),1)=1.0
+           uold(ind_cell(i),1)=1.0_dp
         end do
         do idim=1,3
            do i=1,ngrid
@@ -404,10 +430,10 @@ subroutine velocity_fine(ilevel)
            u=uold(ind_cell(i),2)/d
            v=uold(ind_cell(i),3)/d
            w=uold(ind_cell(i),4)/d
-           A=0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-           B=0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-           C=0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-           uold(ind_cell(i),neul)=1.0+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
+           A=0.5_dp*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+           B=0.5_dp*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+           C=0.5_dp*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+           uold(ind_cell(i),neul)=1.0_dp/(gamma-1.0_dp)+0.5_dp*d*(u**2+v**2+w**2)+0.5_dp*(A**2+B**2+C**2)
         end do
 
      end do

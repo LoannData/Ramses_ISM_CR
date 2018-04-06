@@ -342,7 +342,11 @@ recursive subroutine amr_step(ilevel,icount)
   !----------------------
   ! Compute new time step
   !----------------------
-                               call timer('courant','start')
+  call timer('courant','start')
+#if NDUST>0
+  call set_vdust(ilevel) 
+     !call set_vdust_left(ilevel)
+#endif  
   call newdt_fine(ilevel)
   if(ilevel>levelmin)then
      dtnew(ilevel)=MIN(dtnew(ilevel-1)/real(nsubcycle(ilevel-1)),dtnew(ilevel))
@@ -608,7 +612,15 @@ recursive subroutine amr_step(ilevel,icount)
 !Dust diffusion step
 #if NDUST>0
   if(dust_diffusion)then
-                          call timer('dust - diffusion','start')
+
+                             call timer('dust - diffusion','start')
+     call set_vdust(ilevel)
+     call set_vdust_left(ilevel)
+     do idim =1,ndim
+        do idust=1,ndust
+           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+        end do
+     end do     
      call set_unew_dust(ilevel)
      call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
      do idust=1,ndust
@@ -625,6 +637,12 @@ recursive subroutine amr_step(ilevel,icount)
      call make_virtual_fine_dp(uold(1,5),ilevel)
      if(simple_boundary)call make_boundary_hydro(ilevel)
      call set_vdust(ilevel)
+     call set_vdust_left(ilevel)
+     do idim =1,ndim
+        do idust=1,ndust
+           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+        end do
+     end do
 end if
 #endif
 

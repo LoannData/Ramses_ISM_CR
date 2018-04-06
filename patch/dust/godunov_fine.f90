@@ -163,9 +163,7 @@ subroutine set_uold(ilevel)
   if(pressure_fix.OR.nener>0)then
      call add_pdv_source_terms(ilevel)
   endif
-#if NDUST>0
-   !call add_dust_terms(ilevel)
-#endif
+
   ! Set uold to unew for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
