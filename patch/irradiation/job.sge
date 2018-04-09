@@ -1,0 +1,14 @@
+#!/bin/bash
+#$ -S /bin/bash
+#$ -N pinte
+#$ -o exec.stdout
+#$ -j y
+#$ -pe openmpi 8
+#$ -cwd
+
+source $HOME/.bash_profile
+module load cports
+module load openmpi/1.5.4-intel12.0.0
+
+mpirun -np 8 ramses3d stellar_photon.nml > run.log.$JOB_ID
+#mpirun -np 8 ramses3d kuiper_stellar_photon.nml > run.log.$JOB_ID

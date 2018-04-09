@@ -27,6 +27,8 @@ module cloud_module
 
   ! PMS evolution related stuff
   logical :: rt_feedback=.false.       ! take into account RT feedback
+  logical :: rt_protostar_m1=.false.   ! take into account RT feedback with M1
+  logical :: rt_protostar_fld=.false.  ! take into account RT feedback with FLD
   logical :: PMS_evol=.false.          ! Take into account PMS evolution subgrid model
   logical :: Hosokawa_track=.false.    ! Take into account PMS evolution subgrid model
   real(dp):: dt_lsink_update=50        ! frequency of the sink luminosity update with PMS evolution (in yr)

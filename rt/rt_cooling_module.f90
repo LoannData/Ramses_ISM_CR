@@ -42,8 +42,8 @@ module rt_cooling_module
   logical::rt_T_rad=.false.            ! Use T_gas = T_rad
   logical::rt_vc=.false.               ! (semi-) relativistic RT
   real(dp)::Tmu_dissoc=1d3             ! Dissociation temperature [K]
-  real(dp),dimension(nGroups)::kappaAbs=0! Dust absorption opacity
-  real(dp),dimension(nGroups)::kappaSc=0 ! Dust scattering opacity
+  real(dp),dimension(nGroups)::kappaAbs=0! Dust and gas mixture absorption opacity
+  real(dp),dimension(nGroups)::kappaSc=0 ! Dust and gas mixture scattering opacity
 
   ! Cooling constants, updated on SED and c-change [cm3 s-1],[erg cm3 s-1]
   real(dp),dimension(nGroups,nIons)::signc,sigec,PHrate

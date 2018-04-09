@@ -163,6 +163,7 @@ SUBROUTINE read_rt_params()
   use rt_cooling_module
   use UV_module
   use SED_module
+  use cloud_module,only:rt_protostar_m1
   implicit none
 !-------------------------------------------------------------------------
   namelist/rt_params/rt_star, rt_esc_frac, rt_flux_scheme, rt_smooth     &
@@ -189,7 +190,7 @@ SUBROUTINE read_rt_params()
        & ,rt_n_source, rt_u_source, rt_v_source, rt_w_source             &
        ! RT boundary (for boundary conditions)                           &
        & ,rt_n_bound,rt_u_bound,rt_v_bound,rt_w_bound                    &
-       & ,rt_movie_vars, rt_sink
+       & ,rt_movie_vars, rt_sink, rt_protostar_m1
 
 
   ! Set default initialisation of ionisation states:
@@ -466,6 +467,8 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
 !------------------------------------------------------------------------
   use amr_commons
   use rt_parameters
+  use radiation_parameters
+  use cooling_module,only: clight
   implicit none
   integer ::nn
   real(dp)::dx,dt,dx_cgs,dt_cgs
@@ -474,7 +477,11 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
   integer::i,k,group_ind
   real(dp)::vol,r,xn,yn,zn,en
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
-  real(dp)::scale_np,scale_fp
+  real(dp)::scale_np,scale_fp,pi
+  real(dp)::radiation_source,lum_group,lum_star,rstar_adim
+
+  pi=acos(-1.0d0)
+  
 !------------------------------------------------------------------------
   ! Initialize everything to zero
   !  uu=0.0d0
@@ -482,6 +489,8 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
   call rt_units(scale_np, scale_fp)
   dx_cgs=dx*scale_l
   dt_cgs=dt*scale_t
+  rstar_adim = rstar*6.96d10 / scale_l
+  lum_star=(5.67d-5*(Tstar**4))*4.0d0*3.1415d0*(rstar_adim)**2/(scale_d*(scale_v)**3)/(2.d0*Rin)
   ! Loop over RT regions
   do k=1,rt_nsource
 
@@ -546,6 +555,10 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
            if(r .gt. 0.) then
               ! If cell lies within CIC cloud, inject value.
               ! Photon input is in # per sec...need to convert to uu
+              lum_group = radiation_source(Tstar,1)/(scale_d*scale_v**2)*(pi*rstar_adim**2*clight/scale_v)/(2.d0*Rin)
+              uu(i,group_ind)=uu(i,group_ind)                            &
+                   + lum_group*dt/((group_egy(1)*ev_to_erg)/scale_d/scale_v**2)
+
               uu(i,group_ind)=uu(i,group_ind)                            &
                             + rt_n_source(k) / scale_Np * r / vol * dt_cgs
               uu(i,group_ind+1)=uu(i,group_ind+1) + rt_u_source(k) *rt_c &

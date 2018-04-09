@@ -83,10 +83,17 @@ SUBROUTINE rt_backup_hydro(filename)
            do ind=1,twotondim
               iskip=ncoarse+(ind-1)*ngridmax
               do ivar=1,nGroups
-                 ! Store photon density in flux units
-                 do i=1,ncache
-                    xdp(i)=rt_c*rtuold(ind_grid(i)+iskip,iGroups(ivar))
-                 end do
+                 if(write_conservative) then
+                    ! Store conservative photon density
+                    do i=1,ncache
+                       xdp(i)=rtuold(ind_grid(i)+iskip,iGroups(ivar))
+                    end do
+                 else
+                    ! Store photon density in flux units
+                    do i=1,ncache
+                       xdp(i)=rt_c*rtuold(ind_grid(i)+iskip,iGroups(ivar))
+                    end do
+                 endif
                  write(ilun)xdp
                  do idim=1,ndim
                     ! Store photon flux

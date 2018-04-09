@@ -898,8 +898,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ! PH compute the part of the velocity associated to the momentum
            ! then the gas keeps part of its momentum which is not accreted onto the sink
            rr2 = r_rel(1)**2+r_rel(2)**2+r_rel(3)**2
-           v_mom(1:3) = 0.0
-           if(.not.on_creation) v_mom(1:3) = (1.-facc_star_mom)* (v_rel(1:3) - (v_rel(1)*r_rel(1)+v_rel(2)*r_rel(2)+v_rel(3)*r_rel(3))/rr2*r_rel(1:3))
+           v_mom(1:3) = (1.-facc_star_mom)* (v_rel(1:3) - (v_rel(1)*r_rel(1)+v_rel(2)*r_rel(2)+v_rel(3)*r_rel(3))/rr2*r_rel(1:3))
 
            ! Accreted relative momentum
            p_acc(1:3)=m_acc*(v_rel(1:3)-v_mom(1:3))
@@ -3940,13 +3939,9 @@ subroutine radiative_feedback_sink(ilevel)
   use pm_commons
   use amr_commons
   use hydro_commons
-  use cloud_module,only: rt_protostar_m1
   use cooling_module,only: clight
-  use radiation_parameters,only:stellar_photon,aR
+  use radiation_parameters,only:stellar_photon
   use units_commons
-#ifdef RT
-  use rt_hydro_commons
-#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -4061,30 +4056,20 @@ subroutine radiative_feedback_sink(ilevel)
                     if ((q.lt.1.0)) kernelvalue = 1.0d0-1.5d0*q**2+0.75d0*q**3 !=0.25d0*(2.0d0-q)**3-(1.0d0-q)**3
                     if ((q.ge.1.0)  .and.(q.lt.2.0)) kernelvalue = 0.25d0*(2.0d0-q)**3
                     weight = kernelvalue/(pi*h_loc**3)
-                    weight =1.0d0 ! bypass wightin. Maybe to be reconsidered...
+                    !weight =1.0d0 ! bypass weighting. Maybe to be reconsidered...
                     Tstar = Teff_sink(isink)
                     if(Tstar .gt. 0)then
-                       if(.not. rt_protostar_m1)then                       
-                          if(stellar_photon)then
-                             igrp=1    ! Put all stellar radiative flux in the first group 
-                             uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_sink(isink)*weight*dtnew(ilevel)/((4.0d0*pi*rmax**3)/3.0d0)
-                             uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_sink(isink)*weight*dtnew(ilevel)/((4.0d0*pi*rmax**3)/3.0d0)
-                          else
-                             do igrp=1,ngrp 
-                                Lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)/((4.0d0*pi*rmax**3)/3.0d0)
-                                uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_group*weight*dtnew(ilevel)
-                                uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_group*weight*dtnew(ilevel)
-                             end do
-                          end if
-                       endif
-#ifdef RT
-                       if(rt_protostar_m1)then
-                          ! We assume that energy is transported with M1 (rather than a number of photons with a mean energy groupe_egy).
-                          ! To be reconsidered when we will do Hii ionisation for later evolution.
-                          Lum_group = aR*(Tstar**4)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)
-                          rtunew(ind_cell(i),1)=rtunew(ind_cell(i),1) + Lum_group*weight*dtnew(ilevel)/((group_egy(1)*ev_to_erg)/scale_d/scale_v**2)
+                       if(stellar_photon)then
+                          igrp=1    ! Put all stellar radiative flux in the first group 
+                          uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_sink(isink)*weight*dtnew(ilevel)!/((4.0d0*pi*rmax**3)/3.0d0) !if weight=1.
+                          uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_sink(isink)*weight*dtnew(ilevel)!/((4.0d0*pi*rmax**3)/3.0d0) !if weight=1.
+                       else
+                         do igrp=1,ngrp 
+                             Lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)!/((4.0d0*pi*rmax**3)/3.0d0) !if weight=1.
+                             uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_group*weight*dtnew(ilevel)
+                             uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_group*weight*dtnew(ilevel)
+                          end do
                        end if
-#endif
                     end if
 
                  endif
@@ -4111,13 +4096,4 @@ end subroutine radiative_feedback_sink
 !################################################################
 !################################################################
 !################################################################
-#else
-subroutine radiative_feedback_sink
-  implicit none
-
-  write(*,*) 'You should not enter here with NDIM!=3...'
-
-  return
-  
-end subroutine radiative_feedback_sink
 #endif

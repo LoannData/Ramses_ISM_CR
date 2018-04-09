@@ -127,11 +127,19 @@ subroutine rt_init_hydro
               iskip=ncoarse+(ind-1)*ngridmax
               ! Loop over RT variables
               do ivar=1,nGroups
-                 ! Read photon density in flux units
-                 read(ilun)xx
-                 do i=1,ncache
-                    rtuold(ind_grid(i)+iskip,iGroups(ivar))=xx(i)/rt_c
-                 end do
+                 if(write_conservative) then
+                    ! Read conservative photon density
+                    read(ilun)xx
+                    do i=1,ncache
+                       rtuold(ind_grid(i)+iskip,iGroups(ivar))=xx(i)
+                    end do
+                 else
+                    ! Read photon density in flux units
+                    read(ilun)xx
+                    do i=1,ncache
+                       rtuold(ind_grid(i)+iskip,iGroups(ivar))=xx(i)/rt_c
+                    end do
+                 endif
                  ! Read photon flux
                  do idim=1,ndim
                     read(ilun)xx
