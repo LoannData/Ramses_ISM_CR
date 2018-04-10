@@ -245,6 +245,7 @@ module hydro_parameters
 
   ! Dust related parameters
   logical :: K_drag = .false.
+  logical :: visco_dust =.false.
   logical :: mrn = .false.
   logical :: flag_dust=.true.
   logical :: no_interaction = .false.
@@ -259,6 +260,7 @@ module hydro_parameters
   real(dp) :: size_max  = 2.5d-5
   real(dp) :: mrn_index = 3.5d0
   integer :: slope_dust = 3 ! 1 for upwind, 2 for minmod, 3 for vanleer
+  real(dp)::eta_dust =0.1d0
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2

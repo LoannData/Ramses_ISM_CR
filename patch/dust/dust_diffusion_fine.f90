@@ -117,35 +117,32 @@ subroutine set_uold_dust(ilevel)
 !              !We compute the old dust density
               sum_dust_new=sum_dust_new+unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)/d
            enddo
-           if(dust_barr.eqv. .false.) then
-              !Update all the quantities that depend on rho
-              rho_gas = uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_old*d
-              d = uold(active(ilevel)%igrid(i)+iskip,1)
-              u = uold(active(ilevel)%igrid(i)+iskip,2)/d
-              v = uold(active(ilevel)%igrid(i)+iskip,3)/d
-              w = uold(active(ilevel)%igrid(i)+iskip,4)/d
-              e_mag= 0.0_dp
+           !Update all the quantities that depend on rho
+           rho_gas = uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_old*d
+           d = uold(active(ilevel)%igrid(i)+iskip,1)
+           u = uold(active(ilevel)%igrid(i)+iskip,2)/d
+           v = uold(active(ilevel)%igrid(i)+iskip,3)/d
+           w = uold(active(ilevel)%igrid(i)+iskip,4)/d
+           e_mag= 0.0_dp
 #ifdef SOLVERmhd                           
-              A=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,6)+uold(active(ilevel)%igrid(i)+iskip,nvar+1))
-              B=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,7)+uold(active(ilevel)%igrid(i)+iskip,nvar+2))
-              C=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,8)+uold(active(ilevel)%igrid(i)+iskip,nvar+3))
-              e_mag=0.5d0*(A**2+B**2+C**2)
+           A=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,6)+uold(active(ilevel)%igrid(i)+iskip,nvar+1))
+           B=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,7)+uold(active(ilevel)%igrid(i)+iskip,nvar+2))
+           C=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,8)+uold(active(ilevel)%igrid(i)+iskip,nvar+3))
+           e_mag=0.5d0*(A**2+B**2+C**2)
 #endif
-              e_kin=0.5d0*d*(u**2+v**2+w**2)
+           e_kin=0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
-              do irad=1,nener
-                 e_mag=e_mag+uold(active(ilevel)%igrid(i)+iskip,8+irad)
-              end do
+           do irad=1,nener
+              e_mag=e_mag+uold(active(ilevel)%igrid(i)+iskip,8+irad)
+           end do
 #endif
-              enint=0.0d0
-              call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5) -e_kin -e_mag , temp, ht )
-              rho_gas =  uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_new*d
-              call enerint_eos (rho_gas, temp , enint)
-              unew(active(ilevel)%igrid(i)+iskip,5) = enint + e_kin +e_mag
-           else
-              !If we test barenblatt we only update P
-              unew(active(ilevel)%igrid(i)+iskip,5)=(1.0_dp-sum_dust_new)*uold(active(ilevel)%igrid(i)+iskip,1)/(gamma-1.0_dp)
-           endif
+           enint=0.0d0
+           call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5) -e_kin -e_mag , temp, ht )
+           rho_gas =  uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_new*d
+           call enerint_eos (rho_gas, temp , enint)
+           unew(active(ilevel)%igrid(i)+iskip,5) = enint + e_kin +e_mag
+           !If we test barenblatt we only update P
+           if(static_gas) unew(active(ilevel)%igrid(i)+iskip,5)=(1.0_dp-sum_dust_new)*uold(active(ilevel)%igrid(i)+iskip,1)/(gamma-1.0_dp)
            uold(active(ilevel)%igrid(i)+iskip,5) = unew(active(ilevel)%igrid(i)+iskip,5)
            do idust=1,ndust
               uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
@@ -413,8 +410,9 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   ! Compute flux due to dust diffusion
   !-----------------------------------------------
 
-  call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
-
+  !call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
+  call dustdiff_predict(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
+  
   !Reset fluxes at refined interfaces
   do idim=1,ndim
       i0=0; j0=0; k0=0

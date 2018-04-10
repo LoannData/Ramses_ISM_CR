@@ -313,6 +313,7 @@ subroutine set_vdust_left(ilevel)
   real(dp)::usquare,emag,erad_loc,ekin,eps,sum_dust,enint
   real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,fact,e_r
   real(dp)::Pgdivu,u_square,d_loc,Tp_loc,Tr_loc,cal_Teg
+  real(dp),dimension(1:nvector,1:ndim),save::Pleft,Pright  
   real(dp),dimension(1:nvector,1:ndust,1:ndim),save::vleft,vcentre,vright
   real(dp) :: dd,ee,cmp_Cv_eos,d0,r0
   integer  :: ht
@@ -370,28 +371,132 @@ subroutine set_vdust_left(ilevel)
            id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
            ih2=ncoarse+(id2-1)*ngridmax
            do i=1,ngrid
-              do idust = 1,ndust
                  if(igridn(i,ig1)>0)then
-                    vleft(i,idust,idim) =  v_dust(igridn(i,ig1)+ih1,idust,idim)
+                    do idust =1,ndust
+                       vleft(i,idust,idim) =  v_dust(igridn(i,ig1)+ih1,idust,idim)
+                    end do
                     dx_g(i,idim)=dx_loc*1.5
+                    if(energy_fix)then
+                       eold=uold(ind_left(i,idim),nvar)
+                    else
+                       ! Gather left thermal energy
+                       d=max(uold(igridn(i,ig1)+ih1,1),smallr)
+                       u=0.0; v=0.0; w=0.0
+                       if(ndim>0)u=uold(igridn(i,ig1)+ih1,2)/d
+                       if(ndim>1)v=uold(igridn(i,ig1)+ih1,3)/d
+                       if(ndim>2)w=uold(igridn(i,ig1)+ih1,4)/d
+                       A=0.5d0*(uold(igridn(i,ig1)+ih1,6)+uold(igridn(i,ig1)+ih1,nvar+1))
+                       B=0.5d0*(uold(igridn(i,ig1)+ih1,7)+uold(igridn(i,ig1)+ih1,nvar+2))
+                       C=0.5d0*(uold(igridn(i,ig1)+ih1,8)+uold(igridn(i,ig1)+ih1,nvar+3))
+                       eold=uold(igridn(i,ig1)+ih1,5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
+#if NENER>0
+                       do irad=1,nener
+                          eold=eold-uold(igridn(i,ig1)+ih1,8+irad)
+                       end do
+#endif
+                    endif
+                    sum_dust=0.0d0
+                    do idust = 1, Ndust
+                       sum_dust=sum_dust+uold(igridn(i,ig1)+ih1,firstindex_ndust+idust)/d
+                    end do
+                    call pressure_eos((1.0_dp-sum_dust)*d,eold,Pleft(i,idim))                     
                  else
-                    vleft(i,idust,idim)=    v_dust(ind_left(i,idim),idust,idim)
+                    do idust=1,ndust
+                       vleft(i,idust,idim)=  v_dust(ind_left(i,idim),idust,idim)
+                    enddo   
                     dx_g(i,idim)=dx_loc
+                    if(energy_fix)then
+                       eold=uold(ind_left(i,idim),nvar)
+                    else
+                       ! Gather left thermal energy
+                       d=max(uold(ind_left(i,idim),1),smallr)
+                       u=0.0; v=0.0; w=0.0
+                       if(ndim>0)u=uold(ind_left(i,idim),2)/d
+                       if(ndim>1)v=uold(ind_left(i,idim),3)/d
+                       if(ndim>2)w=uold(ind_left(i,idim),4)/d
+                       A=0.5d0*(uold(ind_left(i,idim),6)+uold(ind_left(i,idim),nvar+1))
+                       B=0.5d0*(uold(ind_left(i,idim),7)+uold(ind_left(i,idim),nvar+2))
+                       C=0.5d0*(uold(ind_left(i,idim),8)+uold(ind_left(i,idim),nvar+3))
+                       eold=uold(ind_left(i,idim),5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
+#if NENER>0
+                       do irad=1,nener
+                          eold=eold-uold(ind_left(i,idim),8+irad)
+                       end do
+#endif
+                    endif
+                    sum_dust=0.0d0
+                    do idust = 1, Ndust
+                       sum_dust=sum_dust+uold(ind_left(i,idim),firstindex_ndust+idust)/d
+                    end do
+                    call pressure_eos((1.0_dp-sum_dust)*d,eold,Pleft(i,idim))                    
                  endif
                  if(igridn(i,ig2)>0)then
-                    vright(i,idust,idim) =  v_dust(igridn(i,ig2)+ih2,idust,idim)
+                    do idust=1,ndust
+                       vright(i,idust,idim) =  v_dust(igridn(i,ig2)+ih2,idust,idim)
+                    end do   
                     dx_d(i,idim)=dx_loc*1.5
+                    if(energy_fix)then
+                       eold=uold(ind_left(i,idim),nvar)
+                    else
+                       ! Gather left thermal energy
+                       d=max(uold(igridn(i,ig2)+ih2,1),smallr)
+                       u=0.0; v=0.0; w=0.0
+                       if(ndim>0)u=uold(igridn(i,ig2)+ih2,2)/d
+                       if(ndim>1)v=uold(igridn(i,ig2)+ih2,3)/d
+                       if(ndim>2)w=uold(igridn(i,ig2)+ih2,4)/d
+                       A=0.5d0*(uold(igridn(i,ig2)+ih2,6)+uold(igridn(i,ig2)+ih2,nvar+1))
+                       B=0.5d0*(uold(igridn(i,ig2)+ih2,7)+uold(igridn(i,ig2)+ih2,nvar+2))
+                       C=0.5d0*(uold(igridn(i,ig2)+ih2,8)+uold(igridn(i,ig2)+ih2,nvar+3))
+                       eold=uold(igridn(i,ig2)+ih2,5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
+#if NENER>0
+                       do irad=1,nener
+                          eold=eold-uold(igridn(i,ig2)+ih2,8+irad)
+                       end do
+#endif
+                    endif
+                    sum_dust=0.0d0
+                    do idust = 1, Ndust
+                       sum_dust=sum_dust+uold(igridn(i,ig2)+ih2,firstindex_ndust+idust)/d
+                    end do
+                    call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))                                     
                  else
-                    vright(i,idust,idim)=  v_dust(ind_right(i,idim),idust,idim)
+                    do idust=1,ndust
+                       vright(i,idust,idim)=  v_dust(ind_right(i,idim),idust,idim)
+                    end do   
                     dx_d(i,idim)=dx_loc
+                    if(energy_fix)then
+                       eold=uold(ind_right(i,idim),nvar)
+                    else
+                       ! Gather right thermal energy
+                       d=max(uold(ind_right(i,idim),1),smallr)
+                       u=0.0; v=0.0; w=0.0
+                       if(ndim>0)u=uold(ind_right(i,idim),2)/d
+                       if(ndim>1)v=uold(ind_right(i,idim),3)/d
+                       if(ndim>2)w=uold(ind_right(i,idim),4)/d
+                       A=0.5d0*(uold(ind_right(i,idim),6)+uold(ind_right(i,idim),nvar+1))
+                       B=0.5d0*(uold(ind_right(i,idim),7)+uold(ind_right(i,idim),nvar+2))
+                       C=0.5d0*(uold(ind_right(i,idim),8)+uold(ind_right(i,idim),nvar+3))
+                       eold=uold(ind_right(i,idim),5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
+#if NENER>0
+                       do irad=1,nener
+                          eold=eold-uold(ind_right(i,idim),8+irad)
+                       end do
+#endif
+                    endif
+                    sum_dust=0.0d0
+                    do idust = 1, Ndust
+                       sum_dust=sum_dust+uold(ind_right(i,idim),firstindex_ndust+idust)/d
+                    end do
+                    call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))
                  endif
-                 vcentre(i,idust,idim)=  v_dust(ind_cell(i),idust,idim)
-              end do
+                 do idust=1,ndust
+                    vcentre(i,idust,idim)=  v_dust(ind_cell(i),idust,idim)
+                 enddo   
            end do
            do i=1,ngrid
               do idust = 1,ndust
                  v_dust(ind_cell(i),idust,idim)=0.5d0*(vleft(i,idust,idim)+vcentre(i,idust,idim))                 
-                 call regularize_dust(v_dust(ind_cell(i),idust,idim),0.5d0*(vleft(i,idust,idim)+vcentre(i,idust,idim)),(vcentre(i,idust,idim)-vleft(i,idust,idim))/(dx_g(i,idim)))
+                 !call regularize_dust(v_dust(ind_cell(i),idust,idim),0.5d0*(vleft(i,idust,idim)+vcentre(i,idust,idim)),(Pright(i,idim)-Pleft(i,idim))/(dx_g(i,idim)+dx_d(i,idim)))
               end do
            end do
         end do
@@ -408,14 +513,14 @@ end subroutine set_vdust_left
 !###########################################################
    
 
-subroutine regularize_dust(speedr,speed,dspeed)
+subroutine regularize_dust(speedr,speed,dspeed,dx)
   use amr_parameters
   use hydro_parameters
   implicit none
-  real(dp)::speedr
+  real(dp)::speedr,dx
   real(dp)::speed,dspeed
   if(visco_dust.eqv..true.) then
-     speedr= tanh(sign(1.0d0,dspeed)/(eta_dust))*abs(speed)
+     speedr= tanh(sign(dx,speed)/(eta_dust))*abs(speed)
   else
      speedr=speed
   endif
