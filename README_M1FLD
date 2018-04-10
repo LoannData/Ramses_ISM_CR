@@ -1,0 +1,11 @@
+- For now, always put NIONS=3 to enable M1 RT.
+- NGROUPS=3 at least if only ionisation, more if FUV and/or IR. If NGROUPS=1, by default, it will act on the first IONS. If we want to work with IR or stellar photons, the photoionizing cross sections has to be put to zero in the namelist (group_cse - energy-weighted cross sesction - and group_csn - number-weighted cross section). group_csn(NGROUPS,NIONS) is used the number of photonionisation, and group_cse(NGROUPS,NIONS) for the energy by photoionisation heating (directly put in the thermal energy). By default, it is all set to match ionisation of H, HeI, HeII (NIONS=3, NGROUPS=3) for a blackbody at 10 000 K.  
+group_egy(NGROUPS): energy per photon in ev. 
+
+If we want to make ionisation plus non-ionising photons, then NGROUPS=4, with the first index is for the IR/FUV photons. The idea is to have NGROUPS=4 with the first group for the stellar irradiation (FUV), that will be absorbed and reemitted into the FLD.  
+
+********************WARNING********************
+
+ALWAYS put rt_smooth to .true. in order to avoid operator splitting where photons are first propagated and then absorbed. Here the propagated photons are put in a source term in the thermochemistry. See Rosdahl et al. (2013) for details. The consequence of not doing rt_smooth is that the FLD energy injection is undershoted.
+
+In addition, smoothing is also much faster.    

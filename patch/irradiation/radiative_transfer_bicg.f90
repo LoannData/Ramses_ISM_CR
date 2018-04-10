@@ -65,6 +65,12 @@ subroutine diffusion_cg (ilevel,Nsub)
   integer::nx_loc
   real(dp)::scale,dx,dx_loc
 
+  !benoit
+  integer::isub,nsub_imp
+  real(dp)::min_ener,min_ener_all,max_ener,max_ener_all
+  real(dp),dimension(1:ngrp)::dener
+  !benoit
+
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
   if(bicg_to_cg)then
@@ -185,6 +191,55 @@ subroutine diffusion_cg (ilevel,Nsub)
   read(*,*)
   endif
 
+  !benoit
+
+  !===================================================================
+  ! Begin of subcycles....
+  !===================================================================
+  dt_exp = dtnew(ilevel)
+  dt_imp = dtnew(ilevel)
+
+  dener=0.0d0
+  do igroup=1,ngrp
+     max_ener=0.0d0
+     min_ener=1.0d30
+     do i=1,nb_ind
+        this = liste_ind(i)
+        max_ener=max(max_ener, uold(liste_ind(i),firstindex_er+igroup))
+        min_ener=min(min_ener, uold(liste_ind(i),firstindex_er+igroup))
+     end do
+
+     ! Compute maximum error
+#ifndef WITHOUTMPI
+     call MPI_ALLREDUCE(max_ener,max_ener_all,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,info)
+     max_ener=max_ener_all
+     call MPI_ALLREDUCE(min_ener,min_ener_all,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,info)
+     min_ener=min_ener_all
+#endif
+     dener(igroup)=max_ener/min_ener
+  enddo
+
+
+
+  nsub_imp=1
+!!$  if(ngrp .gt. 1 .and. maxval(dener) .gt. 1.d4)then
+!!$     nsub_imp=int(maxval(dener)**0.25)
+!!$     dt_imp=dt_imp/real(nsub_imp)
+!!$  endif
+  if(ngrp .gt. 1 .and. maxval(dener) .gt. 1.d4)then
+     nsub_imp=10
+     dt_imp=dt_imp/real(nsub_imp)
+  endif
+  if(myid==1)then
+     do igroup=1,ngrp
+        print*,'ilevel',ilevel,'igroup',igroup,'MAXIMUM OF DENER=',dener(igroup),'NSUB_IMP=',nsub_imp
+     end do
+  end if
+
+  do isub=1,nsub_imp
+  !benoit
+
+  
 #if USE_FLD==1
   do i=1,nb_ind
      this = liste_ind(i)
@@ -598,6 +653,7 @@ subroutine diffusion_cg (ilevel,Nsub)
 
         wdtB = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa
         wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
+        
 !!$        rhs=rhs-P_cal*wdt*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0 &
 !!$             & -unew(liste_ind(i),firstindex_er+igrp))
         rhs=rhs-P_cal*wdtB*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0) &
@@ -643,6 +699,10 @@ subroutine diffusion_cg (ilevel,Nsub)
   endif
 
   call make_boundary_diffusion_tot(ilevel)
+  !benoit
+end do
+!End loop over NR iteration
+  !benoit
 
   !====================
   ! Update energy value
@@ -2362,10 +2422,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
 
   use hydro_parameters,only:nvar
   use hydro_commons
-  use rt_hydro_commons
   use radiation_parameters
-  use rt_cooling_module
-  use cloud_module, only : rt_protostar_m1
   use units_commons
   use const
 
@@ -2376,18 +2433,11 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   real(dp),dimension(nvar_bicg          ),intent(out)::residual
 
   real(dp)::rho,Told_norm,Told,cv,lhs,rhs,planck_ana,radiation_source,deriv_radiation_source,cal_Teg,Trold
-  integer::igrp,igroup,im1
+  integer::igrp,igroup
   real(dp),dimension(ngrp)::wdtB,wdtE,source,deriv
-  real(dp)::ambi_heating,ohm_heating,nimhd_heating,protostellar_heating
+  real(dp)::ambi_heating,ohm_heating,nimhd_heating
 #if NIMHD==1
   real(dp)::bcell2,bx,by,bz,jsquare,jx,jy,jz,etaohmdiss,betaad,ionisrate
-#endif
-#ifdef RT
-  real(dp)::scale_Np,scale_Fp
-#endif
-
-#ifdef RT
-  call rt_units(scale_Np,scale_Fp)
 #endif
 
   rho       = uold(i,1          )
@@ -2430,7 +2480,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
      deriv(igrp)=deriv_radiation_source(Told,igrp)
      wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa
      wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
-
+     
      lhs=lhs+P_cal*wdtB(igrp)*deriv(igrp)/scale_E0
      rhs=rhs-P_cal*wdtB(igrp)*(source(igrp)/scale_E0-Told*deriv(igrp)/scale_E0)
   enddo
@@ -2444,18 +2494,9 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
      do igrp=1,ngrp
         mat_residual(igroup,igrp) = mat_residual(igroup,igrp) - wdtB(igroup)*(deriv(igroup)*P_cal*wdtE(igrp)/scale_E0/(cv+lhs))*vol_loc
      enddo
-     protostellar_heating = 0.0d0
-#ifdef RT
-     if(rt_protostar_m1 .and. rt_advect)then
-        do im1=1,ngroups
-           protostellar_heating = rtuold(i,iGroups(im1))*scale_Np*group_egy(im1)*ev_to_erg*kappaAbs(im1)*rho*scale_d*rt_c_cgs*z_ave / (scale_d*scale_v**2)
-        end do
-     end if
-#endif
 
      residual(igroup) = uold(i,firstindex_er+igroup)*vol_loc  &
           & + vol_loc*wdtB(igroup)*(source(igroup)/scale_E0-Told*deriv(igroup)/scale_E0) &
-          & + protostellar_heating*vol_loc* (scale_d*scale_v**2)*dt_imp*scale_t/scale_E0 &
           & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*(cv*Told+rhs+nimhd_heating)/(cv+lhs)
   enddo
 
@@ -2506,7 +2547,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      rho  = scale_d * max(uold(cell_left,1),smallr)
      do igroup=1,ngrp
         Trold = cal_Teg(uold(cell_left,firstindex_er+igroup)*scale_d*scale_v**2,igroup)
-        nu_g(igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        nu_g(igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa                
         if(nu_g(igroup)*dx_loc .lt. min_optical_depth) nu_g(igroup)=min_optical_depth/dx_loc
      enddo
 

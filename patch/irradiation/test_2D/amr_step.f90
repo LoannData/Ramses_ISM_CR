@@ -565,7 +565,9 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
   
 #endif
-  
+
+  if (rt_protostar_fld)call add_radiation_sources(ilevel,dtnew(ilevel))
+
   !---------------------------------------
   ! Update physical and virtual boundaries
   !---------------------------------------

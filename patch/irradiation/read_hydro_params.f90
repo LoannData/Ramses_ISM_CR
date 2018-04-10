@@ -94,12 +94,14 @@ subroutine read_hydro_params(nml_ok)
   namelist/radiation_params/grey_rad_transfer,dtdiff_params,dt_control &
        & ,rosseland_params,planck_params,epsilon_diff,fld_limiter &
        & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group  &
-       & ,numin,numax,Tr_floor,robin,rad_trans_model,min_optical_depth,rt_feedback,rt_protostar_m1 &
+       & ,numin,numax,Tr_floor,robin,rad_trans_model,min_optical_depth,rt_feedback &
        & ,PMS_evol,Hosokawa_track,energy_fix,facc_star,facc_star_lum,valp_min,store_matrix,external_radiation_field &
        & ,opacity_type,rad_trans_model,min_optical_depth &
        & ,rt_feedback,PMS_evol,Hosokawa_track,energy_fix &
        & ,facc_star,facc_star_lum,store_matrix &
-       & ,external_radiation_field,stellar_photon
+       & ,external_radiation_field,stellar_photon &
+       !& ,Teff_starsink1,r_starsink1 &
+       & ,rho_disk0,irradiation_test
   ! modif nimhd
   namelist/nonidealmhd_params/nambipolar,gammaAD &
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
@@ -134,6 +136,19 @@ subroutine read_hydro_params(nml_ok)
   rewind(1)
   read(1,NML=physics_params,END=105)
 105 continue
+
+  if(irradiation_test == 'Kuiper') then
+     ! Kuiper test
+     Teff_starsink1=58000.!5800.
+     r_starsink1=1.
+  else if(irradiation_test == 'Pinte') then
+     ! Pinte test
+     Teff_starsink1=4000.
+     r_starsink1=2.
+  else
+     if(myid == 1) write(*,*) 'Bad value for irradiation_test:',irradiation_test
+     call clean_stop
+  endif
 
   ! Conversion factor from user units to cgs units (to be done after read physics_params with units_density...)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -576,7 +591,7 @@ subroutine read_hydro_params(nml_ok)
   !--------------------------------------------------
   do i=1,nboundary
      ! Do imposed BC for radiative transfer
-     d0=compute_db()
+     d0=1.0 !compute_db()
      d_bound(i)=d0
      T_bound(i)=Tr_floor
      P_bound(i)=T_bound(i)*d_bound(i)*kb/(mu_gas*mH*scale_v**2)
@@ -999,7 +1014,8 @@ subroutine read_hydro_params(nml_ok)
         endif
         opacity_type = 'multigroup'
      endif
-     call init_opacities
+!!$     call init_opacities
+     call init_opacities_pascucci
   end if
  
   if(PMS_evol .and. rt_feedback .and. Hosokawa_track)then

@@ -65,6 +65,12 @@ subroutine diffusion_cg (ilevel,Nsub)
   integer::nx_loc
   real(dp)::scale,dx,dx_loc
 
+  !benoit
+  integer::isub,nsub_imp
+  real(dp)::min_ener,min_ener_all,max_ener,max_ener_all
+  real(dp),dimension(1:ngrp)::dener
+  !benoit
+
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
   if(bicg_to_cg)then
@@ -185,6 +191,55 @@ subroutine diffusion_cg (ilevel,Nsub)
   read(*,*)
   endif
 
+  !benoit
+
+  !===================================================================
+  ! Begin of subcycles....
+  !===================================================================
+  dt_exp = dtnew(ilevel)
+  dt_imp = dtnew(ilevel)
+
+  dener=0.0d0
+  do igroup=1,ngrp
+     max_ener=0.0d0
+     min_ener=1.0d30
+     do i=1,nb_ind
+        this = liste_ind(i)
+        max_ener=max(max_ener, uold(liste_ind(i),firstindex_er+igroup))
+        min_ener=min(min_ener, uold(liste_ind(i),firstindex_er+igroup))
+     end do
+
+     ! Compute maximum error
+#ifndef WITHOUTMPI
+     call MPI_ALLREDUCE(max_ener,max_ener_all,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,info)
+     max_ener=max_ener_all
+     call MPI_ALLREDUCE(min_ener,min_ener_all,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,info)
+     min_ener=min_ener_all
+#endif
+     dener(igroup)=max_ener/min_ener
+  enddo
+
+
+
+  nsub_imp=1
+!!$  if(ngrp .gt. 1 .and. maxval(dener) .gt. 1.d4)then
+!!$     nsub_imp=int(maxval(dener)**0.25)
+!!$     dt_imp=dt_imp/real(nsub_imp)
+!!$  endif
+  if(ngrp .gt. 1 .and. maxval(dener) .gt. 1.d4)then
+     nsub_imp=10
+     dt_imp=dt_imp/real(nsub_imp)
+  endif
+  if(myid==1)then
+     do igroup=1,ngrp
+        print*,'ilevel',ilevel,'igroup',igroup,'MAXIMUM OF DENER=',dener(igroup),'NSUB_IMP=',nsub_imp
+     end do
+  end if
+
+  do isub=1,nsub_imp
+  !benoit
+
+  
 #if USE_FLD==1
   do i=1,nb_ind
      this = liste_ind(i)
@@ -339,7 +394,7 @@ subroutine diffusion_cg (ilevel,Nsub)
   ! MAIN ITERATION LOOP
   !====================   
 
-  iter=0; itermax=5000
+  iter=0; itermax=50000
 
   error_ini=sqrt(rhs_norm1)
   error=error_ini
@@ -598,6 +653,7 @@ subroutine diffusion_cg (ilevel,Nsub)
 
         wdtB = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa
         wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
+        
 !!$        rhs=rhs-P_cal*wdt*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0 &
 !!$             & -unew(liste_ind(i),firstindex_er+igrp))
         rhs=rhs-P_cal*wdtB*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0) &
@@ -643,6 +699,10 @@ subroutine diffusion_cg (ilevel,Nsub)
   endif
 
   call make_boundary_diffusion_tot(ilevel)
+  !benoit
+end do
+!End loop over NR iteration
+  !benoit
 
   !====================
   ! Update energy value
@@ -2430,7 +2490,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
      deriv(igrp)=deriv_radiation_source(Told,igrp)
      wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa
      wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
-
+     
      lhs=lhs+P_cal*wdtB(igrp)*deriv(igrp)/scale_E0
      rhs=rhs-P_cal*wdtB(igrp)*(source(igrp)/scale_E0-Told*deriv(igrp)/scale_E0)
   enddo

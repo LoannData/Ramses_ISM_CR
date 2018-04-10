@@ -664,7 +664,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         do i=1,nleaf
            uold(ind_leaf(i),ndim+2) = T2min(i) + ekk(i) + err(i) + emag(i)
         end do
-     else if(cooling .or. neq_chem)then
+     else if((cooling .or. neq_chem) .and. .not.fld)then
         do i=1,nleaf
            uold(ind_leaf(i),ndim+2) = T2(i) + T2min(i) + ekk(i) + err(i) + emag(i)
         end do
