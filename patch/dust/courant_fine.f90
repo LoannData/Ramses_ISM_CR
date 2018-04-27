@@ -27,8 +27,8 @@ subroutine courant_fine(ilevel)
   real(dp),dimension(1:nvector,1:nvar+3),save::uu
   real(dp),dimension(1:nvector,1:ndim),save::gg
 #if NDUST>0
+  real(dp)::dt_dust
   integer::idust
-  real(dp),dimension(1:nvector,1:ndust),save::uudust
 #endif
 #if NIMHD==1
   ! modif nimhd
@@ -102,13 +102,17 @@ subroutine courant_fine(ilevel)
            end do
         end do
 #if NDUST>0
-        uudust=0.0d0
+        dt_dust= dt_loc
         do i=1,nleaf
-        do idim=1,ndim
+        !do idim=1,ndim
            do idust=1,ndust
-              uudust(i,idust)=max(uudust(i,idust),v_dust(ind_leaf(i),idust,idim))
+              if (NDIM.eq.1)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))))
+           
+              if (NDIM.eq.2)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))))
+  
+              if (NDIM.eq.3)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))))
            end do
-        end do
+        !end do
         end do
 #endif        
         ! Gather gravitational acceleration
@@ -178,21 +182,7 @@ subroutine courant_fine(ilevel)
 
         ! Compute CFL time-step
         if(nleaf>0)then
-#if NDUST>0
-#if NIMHD==1
-           ! modif nimhd
-           call cmpdt(uu,gg,,uudust,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
-           dt_loc=min(dt_loc,dt_lev)
-           dtambdiff_loc=min(dtambdiff_loc,dtambdiff_lev)
-           dtmagdiff_loc=min(dtmagdiff_loc,dtmagdiff_lev)
-           dtwad_loc=min(dtwad_loc,dt_lev)
-           dthall_loc=min(dthall_loc,dthall_lev)
-           ! fin modif nimhd
-#else
-           call cmpdt(uu,gg,uudust,dx,dt_lev,nleaf)
-           dt_loc=min(dt_loc,dt_lev)
-#endif
-#else           
+
 #if NIMHD==1
            ! modif nimhd
            call cmpdt(uu,gg,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
@@ -206,6 +196,10 @@ subroutine courant_fine(ilevel)
            call cmpdt(uu,gg,dx,dt_lev,nleaf)
            dt_loc=min(dt_loc,dt_lev)
 #endif
+#if NDUST>0           
+           dt_loc=min(dt_loc,dt_dust)
+           !dt_loc=courant_factor*dx/(abs(speedx))
+           !print *, speedx,courant_factor, dx,dt_loc
 #endif           
         end if
 

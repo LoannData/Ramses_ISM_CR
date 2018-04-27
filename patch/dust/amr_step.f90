@@ -84,6 +84,13 @@ recursive subroutine amr_step(ilevel,icount)
                  if(simple_boundary)call rt_make_boundary_hydro(i)
               end if
 #endif
+#if NDUST>0              
+              do idim =1,ndim
+                 do idust=1,ndust
+                    call make_virtual_fine_dp(v_dust(1,idust,idim),i)
+                 end do
+              end do
+#endif              
               if(poisson)then
                  call make_virtual_fine_dp(phi(1),i)
                  do idim=1,ndim
@@ -344,7 +351,7 @@ recursive subroutine amr_step(ilevel,icount)
   !----------------------
   call timer('courant','start')
 #if NDUST>0
-  if((hydro).and.(.not.static_gas))call set_vdust(ilevel) 
+  call set_vdust(ilevel)
 #endif  
   call newdt_fine(ilevel)
   if(ilevel>levelmin)then
@@ -393,7 +400,6 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 
 #if NDUST>0
-  ! Dust diffusion step
   if(dust_diffusion)then
      call set_dflux_dust_new(ilevel)
   end if
@@ -470,13 +476,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! Hyperbolic solver
                                call timer('hydro - godunov','start')
      call godunov_fine(ilevel)
-
-     ! Reverse update boundaries
-                               call timer('hydro - rev ghostzones','start')
    
-     ! Restriction operator
-                               call timer('hydro upload fine','start')
- 
      !Update boundaries
                                call timer('hydro - ghostzones','start')
 #ifdef SOLVERmhd
@@ -521,6 +521,7 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('hydro upload fine','start')
      call upload_fine(ilevel)
 
+
   endif
 
   !---------------------
@@ -555,7 +556,6 @@ recursive subroutine amr_step(ilevel,icount)
   endif
 #endif
 
-!End of dust diffusion 
   
   !---------------
   ! Move particles
@@ -608,37 +608,9 @@ recursive subroutine amr_step(ilevel,icount)
 !Dust diffusion step
 #if NDUST>0
   if(dust_diffusion)then
-
-     call timer('dust - diffusion','start')
-     if((hydro).and.(.not.static_gas))    call set_vdust(ilevel)
-!     if((hydro).and.(.not.static_gas))    call set_vdust_left(ilevel)
-     do idim =1,ndim
-        do idust=1,ndust
-           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-        end do
-     end do     
-     call set_unew_dust(ilevel)
+                     call timer('dust - diffusion','start')
      call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
-     do idust=1,ndust
-        call make_virtual_reverse_dp(unew(1,firstindex_ndust+idust),ilevel)
-     end do
-     call set_uold_dust(ilevel)
-        do idust=1,ndust
-           call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
-        end do
-     call upload_fine(ilevel)
-     do idust=1,ndust
-        call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
-     end do
-     call make_virtual_fine_dp(uold(1,5),ilevel)
-     if(simple_boundary)call make_boundary_hydro(ilevel)
-     if((hydro).and.(.not.static_gas))call set_vdust(ilevel)
-     do idim =1,ndim
-        do idust=1,ndust
-           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-        end do
-     end do
-end if
+  end if
 #endif
 
 

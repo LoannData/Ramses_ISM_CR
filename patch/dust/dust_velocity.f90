@@ -30,12 +30,9 @@ subroutine set_vdust(ilevel)
   real(dp):: epsilon_0
   real(dp),dimension(1:ndust):: dustMRN
   epsilon_0 = dust_ratio(1)
- 
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-
   if(numbtot(1,ilevel)==0)return
-   if(verbose)write(*,111)ilevel
-
+  if(verbose)write(*,111)ilevel
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
   dx=0.5d0**ilevel
@@ -47,7 +44,6 @@ subroutine set_vdust(ilevel)
   sum_dust=0.0d0
   pi =3.14159265358979323846_dp
   dens_floor=0.0d0
-#if DUSTY_COLL>0  
 #if NDUST>0
      do idust =1,ndust
         dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
@@ -60,7 +56,6 @@ subroutine set_vdust(ilevel)
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
   dens_floor=d0
-#endif  
   if(mrn.eqv..true.) then
      call size_dust(l_grain)
      do idust=1,ndust
@@ -170,6 +165,8 @@ subroutine set_vdust(ilevel)
             call pressure_eos((1.0_dp-sum_dust)*d,eold,Pleft(i,idim))
          endif
       end do
+   end do
+   do idim=1,ndim
            id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
            ih2=ncoarse+(id2-1)*ngridmax
            do i=1,ngrid
@@ -227,8 +224,11 @@ subroutine set_vdust(ilevel)
               call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))
            endif
         end do
-        do i=1,ngrid
-           gradP(i,idim) = (Pright(i,idim)-Pleft(i,idim))/(dx_g(i,idim)+dx_d(i,idim))
+     end do
+        do idim=1,ndim
+           do i=1,ngrid
+              gradP(i,idim) = (Pright(i,idim)-Pleft(i,idim))/(dx_g(i,idim)+dx_d(i,idim))
+           end do
         end do
         do i=1,ngrid
            if (energy_fix) then
@@ -270,20 +270,22 @@ subroutine set_vdust(ilevel)
             do idust = 1, Ndust
                sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
             end do
-            tstop_tot=0.0d0            
+            tstop_tot=0.0d0
+            t_stop=0.0d0
             do idust = 1,ndust
                t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
                if(K_drag)  t_stop(idust) = sum_dust*d/K_dust(idust)
                if(dust_barr) t_stop (idust)= 0.1_dp
-               !if (d .le. dens_floor) t_stop(idust) =t_stop_floor 
+               if (d .le. dens_floor) t_stop(idust) =t_stop_floor 
                tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
             end do
             do idust = 1,ndust
                t_stop(idust) = t_stop(idust)+tstop_tot
-               v_dust(ind_cell(i),idust,idim)=t_stop(idust)*gradP(i,idim)/d
+               do idim=1,ndim
+                  v_dust(ind_cell(i),idust,idim)=t_stop(idust)*gradP(i,idim)/d
+               end do   
             end do
          end do
-      end do
    end do
 enddo
 
@@ -291,221 +293,6 @@ enddo
 
 end subroutine set_vdust
 
-subroutine set_vdust_left(ilevel)
-  use amr_commons
-  use hydro_commons
-  use units_commons
-  use cloud_module
-  use cooling_module,ONLY:kB,mH
-  use radiation_parameters
-
-  implicit none
-  integer::ilevel
-  integer::i,j,k,ivar,irad,ind,iskip,nx_loc,ind_cell1,idust
-  integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2
-  integer,dimension(1:3,1:2,1:8)::iii,jjj
-  real(dp)::scale,dx,dx_loc,d,u,v,w,eold,A,B,C,pressure
-
-  integer ,dimension(1:nvector),save::ind_grid,ind_cell
-  integer ,dimension(1:nvector,0:twondim),save::igridn
-  integer ,dimension(1:nvector,1:ndim),save::ind_left,ind_right
-  real(dp),dimension(1:nvector,1:ndim),save::dx_g,dx_d
-  real(dp)::usquare,emag,erad_loc,ekin,eps,sum_dust,enint
-  real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,fact,e_r
-  real(dp)::Pgdivu,u_square,d_loc,Tp_loc,Tr_loc,cal_Teg
-  real(dp),dimension(1:nvector,1:ndim),save::Pleft,Pright  
-  real(dp),dimension(1:nvector,1:ndust,1:ndim),save::vleft,vcentre,vright
-  real(dp) :: dd,ee,cmp_Cv_eos,d0,r0
-  integer  :: ht
- 
-
-  if(numbtot(1,ilevel)==0)return
-
- 
-  nx_loc=icoarse_max-icoarse_min+1
-  scale=boxlen/dble(nx_loc)
-  dx=0.5d0**ilevel
-  dx_loc=dx*scale
-  
-  iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
-  iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
-  iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
-  iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
-  iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
-  iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
-  ncache=active(ilevel)%ngrid
-  do igrid=1,ncache,nvector
-   
-     ! Gather nvector grids
-     ngrid=MIN(nvector,ncache-igrid+1)
-     do i=1,ngrid
-        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
-     end do
-     
-     ! Gather neighboring grids
-     do i=1,ngrid
-        igridn(i,0)=ind_grid(i)
-     end do
-     do idim=1,ndim
-        do i=1,ngrid
-           ind_left (i,idim)=nbor(ind_grid(i),2*idim-1)
-           ind_right(i,idim)=nbor(ind_grid(i),2*idim  )
-           igridn(i,2*idim-1)=son(ind_left (i,idim))
-           igridn(i,2*idim  )=son(ind_right(i,idim))
-        end do
-     end do
-     
-     ! Loop over cells
-     do ind=1,twotondim
-        
-        ! Compute central cell index
-        iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,ngrid
-           ind_cell(i)=iskip+ind_grid(i)
-        end do
-        
-        ! Gather all neighboring velocities
-        do idim=1,ndim
-           id1=jjj(idim,1,ind); ig1=iii(idim,1,ind)
-           ih1=ncoarse+(id1-1)*ngridmax
-           id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
-           ih2=ncoarse+(id2-1)*ngridmax
-           do i=1,ngrid
-                 if(igridn(i,ig1)>0)then
-                    do idust =1,ndust
-                       vleft(i,idust,idim) =  v_dust(igridn(i,ig1)+ih1,idust,idim)
-                    end do
-                    dx_g(i,idim)=dx_loc*1.5
-                    if(energy_fix)then
-                       eold=uold(ind_left(i,idim),nvar)
-                    else
-                       ! Gather left thermal energy
-                       d=max(uold(igridn(i,ig1)+ih1,1),smallr)
-                       u=0.0; v=0.0; w=0.0
-                       if(ndim>0)u=uold(igridn(i,ig1)+ih1,2)/d
-                       if(ndim>1)v=uold(igridn(i,ig1)+ih1,3)/d
-                       if(ndim>2)w=uold(igridn(i,ig1)+ih1,4)/d
-                       A=0.5d0*(uold(igridn(i,ig1)+ih1,6)+uold(igridn(i,ig1)+ih1,nvar+1))
-                       B=0.5d0*(uold(igridn(i,ig1)+ih1,7)+uold(igridn(i,ig1)+ih1,nvar+2))
-                       C=0.5d0*(uold(igridn(i,ig1)+ih1,8)+uold(igridn(i,ig1)+ih1,nvar+3))
-                       eold=uold(igridn(i,ig1)+ih1,5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
-#if NENER>0
-                       do irad=1,nener
-                          eold=eold-uold(igridn(i,ig1)+ih1,8+irad)
-                       end do
-#endif
-                    endif
-                    sum_dust=0.0d0
-                    do idust = 1, Ndust
-                       sum_dust=sum_dust+uold(igridn(i,ig1)+ih1,firstindex_ndust+idust)/d
-                    end do
-                    call pressure_eos((1.0_dp-sum_dust)*d,eold,Pleft(i,idim))                     
-                 else
-                    do idust=1,ndust
-                       vleft(i,idust,idim)=  v_dust(ind_left(i,idim),idust,idim)
-                    enddo   
-                    dx_g(i,idim)=dx_loc
-                    if(energy_fix)then
-                       eold=uold(ind_left(i,idim),nvar)
-                    else
-                       ! Gather left thermal energy
-                       d=max(uold(ind_left(i,idim),1),smallr)
-                       u=0.0; v=0.0; w=0.0
-                       if(ndim>0)u=uold(ind_left(i,idim),2)/d
-                       if(ndim>1)v=uold(ind_left(i,idim),3)/d
-                       if(ndim>2)w=uold(ind_left(i,idim),4)/d
-                       A=0.5d0*(uold(ind_left(i,idim),6)+uold(ind_left(i,idim),nvar+1))
-                       B=0.5d0*(uold(ind_left(i,idim),7)+uold(ind_left(i,idim),nvar+2))
-                       C=0.5d0*(uold(ind_left(i,idim),8)+uold(ind_left(i,idim),nvar+3))
-                       eold=uold(ind_left(i,idim),5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
-#if NENER>0
-                       do irad=1,nener
-                          eold=eold-uold(ind_left(i,idim),8+irad)
-                       end do
-#endif
-                    endif
-                    sum_dust=0.0d0
-                    do idust = 1, Ndust
-                       sum_dust=sum_dust+uold(ind_left(i,idim),firstindex_ndust+idust)/d
-                    end do
-                    call pressure_eos((1.0_dp-sum_dust)*d,eold,Pleft(i,idim))                    
-                 endif
-                 if(igridn(i,ig2)>0)then
-                    do idust=1,ndust
-                       vright(i,idust,idim) =  v_dust(igridn(i,ig2)+ih2,idust,idim)
-                    end do   
-                    dx_d(i,idim)=dx_loc*1.5
-                    if(energy_fix)then
-                       eold=uold(ind_left(i,idim),nvar)
-                    else
-                       ! Gather left thermal energy
-                       d=max(uold(igridn(i,ig2)+ih2,1),smallr)
-                       u=0.0; v=0.0; w=0.0
-                       if(ndim>0)u=uold(igridn(i,ig2)+ih2,2)/d
-                       if(ndim>1)v=uold(igridn(i,ig2)+ih2,3)/d
-                       if(ndim>2)w=uold(igridn(i,ig2)+ih2,4)/d
-                       A=0.5d0*(uold(igridn(i,ig2)+ih2,6)+uold(igridn(i,ig2)+ih2,nvar+1))
-                       B=0.5d0*(uold(igridn(i,ig2)+ih2,7)+uold(igridn(i,ig2)+ih2,nvar+2))
-                       C=0.5d0*(uold(igridn(i,ig2)+ih2,8)+uold(igridn(i,ig2)+ih2,nvar+3))
-                       eold=uold(igridn(i,ig2)+ih2,5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
-#if NENER>0
-                       do irad=1,nener
-                          eold=eold-uold(igridn(i,ig2)+ih2,8+irad)
-                       end do
-#endif
-                    endif
-                    sum_dust=0.0d0
-                    do idust = 1, Ndust
-                       sum_dust=sum_dust+uold(igridn(i,ig2)+ih2,firstindex_ndust+idust)/d
-                    end do
-                    call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))                                     
-                 else
-                    do idust=1,ndust
-                       vright(i,idust,idim)=  v_dust(ind_right(i,idim),idust,idim)
-                    end do   
-                    dx_d(i,idim)=dx_loc
-                    if(energy_fix)then
-                       eold=uold(ind_right(i,idim),nvar)
-                    else
-                       ! Gather right thermal energy
-                       d=max(uold(ind_right(i,idim),1),smallr)
-                       u=0.0; v=0.0; w=0.0
-                       if(ndim>0)u=uold(ind_right(i,idim),2)/d
-                       if(ndim>1)v=uold(ind_right(i,idim),3)/d
-                       if(ndim>2)w=uold(ind_right(i,idim),4)/d
-                       A=0.5d0*(uold(ind_right(i,idim),6)+uold(ind_right(i,idim),nvar+1))
-                       B=0.5d0*(uold(ind_right(i,idim),7)+uold(ind_right(i,idim),nvar+2))
-                       C=0.5d0*(uold(ind_right(i,idim),8)+uold(ind_right(i,idim),nvar+3))
-                       eold=uold(ind_right(i,idim),5)-0.5d0*d*(u**2+v**2+w**2)-0.5d0*(A**2+B**2+C**2)
-#if NENER>0
-                       do irad=1,nener
-                          eold=eold-uold(ind_right(i,idim),8+irad)
-                       end do
-#endif
-                    endif
-                    sum_dust=0.0d0
-                    do idust = 1, Ndust
-                       sum_dust=sum_dust+uold(ind_right(i,idim),firstindex_ndust+idust)/d
-                    end do
-                    call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))
-                 endif
-                 do idust=1,ndust
-                    vcentre(i,idust,idim)=  v_dust(ind_cell(i),idust,idim)
-                 enddo   
-           end do
-           do i=1,ngrid
-              do idust = 1,ndust
-                 v_dust(ind_cell(i),idust,idim)=0.5d0*(vleft(i,idust,idim)+vcentre(i,idust,idim))                 
-                 !call regularize_dust(v_dust(ind_cell(i),idust,idim),0.5d0*(vleft(i,idust,idim)+vcentre(i,idust,idim)),(Pright(i,idim)-Pleft(i,idim))/(dx_g(i,idim)+dx_d(i,idim)))
-              end do
-           end do
-        end do
-     enddo
-     ! End loop over cells
-  end do
-  ! End loop over grids
-
-end subroutine set_vdust_left
 
 !###########################################################
 !###########################################################

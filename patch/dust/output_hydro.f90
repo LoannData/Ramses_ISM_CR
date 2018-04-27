@@ -373,7 +373,7 @@ subroutine backup_hydro(filename)
                  do ivar=1,ndust
                     sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+ivar)/d
                  end do
-                    xdp(i)=v_dust(ind_grid(i)+iskip,idust,idim)/(1.0d0-sum_dust)
+                    xdp(i)=v_dust(ind_grid(i)+iskip,idust,idim)!/(1.0d0-sum_dust)
                  end do
                  write(ilun)xdp
               end do
