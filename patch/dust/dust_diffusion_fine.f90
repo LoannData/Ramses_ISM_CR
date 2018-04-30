@@ -177,7 +177,7 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
   call set_vdust(ilevel)
-  !call upload_fine(ilevel)
+  call upload_fine(ilevel)
 
   do idim =1,ndim
      do idust=1,ndust
