@@ -53,9 +53,16 @@ module cloud_module
   logical:: shear=.false.        !add Corriolis and centrifuge forces
 
 
+  !delayed gravity
+  !gravity forces are applied only after this time (this is typically to prepare initial conditions)
+  !time_grav is assumed to be in Myr 
+  real(dp)::time_grav=0.0d0
+
 
   ! PMS evolution related stuff
   logical :: rt_feedback=.false.       ! take into account RT feedback
+  logical :: rt_protostar_m1=.false.   ! take into account RT feedback with M1
+  logical :: rt_protostar_fld=.false.  ! take into account RT feedback with FLD
   logical :: PMS_evol=.false.          ! Take into account PMS evolution subgrid model
   logical :: Hosokawa_track=.false.    ! Take into account PMS evolution subgrid model
   real(dp):: dt_lsink_update=50        ! frequency of the sink luminosity update with PMS evolution (in yr)
@@ -66,6 +73,7 @@ module cloud_module
   integer :: modrestart=0              ! name of model you want to restart from, this is an input
   real(dp):: facc_star_lum=0.75d0      ! fraction of the accretion luminosity radiated by the sinks
   real(dp):: facc_star=0.5d0           ! fraction of the sink accreted mass actually accreted by the star
+  real(dp):: facc_star_mom=1.0d0       ! fraction of the angular momentum accreted by the sinks
   integer::nmdot_PMS,nm_PMS,ndata_PMS
   integer ,allocatable,dimension(:)::nb_ligne_PMS
   real(dp),allocatable,dimension(:,:,:)::data_PMS
@@ -205,7 +213,7 @@ subroutine read_cloud_params(nml_ok)
   ! Namelist definitions
   !--------------------------------------------------
   namelist/cloud_params/mass_c,rap,cont,ff_sct,ff_rt,ff_act,ff_vct,thet_mag &
-       & ,bl_fac,switch_solv,turb,Height0,dens0,bx_bound,by_bound,bz_bound,Vshear,shear
+       & ,bl_fac,switch_solv,turb,Height0,dens0,bx_bound,by_bound,bz_bound,Vshear,shear,time_grav
 
   ! Read namelist file
   rewind(1)
@@ -219,6 +227,13 @@ subroutine read_cloud_params(nml_ok)
 !  if (mass_c .gt. 0) then
 !     call calc_boxlen
 !  end if
+
+
+
+  !convert time_grav from Myr into scale_units
+  time_grav = time_grav * 1d6 * 365.25d0 * 86400d0 / scale_t
+
+
 
 
   write(*,*) 'shear ',shear

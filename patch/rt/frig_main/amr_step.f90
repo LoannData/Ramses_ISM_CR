@@ -4,7 +4,7 @@ recursive subroutine amr_step(ilevel,icount)
   use hydro_commons
   use poisson_commons
 
-  use cloud_module, only: rt_feedback
+  use cloud_module, only: rt_feedback,time_grav
   use feedback_module
 
 #ifdef RT
@@ -252,11 +252,12 @@ recursive subroutine amr_step(ilevel,icount)
   !---------------
   ! Gravity update
   !---------------
+  !PH add a delay for gravity
   if(poisson)then
                                call timer('poisson','start')
 
      ! Remove gravity source term with half time step and old force
-     if(hydro)then
+     if(hydro  .and. t .ge. time_grav)then
         call synchro_hydro_fine(ilevel,-0.5*dtnew(ilevel))
      endif
 
@@ -286,7 +287,8 @@ recursive subroutine amr_step(ilevel,icount)
         end if
      end if
 
-     if(hydro)then
+     !PH add a delay for gravity
+     if(hydro  .and. t .ge. time_grav)then
                                call timer('poisson','start')
 
         ! Add gravity source term with half time step and new force
@@ -487,7 +489,8 @@ recursive subroutine amr_step(ilevel,icount)
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step
                                call timer('poisson','start')
-     if(poisson)call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel))
+     !PH add a delay for gravity
+     if(poisson  .and. t .ge. time_grav)call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel))
      
 #if USE_TURB==1
      ! Compute turbulent forcing
