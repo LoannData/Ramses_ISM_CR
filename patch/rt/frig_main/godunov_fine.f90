@@ -124,6 +124,7 @@ subroutine set_uold(ilevel)
   use cooling_module,ONLY:kB,mH
   use radiation_parameters,ONLY:mu_gas,Tr_floor
   use units_commons
+  use cloud_module, only: time_grav
   implicit none
   integer::ilevel
   !--------------------------------------------------------------------------
@@ -144,7 +145,8 @@ subroutine set_uold(ilevel)
   dx=0.5d0**ilevel*scale
 
   ! Add gravity source terms to unew
-  if(poisson)then
+  !PH add a delay for gravity
+  if(poisson .and. t .ge. time_grav)then
      call add_gravity_source_terms(ilevel)
   end if
 

@@ -2409,6 +2409,11 @@ subroutine simple_chemostep1(ind_grid,ngrid,ilevel) !
   integer                      :: neulS=8+nrad+nextinct, neulP=5
   real(dp)                     :: testf = 1.d-8
 
+  logical:: once
+
+
+  once=.true.
+
   !!! FIRST ATTEMPT TO FORM H2 USING SIMPLE K
   ! As in cooling_fine:
   !
@@ -2514,6 +2519,17 @@ subroutine simple_chemostep1(ind_grid,ngrid,ilevel) !
         ! 2nd: I solve the evolution of H2 for the next step
 !        if(myid .EQ. 1) write(*,*) "CALLING SOLVE2_H2FORM"
         call solve2_H2form(nH2, ntot, k1, k2, dt_ilev)   !!! xH and xH2 must be in/out variables.
+
+!        call solve2_H2form(nH2, ntot, k1_0, 0., dt_ilev)   !!! xH and xH2 must be in/out variables.
+
+
+!        if(once) then
+!           write(*,*) nh2,ntot,k1_0,dt_ilev*scale_t,t*scale_t
+
+!           once=.false.
+!        endif
+
+
 !        call solve_H2form(nH2, ntot, k1, k2, dt_ilev)   !!! xH and xH2 must be in/out variables.
 
         if(nH2/ntot .GT. 0.5 .OR. nH2/ntot .LT. 0.0) write(*,*) "WARNING: xH2,nH2,ntot", nH2/ntot, nH2,ntot
