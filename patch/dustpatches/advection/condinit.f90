@@ -26,7 +26,7 @@ subroutine condinit(x,u,dx,nn)
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
 #if NDUST>0
-  integer::idust
+  integer::idust,i
 #endif
 #if NENER>0
   integer::irad
@@ -36,6 +36,7 @@ subroutine condinit(x,u,dx,nn)
 #endif  
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
   real(dp),dimension(1:nvector) :: sum_dust
+  real(dp)::xn
 
      ! Call built-in initial condition generator
      call region_condinit(x,q,dx,nn)
@@ -43,7 +44,19 @@ subroutine condinit(x,u,dx,nn)
      ! Convert primitive to conservative variables
      ! density -> density
 
-     u(1:nn,1)=q(1:nn,1)
+     sum_dust =0.0_dp
+#if NDUST>0
+             do i=1,nn
+                
+                xn=0.0d0
+                xn=2.0d0*abs(x(i,1)-x_center(2))/length_x(2)
+                do idust=1,ndust
+                  q(i,firstindex_ndust+idust)= dust_region(1,idust)+ dust_region(2,idust)*exp(-(xn)**2.0)
+                end do
+            end do
+#endif
+
+      u(1:nn,1)=q(1:nn,1)
      ! velocity -> momentum
      u(1:nn,2)=q(1:nn,1)*q(1:nn,2)
      u(1:nn,3)=q(1:nn,1)*q(1:nn,3)

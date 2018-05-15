@@ -23,7 +23,6 @@ subroutine gravana(x,f,dx,ncell)
   real(dp)::gmass,emass,xmass,ymass,zmass,rr,rx,ry,rz,cs2,sum_dust
   ! Constant vector
  
-  f=0.0d0
   ! Point mass
   if(gravity_type==2)then
      gmass=gravity_params(1)! delta_rho
@@ -39,7 +38,9 @@ subroutine gravana(x,f,dx,ncell)
            sum_dust=sum_dust+dust_ratio(idust)/(1.0+dust_ratio(idust))
         end do
         
-         f(i,2)=cs2*(1.0d0-sum_dust)*log(gmass)/(emass)
+       if(x(i,2)>boxlen/2.0) f(i,2)=-cs2*(1.0d0-sum_dust)*log(gmass)/(emass)
+       if(x(i,2)<boxlen/2.0) f(i,2)=cs2*(1.0d0-sum_dust)*log(gmass)/(emass)
+
       end do
   end if
 

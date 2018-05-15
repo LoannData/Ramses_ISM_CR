@@ -55,7 +55,7 @@ subroutine set_vdust(ilevel)
 #endif   
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
-  dens_floor=d0
+!  dens_floor=d0
   if(mrn.eqv..true.) then
      call size_dust(l_grain)
      do idust=1,ndust
@@ -300,16 +300,16 @@ end subroutine set_vdust
 !###########################################################
    
 
-subroutine regularize_dust(speedr,speed,dspeed,dx)
-  use amr_parameters
-  use hydro_parameters
-  implicit none
-  real(dp)::speedr,dx
-  real(dp)::speed,dspeed
-  if(visco_dust.eqv..true.) then
-     speedr= tanh(sign(dx,speed)/(eta_dust))*abs(speed)
-  else
-     speedr=speed
-  endif
+!subroutine regularize_dust(speedr,speed,dspeed,dx)
+!  use amr_parameters
+!  use hydro_parameters
+!  implicit none
+!  real(dp)::speedr,dx
+!  real(dp)::speed,dspeed
+!  if(visco_dust.eqv..true.) then
+!     speedr= tanh(sign(dx,speed)/(eta_dust))*abs(speed)
+!  else
+!     speedr=speed
+!  endif
 
-end subroutine regularize_dust
+!end subroutine regularize_dust
