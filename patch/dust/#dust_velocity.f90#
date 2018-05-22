@@ -274,7 +274,7 @@ subroutine set_vdust(ilevel)
             t_stop=0.0d0
             do idust = 1,ndust
                t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
-               if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/d*d/K_dust(idust)
+               if(K_drag)  t_stop(idust) = sum_dust*d/K_dust(idust)
                if(dust_barr) t_stop (idust)= 0.1_dp
                if (d .le. dens_floor) t_stop(idust) =t_stop_floor 
                tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)

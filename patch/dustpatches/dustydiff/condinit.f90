@@ -32,7 +32,7 @@ subroutine condinit(x,u,dx,nn)
   real(dp)::xn,x0,sum_dust, t_stop, sound_speed,rho_0, epsilon_0, r_c
 
       rho_0     = 1.0_dp
-      epsilon_0 = 0.1_dp
+      epsilon_0 = 0.1_dp/DBLE(Ndust)
       x0 = boxlen/2.0_dp
       r_c= boxlen/20.0_dp
       sound_speed            = 1.0_dp
