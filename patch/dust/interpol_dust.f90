@@ -63,8 +63,7 @@ subroutine interpol_hydro_dust(u1,ind1,u2,nn)
            end do
         end do
      end do
-
-end do
+  end do
 enddo
   ! End loop over cell-centered variables
 

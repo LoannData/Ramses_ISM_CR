@@ -130,7 +130,7 @@ endif
      write(ilun,'("variable #",I2,":v_dust_x_",I1)')ivar+idust,idust
      write(ilun,'("variable #",I2,":v_dust_y_",I1)')ivar+idust+1,idust
      write(ilun,'("variable #",I2,":v_dust_z_",I1)')ivar+idust+2,idust
-     ivar=ivar+3
+     ivar = ivar +(ndim-1)
   end do
 #endif   
   close(ilun)

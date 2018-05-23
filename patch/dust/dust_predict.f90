@@ -53,7 +53,8 @@ subroutine dustdiff_predict(uin,flux,dx,dy,dz,dt,ngrid)
   qp= 0.0d0
   dq=0.0d0
   ! Compute TVD slopes
-  if(slope_dust>0)call uslope_dust(uin,dq,dx,dt,ngrid)
+
+  call uslope_dust(uin,dq,dx,dt,ngrid)
   ! Compute 3D traced-states in all three directions
 #if NDIM==1
      call trace1d_dust(uin,dq,qm,qp,dx      ,dt,ngrid)
@@ -169,7 +170,6 @@ subroutine cmpflxmdust(qm,im1,im2,jm1,jm2,km1,km2, &
               
               !flx(l,i,j,k,idust)= uleft*qleft
            end do
-          
         end do
      end do
   end do
@@ -448,7 +448,7 @@ subroutine trace3d_dust(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               !sw0 = -ud*dwx-vd*dwy-wd*dwz 
               ! Right state at left interface
               qp(l,i,j,k,idust,1) = rhod       - half*drhox + srho0*dtdx*half
-              qp(l,i,j,k,ndust+idust,1) = ud   - half*dux   !+ su0*dtdx*half
+              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud   - half*dux   !+ su0*dtdx*half
               qp(l,i,j,k,ndust+ndim*(idust-1)+2,1) = vd - half*dvx  ! + sv0*dtdx*half
               qp(l,i,j,k,ndust+ndim*(idust-1)+3,1) = wd - half*dwx   !+ sw0*dtdx*half
               ! Left state at left interface

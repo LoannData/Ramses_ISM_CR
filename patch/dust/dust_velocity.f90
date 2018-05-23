@@ -225,7 +225,7 @@ subroutine set_vdust(ilevel)
            endif
         end do
      end do
-        do idim=1,ndim
+     do idim=1,ndim
            do i=1,ngrid
               gradP(i,idim) = (Pright(i,idim)-Pleft(i,idim))/(dx_g(i,idim)+dx_d(i,idim))
            end do
@@ -267,14 +267,14 @@ subroutine set_vdust(ilevel)
            if(dust_barr)  cs = 1.0_dp
            if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
             sum_dust=0.0d0
-            do idust = 1, Ndust
+            do idust = 1, ndust
                sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
             end do
             tstop_tot=0.0d0
             t_stop=0.0d0
             do idust = 1,ndust
                t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
-               if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/d*d/K_dust(idust)
+               if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/K_dust(idust)
                if(dust_barr) t_stop (idust)= 0.1_dp
                if (d .le. dens_floor) t_stop(idust) =t_stop_floor 
                tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
