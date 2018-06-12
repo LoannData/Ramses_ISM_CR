@@ -209,18 +209,18 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   do idust=1,ndust
      call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
   end do
-  !call set_vdust(ilevel)
+  call set_vdust(ilevel)
   
   call upload_fine(ilevel)
   do idust=1,ndust
      call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
   end do
   call make_virtual_fine_dp(uold(1,5),ilevel)
-  !do idim =1,ndim
-  !   do idust=1,ndust
-  !     call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-  !   end do
-  !end do
+  do idim =1,ndim
+     do idust=1,ndust
+       call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+     end do
+  end do
   if(simple_boundary)call make_boundary_hydro(ilevel)
 
 111 format('   Entering dust_diffusion_fine for level ',i2)
