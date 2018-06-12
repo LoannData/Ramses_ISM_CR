@@ -55,7 +55,7 @@ subroutine set_vdust(ilevel)
 #endif   
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
-!  dens_floor=d0
+  dens_floor=d0
   if(mrn.eqv..true.) then
      call size_dust(l_grain)
      do idust=1,ndust
@@ -274,13 +274,14 @@ subroutine set_vdust(ilevel)
             t_stop=0.0d0
             do idust = 1,ndust
                t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
-               if(K_drag)  t_stop(idust) = sum_dust*d/K_dust(idust)
+               if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/d*d/K_dust(idust)
                if(dust_barr) t_stop (idust)= 0.1_dp
-               if (d .le. dens_floor) t_stop(idust) =t_stop_floor 
                tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
             end do
             do idust = 1,ndust
                t_stop(idust) = t_stop(idust)+tstop_tot
+               if (d .le. dens_floor) t_stop(idust) =0.0d0
+
                do idim=1,ndim
                   v_dust(ind_cell(i),idust,idim)=t_stop(idust)*gradP(i,idim)/d
                end do   

@@ -346,13 +346,20 @@ recursive subroutine amr_step(ilevel,icount)
   end if
 #endif
   
-  !----------------------
+
+#if NDUST>0
+  call set_vdust(ilevel)
+  call upload_fine(ilevel)
+  do idim =1,ndim
+     do idust=1,ndust
+        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+     end do
+  end do
+#endif
+    !----------------------
   ! Compute new time step
   !----------------------
   call timer('courant','start')
-#if NDUST>0
-  call set_vdust(ilevel)
-#endif  
   call newdt_fine(ilevel)
   if(ilevel>levelmin)then
      dtnew(ilevel)=MIN(dtnew(ilevel-1)/real(nsubcycle(ilevel-1)),dtnew(ilevel))
@@ -502,6 +509,7 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('hydro - set uold','start')
      call set_uold(ilevel)
 
+
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step 
                                call timer('poisson','start')
@@ -604,7 +612,17 @@ recursive subroutine amr_step(ilevel,icount)
      if(momentum_feedback)call make_virtual_fine_dp(pstarold(1),ilevel)
      if(simple_boundary)call make_boundary_hydro(ilevel)
   endif
-
+#if NDUST>0
+  call set_vdust(ilevel)
+  do idim =1,ndim
+     do idust=1,ndust
+        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+        
+     end do
+  end do
+  call upload_fine(ilevel)
+  if(simple_boundary)call make_boundary_hydro(ilevel)
+#endif
 !Dust diffusion step
 #if NDUST>0
   if(dust_diffusion)then
