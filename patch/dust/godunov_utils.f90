@@ -2,15 +2,6 @@
 !###########################################################
 !###########################################################
 !###########################################################
-#if NDUST>0
-#if NIMHD==1
-! modif nimhd
-subroutine cmpdt(uu,gg,uudust,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
-! fin modif nimhd
-#else
-subroutine cmpdt(uu,gg,uudust,dx,dt,ncell)
-#endif
-#else
 #if NIMHD==1
 ! modif nimhd
 subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
@@ -18,7 +9,6 @@ subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
 #else
 subroutine cmpdt(uu,gg,dx,dt,ncell)
 #endif
-#endif  
   use amr_parameters
   use hydro_parameters
   use const
@@ -47,7 +37,6 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   real(dp)::sum_dust,dt_dust 
 #if NDUST>0
   integer::idust
-  real(dp),dimension(1:nvector,1:ndust)::uudust  
 #endif
 #if NENER>0
   integer::irad
@@ -163,11 +152,6 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
    
            dtcell=dx/ctot(k)*(sqrt(one+two*courant_factor*rho(k))-one)/rho(k)
            dt = min(dt,dtcell)
-#if NDUST>0
-           dt_dust=dt
-           if(uudust(k,idust).gt.0.0d0) dt_dust =courant_factor*dx*eta_dust/abs(uudust(k,idust))
-           dt =min(dt,dt_dust)
-#endif   
   end do
 
 #if NIMHD==1

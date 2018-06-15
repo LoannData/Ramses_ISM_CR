@@ -458,9 +458,9 @@ subroutine init_flow_fine(ilevel)
 #endif
      
  end if
-!#if NDUST>0!
-! call set_vdust(ilevel)
-!#endif 
+#if NDUST>0
+ call set_vdust(ilevel)
+#endif 
 111 format('   Entering init_flow_fine for level ',I2)
 
 end subroutine init_flow_fine
@@ -587,7 +587,7 @@ subroutine region_condinit(x,q,dx,nn)
                 q(i,firstindex_ndust+idust)= dust_region(k,idust)
                 sum_dust = sum_dust+dust_region(k,idust)
               end do
-              q(i,1) = q(i,1)+sum_dust*d_region(k)
+              !q(i,1) = q(i,1)+sum_dust*d_region(k)
 #endif
 
            end if

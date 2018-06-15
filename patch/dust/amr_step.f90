@@ -6,6 +6,7 @@ recursive subroutine amr_step(ilevel,icount)
 
   use cloud_module, only: rt_feedback
   use feedback_module
+  use units_commons
 
 #ifdef RT
   use rt_hydro_commons
@@ -30,6 +31,7 @@ recursive subroutine amr_step(ilevel,icount)
   !-------------------------------------------------------------------!
   integer::i,idim,ivar,idust,icycle, ncycle
   logical::ok_defrag,output_now_all,d_cycle_ok
+  real(dp):: max_dens
   logical,save::first_step=.true.
 #if NIMHD==1
   !!! sts !!!
@@ -84,6 +86,13 @@ recursive subroutine amr_step(ilevel,icount)
                  if(simple_boundary)call rt_make_boundary_hydro(i)
               end if
 #endif
+#if NDUST>0              
+              do idim =1,ndim
+                 do idust=1,ndust
+                    call make_virtual_fine_dp(v_dust(1,idust,idim),i)
+                 end do
+              end do
+#endif              
               if(poisson)then
                  call make_virtual_fine_dp(phi(1),i)
                  do idim=1,ndim
@@ -100,7 +109,7 @@ recursive subroutine amr_step(ilevel,icount)
         end do
      end if
   end if
-
+  max_dens=log10(Maxval(uold(:,1))*scale_d)
   !--------------------------
   ! Load balance
   !--------------------------
@@ -156,7 +165,7 @@ recursive subroutine amr_step(ilevel,icount)
      call MPI_BARRIER(MPI_COMM_WORLD,mpi_err)
      call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
 #endif
-     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.EQV..true.)then
+     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.or.abs(max_dens-11)<=0.1.EQV..true.)then
                                call timer('io','start')
         if(.not.ok_defrag)then
            call defrag
@@ -339,13 +348,20 @@ recursive subroutine amr_step(ilevel,icount)
   end if
 #endif
   
-  !----------------------
+
+#if NDUST>0
+  call set_vdust(ilevel)
+  call upload_fine(ilevel)
+  do idim =1,ndim
+     do idust=1,ndust
+        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+     end do
+  end do
+#endif
+    !----------------------
   ! Compute new time step
   !----------------------
   call timer('courant','start')
-#if NDUST>0
-  if((hydro).and.(.not.static_gas))call set_vdust(ilevel) 
-#endif  
   call newdt_fine(ilevel)
   if(ilevel>levelmin)then
      dtnew(ilevel)=MIN(dtnew(ilevel-1)/real(nsubcycle(ilevel-1)),dtnew(ilevel))
@@ -393,7 +409,6 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 
 #if NDUST>0
-  ! Dust diffusion step
   if(dust_diffusion)then
      call set_dflux_dust_new(ilevel)
   end if
@@ -470,13 +485,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! Hyperbolic solver
                                call timer('hydro - godunov','start')
      call godunov_fine(ilevel)
-
-     ! Reverse update boundaries
-                               call timer('hydro - rev ghostzones','start')
    
-     ! Restriction operator
-                               call timer('hydro upload fine','start')
- 
      !Update boundaries
                                call timer('hydro - ghostzones','start')
 #ifdef SOLVERmhd
@@ -501,6 +510,13 @@ recursive subroutine amr_step(ilevel,icount)
      ! Set uold equal to unew
                                call timer('hydro - set uold','start')
      call set_uold(ilevel)
+!Dust diffusion step
+#if NDUST>0
+  if(dust_diffusion)then
+                     call timer('dust - diffusion','start')
+     call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
+  end if
+#endif
 
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step 
@@ -520,6 +536,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! Restriction operator
                                call timer('hydro upload fine','start')
      call upload_fine(ilevel)
+
 
   endif
 
@@ -555,7 +572,6 @@ recursive subroutine amr_step(ilevel,icount)
   endif
 #endif
 
-!End of dust diffusion 
   
   !---------------
   ! Move particles
@@ -604,42 +620,14 @@ recursive subroutine amr_step(ilevel,icount)
      if(momentum_feedback)call make_virtual_fine_dp(pstarold(1),ilevel)
      if(simple_boundary)call make_boundary_hydro(ilevel)
   endif
-
-!Dust diffusion step
+if(static_gas) then
 #if NDUST>0
   if(dust_diffusion)then
-
-     call timer('dust - diffusion','start')
-     if((hydro).and.(.not.static_gas))    call set_vdust(ilevel)
-!     if((hydro).and.(.not.static_gas))    call set_vdust_left(ilevel)
-     do idim =1,ndim
-        do idust=1,ndust
-           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-        end do
-     end do     
-     call set_unew_dust(ilevel)
+                     call timer('dust - diffusion','start')
      call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
-     do idust=1,ndust
-        call make_virtual_reverse_dp(unew(1,firstindex_ndust+idust),ilevel)
-     end do
-     call set_uold_dust(ilevel)
-        do idust=1,ndust
-           call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
-        end do
-     call upload_fine(ilevel)
-     do idust=1,ndust
-        call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
-     end do
-     call make_virtual_fine_dp(uold(1,5),ilevel)
-     if(simple_boundary)call make_boundary_hydro(ilevel)
-     if((hydro).and.(.not.static_gas))call set_vdust(ilevel)
-     do idim =1,ndim
-        do idust=1,ndust
-           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-        end do
-     end do
-end if
+  end if
 #endif
+end if
 
 
 #ifdef SOLVERmhd

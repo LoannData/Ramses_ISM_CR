@@ -6177,7 +6177,6 @@ else if(use_x3d==1)then
 
    eta_AD_chimie=BBcgs**2/(eta_AD_chimie*densionbis(inp)*inp*scale_d*scale_d*clight**2)  ! need B in G, output is gammaad in cgs
 
-
 endif
 ! stop
 

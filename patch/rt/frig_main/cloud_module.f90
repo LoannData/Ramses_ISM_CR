@@ -21,7 +21,6 @@ module cloud_module
   real(dp)::V0=0.
   real(dp)::Height0=0.
 
-
   real(dp)::bl_fac=1.   !multiply calculated boxlen by this factor
 
 
@@ -46,8 +45,16 @@ module cloud_module
   real(dp):: delta_rho=0.0d0
   real(dp):: Mach=0.0d0
 
+  !delayed gravity
+  !gravity forces are applied only after this time (this is typically to prepare initial conditions)
+  !time_grav is assumed to be in Myr 
+  real(dp)::time_grav=0.0d0
+
+
   ! PMS evolution related stuff
   logical :: rt_feedback=.false.       ! take into account RT feedback
+  logical :: rt_protostar_m1=.false.   ! take into account RT feedback with M1
+  logical :: rt_protostar_fld=.false.  ! take into account RT feedback with FLD
   logical :: PMS_evol=.false.          ! Take into account PMS evolution subgrid model
   logical :: Hosokawa_track=.false.    ! Take into account PMS evolution subgrid model
   real(dp):: dt_lsink_update=50        ! frequency of the sink luminosity update with PMS evolution (in yr)
@@ -58,6 +65,7 @@ module cloud_module
   integer :: modrestart=0              ! name of model you want to restart from, this is an input
   real(dp):: facc_star_lum=0.75d0      ! fraction of the accretion luminosity radiated by the sinks
   real(dp):: facc_star=0.5d0           ! fraction of the sink accreted mass actually accreted by the star
+  real(dp):: facc_star_mom=1.0d0       ! fraction of the angular momentum accreted by the sinks
   integer::nmdot_PMS,nm_PMS,ndata_PMS
   integer ,allocatable,dimension(:)::nb_ligne_PMS
   real(dp),allocatable,dimension(:,:,:)::data_PMS
@@ -197,7 +205,7 @@ subroutine read_cloud_params(nml_ok)
   ! Namelist definitions
   !--------------------------------------------------
   namelist/cloud_params/mass_c,rap,cont,ff_sct,ff_rt,ff_act,ff_vct,thet_mag &
-       & ,bl_fac, scale_tout
+       & ,bl_fac, scale_tout,time_grav
 
   ! Read namelist file
   rewind(1)
@@ -206,6 +214,10 @@ subroutine read_cloud_params(nml_ok)
 
   ! Get some units out there
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+
+  !convert time_grav from Myr into scale_units
+  time_grav = time_grav * 1d6 * 365.25d0 * 86400d0 / scale_t
+
 
   ! Calculate boxlen
   if (mass_c .gt. 0) then

@@ -130,7 +130,7 @@ endif
      write(ilun,'("variable #",I2,":v_dust_x_",I1)')ivar+idust,idust
      write(ilun,'("variable #",I2,":v_dust_y_",I1)')ivar+idust+1,idust
      write(ilun,'("variable #",I2,":v_dust_z_",I1)')ivar+idust+2,idust
-     ivar=ivar+3
+     ivar = ivar +(ndim-1)
   end do
 #endif   
   close(ilun)
@@ -373,7 +373,7 @@ subroutine backup_hydro(filename)
                  do ivar=1,ndust
                     sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+ivar)/d
                  end do
-                    xdp(i)=v_dust(ind_grid(i)+iskip,idust,idim)/(1.0d0-sum_dust)
+                    xdp(i)=v_dust(ind_grid(i)+iskip,idust,idim)!/(1.0d0-sum_dust)
                  end do
                  write(ilun)xdp
               end do

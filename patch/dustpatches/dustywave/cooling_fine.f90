@@ -652,7 +652,9 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      do i=1,nleaf
         sum_dust=0.0d0
 #if NDUST>0
-        sum_dust = sum_dust +uold(ind_leaf(i),firstindex_ndust+idust)/uold(ind_leaf(i),1)
+        do idust=1,ndust
+           sum_dust = sum_dust +uold(ind_leaf(i),firstindex_ndust+idust)/uold(ind_leaf(i),1)
+        end do   
 #endif        
         T2min(i) =(1.0d0-sum_dust)*nH(i)/(gamma-1.0)! T2min(i)*(1.0d0-sum_dust)*nH(i)/scale_T2/(gamma-1.0)
      end do

@@ -320,7 +320,8 @@ subroutine courant_fine(ilevel)
   ! fin modif nimhd
 #endif
 
-  if(dt_control)dtnew(ilevel)=1.0d-3
+  if(dt_control)dtnew(ilevel)=1.0d-7
+
 111 format('   Entering courant_fine for level ',I2)
 
 end subroutine courant_fine

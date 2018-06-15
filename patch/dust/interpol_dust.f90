@@ -13,7 +13,7 @@ subroutine interpol_hydro_dust(u1,ind1,u2,nn)
   ! The interpolated variables are:
   ! the dust velocities
   real(dp)::oneover_twotondim
-  integer::i,j,ivar,idim,ind,ix,iy,iz,neul=5
+  integer::i,j,ivar,jdim,idust,idim,ind,ix,iy,iz
 #if NENER>0
   integer::irad
 #endif
@@ -34,20 +34,18 @@ subroutine interpol_hydro_dust(u1,ind1,u2,nn)
      if(ndim>2)xc(ind,3)=(dble(iz)-0.5D0)
   end do
 
-
   !------------------------------------------------
   ! Loop over cell-centered interpolation variables
   !------------------------------------------------
-  do ivar=1,ndust*ndim
-  if(ivar<=neul.or.ivar>neul+ndim)then
-
+  do idim=1,ndim
+     do idust=1,ndust
      ! Load father variable
      do j=0,twondim
         do i=1,nn
-           a(i,j)=u1(i,j,ivar)
+           a(i,j)=u1(i,j,ndim*(idust-1)+idim)
+         !  print *,a(i,j)
         end do
      end do
-
      ! Reset gradient
      w(1:nn,1:ndim)=0.0D0
 
@@ -55,32 +53,18 @@ subroutine interpol_hydro_dust(u1,ind1,u2,nn)
      if(interpol_type==1)call compute_limiter_minmod(a,w,nn)
      if(interpol_type==2)call compute_limiter_central(a,w,nn)
      if(interpol_type==3)call compute_central(a,w,nn)
-     ! choose central limiter for velocities, mon-cen for 
-     ! quantities that should not become negative.
-     if(interpol_type==4)then
-        if (interpol_var .ne. 2)then
-           write(*,*)'interpol_type=4 is designed for interpol_var=2'
-           call clean_stop
-        end if
-        if (ivar>1 .and. (ivar <= 1+ndim))then
-           call compute_central(a,w,nn)
-        else
-           call compute_limiter_central(a,w,nn)
-        end if
-     end if
 
      ! Interpolate over children cells
      do ind=1,twotondim
-        u2(1:nn,ind,ivar)=a(1:nn,0)
-        do idim=1,ndim
+        u2(1:nn,ind,ndim*(idust-1)+idim)=a(1:nn,0)
+        do jdim=1,ndim
            do i=1,nn
-              u2(i,ind,ivar)=u2(i,ind,ivar)+w(i,idim)*xc(ind,idim)
+              u2(i,ind,ndim*(idust-1)+idim)=u2(i,ind,ndim*(idust-1)+idim)+w(i,jdim)*xc(ind,jdim)
            end do
         end do
      end do
-
-  end if
   end do
+enddo
   ! End loop over cell-centered variables
 
 end subroutine interpol_hydro_dust

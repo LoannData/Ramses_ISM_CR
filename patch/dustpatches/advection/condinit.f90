@@ -4,11 +4,8 @@
 !================================================================
 subroutine condinit(x,u,dx,nn)
   use amr_parameters
-  use units_commons
   use hydro_parameters
-  use poisson_parameters
-  use cooling_module      , only : kb,mh
-  use radiation_parameters,only:mu_gas
+  use hydro_commons
   implicit none
   integer ::nn                              ! Number of cells
   real(dp)::dx                              ! Cell size
@@ -28,55 +25,38 @@ subroutine condinit(x,u,dx,nn)
   ! scalars in the hydro solver.
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
-  integer::ivar, idust, i
-  real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp)::x0,sum_dust,ee,H_disc,rho_sim,cs2,R0,m_center,rc,xx,yy,zz,gravi
-  real(dp),dimension(1:ndust):: dustMRN
-  real(dp):: epsilon_0
-  rho_sim = rho_0/scale_d
-  cs2=gamma*kb*Temper/mu_gas/mh/scale_v/scale_v
-  epsilon_0 = dust_ratio(1)
-  q(1:nn,2)=0.0d0
-  q(1:nn,3)=0.0d0
-  q(1:nn,4)=0.0d0
-  q(1:nn,5)=0.0d0
-  q(1:nn,6)=0.0d0
-  q(1:nn,7)=0.0d0
-  q(1:nn,8)=0.0d0
-  q(1:nn,nvar+1)=0.0d0
-  q(1:nn,nvar+2)=0.0d0
-  q(1:nn,nvar+3)=0.0d0
-  do ivar=9,nvar
-     q(1:nn,ivar)=0.0d0
-  end do
-  do i=1,nn
-     xx=x(i,1)
-     yy=x(i,2)-boxlen/2.0
-     rc= sqrt(xx**2.0+yy**2.0+gravity_params(2)**2)
-     sum_dust=0.0d0
 #if NDUST>0
-     do idust =1,ndust
-        dustMRN(idust) = dust_ratio(idust)/(1.0+dust_ratio(idust))
-     end do
-     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
-     do idust =1,ndust
-        sum_dust = sum_dust + dustMRN(idust)
-        q(i,firstindex_ndust+idust) = dustMRN(idust)
-     end do
+  integer::idust,i
 #endif
-     gravi =-cs2*abs((1.0d0-sum_dust)*log(gravity_params(1))/(gravity_params(2)))
-        H_disc =-gravity_params(2)/log(gravity_params(1))
-        q(i,1)=rho_sim*exp(-abs(yy/(H_disc)))+1d-22/scale_d
-        q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs2
-        q(i,2)= 0.0d0
-        q(i,3)= 0.0d0
-        q(i,4)= 0.0d0
+#if NENER>0
+  integer::irad
+#endif
+#if NVAR>8+NENER
+  integer::ivar
+#endif  
+  real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
+  real(dp),dimension(1:nvector) :: sum_dust
+  real(dp)::xn
 
-  end do
-  
+     ! Call built-in initial condition generator
+     call region_condinit(x,q,dx,nn)
+     ! Add here, if you wish, some user-defined initial conditions
      ! Convert primitive to conservative variables
      ! density -> density
-     u(1:nn,1)=q(1:nn,1)
+
+     sum_dust =0.0_dp
+#if NDUST>0
+             do i=1,nn
+                
+                xn=0.0d0
+                xn=2.0d0*abs(x(i,1)-x_center(2))/length_x(2)
+                do idust=1,ndust
+                  q(i,firstindex_ndust+idust)= dust_region(1,idust)+ dust_region(2,idust)*exp(-(xn)**2.0)
+                end do
+            end do
+#endif
+
+      u(1:nn,1)=q(1:nn,1)
      ! velocity -> momentum
      u(1:nn,2)=q(1:nn,1)*q(1:nn,2)
      u(1:nn,3)=q(1:nn,1)*q(1:nn,3)
@@ -133,11 +113,10 @@ subroutine condinit(x,u,dx,nn)
 #endif
 #if NDUST>0
      ! dust
-     do ivar=1,ndust
-        u(1:nn,firstindex_ndust+ivar)=q(1:nn,1)*q(1:nn,firstindex_ndust+ivar)
+     do idust=1,ndust
+        u(1:nn,firstindex_ndust+idust)=q(1:nn,1)*q(1:nn,firstindex_ndust+idust)
      end do
 #endif
- 
 end subroutine condinit
 !================================================================
 !================================================================
@@ -158,10 +137,11 @@ subroutine velana(x,v,dx,t,ncell)
   ! v(i,1:3) is the imposed 3-velocity in user units.
   !================================================================
   integer::i
-  real(dp)::xx,yy,zz,vx,vy,vz,rr,tt,omega,aa,twopi
-
+  real(dp)::xx,yy=0.,zz=0.,vx,vy,vz,aa,twopi
+!!$  real(dp)::rr,tt,omega
+  
   ! Add here, if you wish, some user-defined initial conditions
-  aa=1.0
+  aa=1.0+0.*t
   twopi=2d0*ACOS(-1d0)
   do i=1,ncell
 

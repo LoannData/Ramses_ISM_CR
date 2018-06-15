@@ -29,7 +29,7 @@ subroutine set_dflux_dust_new(ilevel)
         end do
      end do
   end do
-  end do
+end do
 111 format('   Entering set_dflux_dust for level ',i2)
 
 end subroutine set_dflux_dust_new
@@ -119,7 +119,6 @@ subroutine set_uold_dust(ilevel)
            enddo
            !Update all the quantities that depend on rho
            rho_gas = uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_old*d
-           d = uold(active(ilevel)%igrid(i)+iskip,1)
            u = uold(active(ilevel)%igrid(i)+iskip,2)/d
            v = uold(active(ilevel)%igrid(i)+iskip,3)/d
            w = uold(active(ilevel)%igrid(i)+iskip,4)/d
@@ -144,6 +143,12 @@ subroutine set_uold_dust(ilevel)
            !If we test barenblatt we only update P
            if(static_gas) unew(active(ilevel)%igrid(i)+iskip,5)=(1.0_dp-sum_dust_new)*uold(active(ilevel)%igrid(i)+iskip,1)/(gamma-1.0_dp)
            uold(active(ilevel)%igrid(i)+iskip,5) = unew(active(ilevel)%igrid(i)+iskip,5)
+        end do
+     end do
+  !Set unew to uold for myid cells
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,active(ilevel)%ngrid           
            do idust=1,ndust
               uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
            end do
@@ -169,22 +174,55 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   ! hydro solver. On entry, hydro variables are gathered from array uold.
   ! On exit, unew has been updated. 
   !--------------------------------------------------------------------------
-  integer::i,ivar,igrid,ncache,ngrid,ind,iskip,icpu,idust
+  integer::i,ivar,igrid,ncache,ngrid,ind,iskip,icpu,idust,idim
   integer,dimension(1:nvector),save::ind_grid
   logical:: d_cycle_ok
   integer :: icycle, ncycle
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
+  do ivar =1, nvar
+     call make_virtual_fine_dp(uold(1,ivar),ilevel)
+  end do
+  call set_vdust(ilevel)
+  call upload_fine(ilevel)
 
-  ncache=active(ilevel)%ngrid
-     do igrid=1,ncache,nvector
-        ngrid=MIN(nvector,ncache-igrid+1)
-        do i=1,ngrid
-           ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
-        end do
-        call dustdifffine1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle,icycle)
+  do idim =1,ndim
+     do idust=1,ndust
+        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
      end do
+  end do
+
+  call set_unew_dust(ilevel)
+  ncache=active(ilevel)%ngrid
+  do igrid=1,ncache,nvector
+     ngrid=MIN(nvector,ncache-igrid+1)
+     do i=1,ngrid
+        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+     end do
+     call dustdifffine1(ind_grid,ngrid,ilevel,d_cycle_ok,ncycle,icycle)
+  end do
+  do idust=1,ndust
+     call make_virtual_reverse_dp(unew(1,firstindex_ndust+idust),ilevel)
+  end do
+  call set_uold_dust(ilevel)
+  do idust=1,ndust
+     call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
+  end do
+  call set_vdust(ilevel)
+  
+  call upload_fine(ilevel)
+  do idust=1,ndust
+     call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
+  end do
+  call make_virtual_fine_dp(uold(1,5),ilevel)
+  do idim =1,ndim
+     do idust=1,ndust
+       call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+     end do
+  end do
+  if(simple_boundary)call make_boundary_hydro(ilevel)
+
 111 format('   Entering dust_diffusion_fine for level ',i2)
 
 
@@ -221,7 +259,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   real(dp),dimension(1:nvector,1:twotondim,1:nvar+3),save::u2
   real(dp),dimension(1:nvector,0:twondim  ,1:ndust*ndim),save::u1dust
   real(dp),dimension(1:nvector,1:twotondim,1:ndust*ndim),save::u2dust
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2*ndust*ndim+2),save::uloc
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndust+ndust*ndim),save::uloc
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndust,1:ndim),save::flux
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
   integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
@@ -254,25 +292,13 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   t_stop_floor =0.0d0
-  dens_floor=0.0d0
   sum_dust=0.0d0
-#if DUSTY_COLL>0  
-#if NDUST>0
-     do idust =1,ndust
-        dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-     end do     
-     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
-     do idust =1,ndust
-           sum_dust = sum_dust + dustMRN(idust)
-     end do   
-#endif
-  r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
-  d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
-  dens_floor=d0
-#endif
+
   !Saved variables set to 0
   u1   = 0.0d0
   u2   = 0.0d0
+  u1dust=0.0d0
+  u2dust=0.0d0
   flux = 0.0d0  
   uloc = 0.0d0
   ok   = .false.
@@ -293,7 +319,7 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
     end do
  endif
   ! Mesh spacing in that level
-  nx_loc=icoarse_max-icoarse_min+1
+ nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
   dx=0.5D0**ilevel*scale
   ! Integer constants
@@ -346,8 +372,10 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
         do j=0,twondim
            do idim=1,ndim
               do idust=1,ndust
-                  u1dust(i,j,idim*idust)=v_dust(ibuffer_father(i,j),idust,idim)
-              end do   
+                 do i=1,nbuffer
+                    u1dust(i,j,ndim*(idust-1)+idim)=v_dust(ibuffer_father(i,j),idust,idim)
+                 end do
+              end do
            end do
            do ivar=1,nvar+3 
               do i=1,nbuffer
@@ -383,28 +411,36 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
            ok(ind_nexist(i),i3,j3,k3)=.false.
         end do
         !Gather dust variables
-        do idust=1,ndust
-           do i=1,nexist
+
+        do i=1,nexist
+           do idust=1,ndust
               uloc(ind_exist(i),i3,j3,k3,idust)=uold(ind_cell(i),firstindex_ndust+idust)
+            end do
               do idim= 1,ndim
-                 uloc(ind_exist(i),i3,j3,k3,ndust+idust*idim)= v_dust(ind_cell(i),idust,idim)
-              end do
-           end do
+                 do idust=1,ndust
+                    uloc(ind_exist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= v_dust(ind_cell(i),idust,idim)
+                 end do
+                 !print*, v_dust(ind_cell(i),idust,idim), ndust+ndim*(idust-1)+idim, idim
+               end do
+            end do
            do i=1,nbuffer
               uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)
               do idim= 1,ndim
-                 uloc(ind_nexist(i),i3,j3,k3,ndust+idust*idim)= u2dust(i,ind_son,idust*idim)
+                 do idust=1,ndust
+                    uloc(ind_nexist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= u2dust(i,ind_son,ndim*(idust-1)+idim)
+                 end do
               end do
            end do
         end do
+
      end do
-     end do
-     end do
+  end do
+end do
      !End loop over cells
-  end do
-  end do
-  end do
-  !End loop over neighboring grids
+end do
+end do
+!end do
+!End loop over neighboring grids
   
   !-----------------------------------------------
   ! Compute flux due to dust diffusion
@@ -456,8 +492,11 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
            if(son(ind_cell(i))==0)then
               do idust=1,ndust
                  !Update rhodust
+                ! print *, unew(ind_cell(i),firstindex_ndust+idust)
                  unew(ind_cell(i),firstindex_ndust+idust)=unew(ind_cell(i),firstindex_ndust+idust) +(flux(i,i3,j3,k3,idust,idim)&
                       &-flux(i,i3+i0,j3+j0,k3+k0,idust,idim))
+                 !print *, flux(i,i3,j3,k3,idust,idim)&
+                 !     &,-flux(i,i3+i0,j3+j0,k3+k0,idust,idim), unew(ind_cell(i),firstindex_ndust+idust)
               enddo
            end if
      end do
