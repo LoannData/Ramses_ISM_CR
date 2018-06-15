@@ -6,6 +6,7 @@ recursive subroutine amr_step(ilevel,icount)
 
   use cloud_module, only: rt_feedback
   use feedback_module
+  use units_commons
 
 #ifdef RT
   use rt_hydro_commons
@@ -30,6 +31,7 @@ recursive subroutine amr_step(ilevel,icount)
   !-------------------------------------------------------------------!
   integer::i,idim,ivar,idust,icycle, ncycle
   logical::ok_defrag,output_now_all,d_cycle_ok
+  real(dp):: max_dens
   logical,save::first_step=.true.
 #if NIMHD==1
   !!! sts !!!
@@ -107,7 +109,7 @@ recursive subroutine amr_step(ilevel,icount)
         end do
      end if
   end if
-
+  max_dens=log10(Maxval(uold(:,1))*scale_d)
   !--------------------------
   ! Load balance
   !--------------------------
@@ -163,7 +165,7 @@ recursive subroutine amr_step(ilevel,icount)
      call MPI_BARRIER(MPI_COMM_WORLD,mpi_err)
      call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
 #endif
-     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.EQV..true.)then
+     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.or.abs(max_dens-11)<=0.1.EQV..true.)then
                                call timer('io','start')
         if(.not.ok_defrag)then
            call defrag
