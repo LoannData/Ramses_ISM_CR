@@ -555,12 +555,18 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
            if(r .gt. 0.) then
               ! If cell lies within CIC cloud, inject value.
               ! Photon input is in # per sec...need to convert to uu
+#if NDIM>1
               lum_group = radiation_source(Tstar,1)/(scale_d*scale_v**2)*(pi*rstar_adim**2*clight/scale_v)/(2.d0*Rin)
+#endif
+#if NDIM>2
+              lum_group = radiation_source(Tstar,1)/(scale_d*scale_v**2)*(pi*rstar_adim**2*clight/scale_v)
+#endif
               uu(i,group_ind)=uu(i,group_ind)                            &
-                   + lum_group*dt/((group_egy(1)*ev_to_erg)/scale_d/scale_v**2)
+                   + lum_group*scale_d*scale_v**2*dt/(scale_Np*group_egy(1)*ev_to_erg)*r/(dx**ndim)
 
               uu(i,group_ind)=uu(i,group_ind)                            &
                             + rt_n_source(k) / scale_Np * r / vol * dt_cgs
+
               uu(i,group_ind+1)=uu(i,group_ind+1) + rt_u_source(k) *rt_c &
                             * rt_n_source(k) / scale_Np * r / vol * dt_cgs
 #if NDIM>1

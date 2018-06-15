@@ -9,6 +9,9 @@ subroutine condinit(x,u,dx,nn)
   use radiation_parameters
   use units_commons
   use rt_parameters, ONLY :rt_src_x_center,rt_src_y_center
+#if NDIM>2
+  use rt_parameters, ONLY :rt_src_z_center
+#endif
   implicit none
   integer ::nn                              ! Number of cells
   real(dp)::dx                              ! Cell size
@@ -36,6 +39,9 @@ subroutine condinit(x,u,dx,nn)
   real(dp)::rosseland_ana,planck_ana
   real(dp)::au ! innner disc radius
   real(dp)::hr,zd
+#if NDIM>2
+  real(dp)::z0,zz
+#endif
   
   ! Call built-in initial condition generator
   call region_condinit(x,q,dx,nn)
@@ -45,10 +51,16 @@ subroutine condinit(x,u,dx,nn)
   boxlen = 1.0d0
   x0=rt_src_x_center(1)
   y0=rt_src_y_center(1)
+#if NDIM>2
+  z0=rt_src_z_center(1)
+#endif
   pi=acos(-1.0d0)
   rd  = Rin
   zd=boxlen/4.
-  
+  ! for flarer disk (next step)
+!  rd = 0.1d0
+!  zd = 0.01d0
+
   ! AU in code units
   au = 1.496e13/scale_l
 
@@ -66,14 +78,25 @@ subroutine condinit(x,u,dx,nn)
      q(i,3) = 0.0d0
      q(i,4) = 0.0d0
   
-     !cylindrical radius !
+#if NDIM>1
+     !it is not a cylindrical radius
      rs  = sqrt(xx**2+yy**2)
 !!$     rho = rho0*((rs/rd)**(-2.0d0))
-!     rs  = sqrt(xx**2)
+     !rs  = sqrt(xx**2) !flarer disk, closer to pinte's test
      hr=zd*abs(xx)
+     !hr = zd * (abs(xx)/rd)**1.25
      rho = rho0*((rs/rd)**(-2.0d0))*exp(-pi/4.*(yy/hr)**2.)
-     
-     
+     !rho = rho0*((rs/rd)**(-2.625d0))*exp(-0.5d0*(yy/hr)**2.)                                                                                           
+#endif
+
+#if NDIM>2
+     !Same disk as in the 2D tests (ie not much flared)
+     zz  = x(i,3)-z0
+     hr  = zd*sqrt(xx**2+yy**2)
+     !it is not cylindrical radius
+     rs  = sqrt(xx**2+yy**2+zz**2)
+     rho = rho0*((rs/rd)**(-2.0d0))*exp(-pi/4.*(zz/hr)**2.)
+#endif
      if (rs .lt. Rin) then
         rho = smallr
      endif
@@ -388,8 +411,8 @@ SUBROUTINE radiation_sources_vsweep(x,uu,dx,dt,nn)
 ! nn     =>  int number of cells
 !------------------------------------------------------------------------
   use amr_commons
-  use rt_parameters, ONLY :rt_nsource,rt_source_type,rt_src_x_center,rt_src_y_center &
-       &,rt_src_length_x,rt_src_length_y,rt_src_start,rt_src_end,rt_exp_source,rt_src_group,rt_n_source
+  use rt_parameters, ONLY :rt_nsource,rt_source_type,rt_src_x_center,rt_src_y_center,rt_src_z_center &
+       &,rt_src_length_x,rt_src_length_y,rt_src_length_z,rt_src_start,rt_src_end,rt_exp_source,rt_src_group,rt_n_source
   use radiation_parameters
   use hydro_commons, ONLY: nvar,uold
   use cooling_module,only: clight
@@ -417,7 +440,12 @@ SUBROUTINE radiation_sources_vsweep(x,uu,dx,dt,nn)
   !dx_cgs=dx*scale_l
   !dt_cgs=dt*scale_t
   rstar_adim = rstar*6.96d10 / scale_l
+#if NDIM>1
   lum_star=(5.67d-5*(Tstar**4))*4.0d0*3.1415d0*(rstar_adim)**2/(scale_d*(scale_v)**3)/(2.d0*Rin)
+#endif
+#if NDIM>2
+  lum_star=(5.67d-5*(Tstar**4))*4.0d0*3.1415d0*(rstar_adim)**2/(scale_d*(scale_v)**3)
+#endif
 !  write(*,*) "lumstar=",lum_star, Tstar,rstar,rstar_adim
   ! Loop over RT regions
   do k=1,rt_nsource
@@ -477,8 +505,12 @@ SUBROUTINE radiation_sources_vsweep(x,uu,dx,dt,nn)
                  !uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + lum_star*r/vol*dtnew(ilevel)!/((4.0d0*pi*rmax**3)/3.0d0) !if weight=1.
               else
                  do igrp=1,ngrp
+#if NDIM>1
                     lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rstar_adim**2*clight/scale_v)/(2.d0*Rin)
-                  !  write(*,*) "lum_group=", lum_group,rstar,rstar_adim
+#endif
+#if NDIM>2
+                    lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rstar_adim**2*clight/scale_v)
+#endif
                     !/((4.0d0*pi*rmax**3)/3.0d0) !if weight=1, in 3D
                     uu(i,igrp) = uu(i,igrp) + lum_group*dt*r/vol ! for normalization
                     !uold(ind_cell(i),5)=uold(ind_cell(i),5) + lum_group*r/vol*dtnew(ilevel) !way of adding Erad with radiation patch

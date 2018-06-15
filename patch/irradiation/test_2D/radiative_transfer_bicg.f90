@@ -1,8 +1,14 @@
+
 subroutine diffusion_cg (ilevel,Nsub)
   use amr_commons,only:myid,numbtot,active,son,ncpu,reception,dtnew,ncoarse,nstep
   use amr_parameters, only : verbose, ndim
   use hydro_commons
+
+  use rt_hydro_commons !raph, M1 heating 
   use radiation_parameters
+  use rt_cooling_module
+  use cloud_module, only : rt_protostar_m1
+
   use const
   use units_commons
   implicit none
@@ -50,10 +56,13 @@ subroutine diffusion_cg (ilevel,Nsub)
   integer::i,ind,iter,iskip,itermax,icpu,igroup,igrp,irad,jrad,ivar
   integer::this,nleaf_tot
   real(dp)::radiation_source,deriv_radiation_source,rhs,lhs
-
+ 
   real(dp)::rho_bicg_new,rho_bicg_old,alpha_bicg,omega_bicg,beta_bicg
 
   real(dp)::max_loc
+
+  real(dp)::protostellar_heating !raph for M1 heating
+  integer ::im1
 
 #ifndef WITHOUTMPI
   integer::info,nleaf_all
@@ -70,6 +79,16 @@ subroutine diffusion_cg (ilevel,Nsub)
   real(dp)::min_ener,min_ener_all,max_ener,max_ener_all
   real(dp),dimension(1:ngrp)::dener
   !benoit
+
+  !raph, M1 injection
+#ifdef RT
+  real(dp)::scale_Np,scale_Fp
+#endif
+
+#ifdef RT
+  call rt_units(scale_Np,scale_Fp)
+#endif
+  !raph
 
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
@@ -642,9 +661,9 @@ subroutine diffusion_cg (ilevel,Nsub)
   !====================================
   do i=1,nb_ind
 
-     rho = uold(liste_ind(i),1)
-     Told= uold(liste_ind(i),nvar) * Tr_floor
-     Cv = unew(liste_ind(i),nvar+1)
+     rho = uold(liste_ind(i),1)               ! [-] = adimensioned
+     Told= uold(liste_ind(i),nvar) * Tr_floor ! [K]
+     Cv = unew(liste_ind(i),nvar+1)           ! [K^-1]
      
      rhs=zero
      lhs=zero
@@ -657,13 +676,24 @@ subroutine diffusion_cg (ilevel,Nsub)
 !!$        rhs=rhs-P_cal*wdt*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0 &
 !!$             & -unew(liste_ind(i),firstindex_er+igrp))
         rhs=rhs-P_cal*wdtB*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0) &
-             & + P_cal*wdtE*unew(liste_ind(i),firstindex_er+igrp)
+             & + P_cal*wdtE*unew(liste_ind(i),firstindex_er+igrp) ! [-]
 
-        lhs=lhs+P_cal*wdtB*deriv_radiation_source(Told,igrp)/scale_E0
+        lhs=lhs+P_cal*wdtB*deriv_radiation_source(Told,igrp)/scale_E0 ! [K^-1]
      enddo
 
-     unew(liste_ind(i),nvar) = (cv*Told+rhs)/(cv+lhs) / Tr_floor
+     protostellar_heating = 0.0d0
+#ifdef RT
+     if(rt_protostar_m1 .and. rt_advect)then
+        do im1=1,ngroups
+           protostellar_heating = rtuold(liste_ind(i),iGroups(im1))*scale_Np*group_egy(im1)*ev_to_erg*kappaAbs(im1)*rho*scale_d*rt_c_cgs*z_ave / (scale_d*scale_v**2)
+        end do
+     end if
+#endif
 
+     protostellar_heating = protostellar_heating * dt_imp * scale_t ! ph [s-1] * t [s] ; same unit as cvTold, rhs
+
+!     unew(liste_ind(i),nvar) = (cv*Told+rhs)/(cv+lhs) / Tr_floor !No M1 E injection or injection into Erad equation
+     unew(liste_ind(i),nvar) = (cv*Told+rhs+protostellar_heating)/(cv+lhs) / Tr_floor !M1 injection into internal energy
   end do
 #endif
 
@@ -2419,7 +2449,6 @@ end function nu_surf
 !###########################################################
 
 subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
-
   use hydro_parameters,only:nvar
   use hydro_commons
   use rt_hydro_commons
@@ -2486,10 +2515,10 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   do igrp=1,ngrp
      ! Store radiation_source, deriv_radiation_source and planck opacity to save cpu time
      Trold=cal_Teg(uold(i,firstindex_er+igrp)*scale_E0,igrp)
-     source(igrp)=radiation_source(Told,igrp)
-     deriv(igrp)=deriv_radiation_source(Told,igrp)
-     wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa
-     wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
+     source(igrp)=radiation_source(Told,igrp)                                      ! [erg.cm-3] aT^4 if grey
+     deriv(igrp)=deriv_radiation_source(Told,igrp)                                 ! [erg.cm-3.K-1] 3aT^3 if grey
+     wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa ! [-]
+     wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa ! [-]
      
      lhs=lhs+P_cal*wdtB(igrp)*deriv(igrp)/scale_E0
      rhs=rhs-P_cal*wdtB(igrp)*(source(igrp)/scale_E0-Told*deriv(igrp)/scale_E0)
@@ -2515,8 +2544,11 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
 
      residual(igroup) = uold(i,firstindex_er+igroup)*vol_loc  &
           & + vol_loc*wdtB(igroup)*(source(igroup)/scale_E0-Told*deriv(igroup)/scale_E0) &
-          & + protostellar_heating*vol_loc* (scale_d*scale_v**2)*dt_imp*scale_t/scale_E0 &
-          & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*(cv*Told+rhs+nimhd_heating)/(cv+lhs)
+!          & + protostellar_heating*vol_loc* (scale_d*scale_v**2)*dt_imp*scale_t/scale_E0 & !M1 injection into the radiative energy eq
+          & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*protostellar_heating*dt_imp*scale_t/(cv+lhs) & !M1 injection into CvT
+          & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*(cv*Told+rhs+nimhd_heating)/(cv+lhs) 
+
+
   enddo
 
   return
