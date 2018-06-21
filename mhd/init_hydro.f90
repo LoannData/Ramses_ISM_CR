@@ -268,7 +268,7 @@ subroutine init_hydro
                        read(ilun)xx
                        do i=1,ncache
                           !uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
-                          uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                          uold(ind_grid(i)+iskip,ivar)=xx(i)
                        end do
                     end do
                  else
