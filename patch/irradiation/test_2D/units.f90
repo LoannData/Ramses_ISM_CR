@@ -45,7 +45,7 @@ subroutine units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   ! scale_nH converts rho in user units into nH in H/cc
 !  scale_nH = X/(mH*mu) * scale_d
-  scale_nH = 1.0_dp ! X/(mH) * scale_d
+  scale_nH =  X/(mH) * scale_d !1.0_dp
   
   scale_kappa = 1.0_dp/scale_l
   

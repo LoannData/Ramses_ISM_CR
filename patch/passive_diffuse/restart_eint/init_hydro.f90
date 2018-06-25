@@ -108,30 +108,12 @@ subroutine init_hydro
      read(ilun)nboundary2
      read(ilun)gamma2
 !      if( (eos .and. nvar2.ne.nvar+3+1) .or. (.not.eos .and. nvar2.ne.nvar+3) )then
-!     if(nvar2.ne.nvar+4)then
-     if(.not.(neq_chem.or.rt) .and. nvar2.ne.nvar+4)then
+     if(nvar2.ne.nvar+4)then
         write(*,*)'File hydro.tmp is not compatible'
         write(*,*)'Found   =',nvar2
         write(*,*)'Expected=',nvar+4
         call clean_stop
      end if
-#ifdef RT
-     if((neq_chem.or.rt).and.nvar2.lt.nvar+4)then ! OK to add ionization fraction vars
-        ! Convert birth times for RT postprocessing:
-        if(rt.and.static) convert_birth_times=.true.
-        if(myid==1) write(*,*)'File hydro.tmp is not compatible'
-        if(myid==1) write(*,*)'Found nvar2  =',nvar2
-        if(myid==1) write(*,*)'Expected=',nvar+4
-        if(myid==1) write(*,*)'..so only reading first ',nvar2, &
-                  'variables and setting the rest to zero'
-     end if
-     if((neq_chem.or.rt).and.nvar2.gt.nvar+4)then ! Not OK to drop variables
-        if(myid==1) write(*,*)'File hydro.tmp is not compatible'
-        if(myid==1) write(*,*)'Found   =',nvar2
-        if(myid==1) write(*,*)'Expected=',nvar+4
-        call clean_stop
-     end if
-#endif
      do ilevel=1,nlevelmax2
         do ibound=1,nboundary+ncpu
            if(ibound<=ncpu)then
@@ -263,50 +245,41 @@ subroutine init_hydro
 #if NPSCAL>0
 #if NIMHD==1
                  if(write_conservative) then
-                    !do ivar=1,npscal-4 ! Read conservative passive scalars if any
-                    do ivar=firstindex_pscal+1,min(nvar,nvar2-4)-4 ! Read conservative passive scalars if any
+                    do ivar=1,npscal-4 ! Read conservative passive scalars if any
                        read(ilun)xx
                        do i=1,ncache
-                          !uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
-                          uold(ind_grid(i)+iskip,ivar)=xx(i)
+                          uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
                        end do
                     end do
                  else
-                    !do ivar=1,npscal-4 ! Read passive scalars if any
-                    do ivar=firstindex_pscal+1,min(nvar,nvar2-4)-4 ! Read passive scalars if any
+                    do ivar=1,npscal-4 ! Read passive scalars if any
                        read(ilun)xx
                        do i=1,ncache
-                          !uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
-                          uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                          uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
                        end do
                     end do
                  endif
 
-                 !do ivar=npscal-3,npscal-1 ! Read current
-                 do ivar=min(nvar,nvar2)-3,min(nvar,nvar2-4)-1 ! Read current
+                 do ivar=npscal-3,npscal-1 ! Read current
                     read(ilun)xx
                     do i=1,ncache
-                       !uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
-                       uold(ind_grid(i)+iskip,ivar)=xx(i)
+                       uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
                     end do
-                 end do                 
+                 end do
+
 #else
                  if(write_conservative) then
-                    !do ivar=1,npscal-1 ! Read conservative passive scalars if any
-                    do ivar=firstindex_pscal+1,min(nvar,nvar2-4)-1 ! Read conservative passive scalars if any
+                    do ivar=1,npscal-1 ! Read conservative passive scalars if any
                        read(ilun)xx
                        do i=1,ncache
-                          !uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
-                          uold(ind_grid(i)+iskip,ivar)=xx(i)
+                          uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)
                        end do
                     end do
                  else
-                    !do ivar=1,npscal-1 ! Read passive scalars if any
-                    do ivar=firstindex_pscal+1,min(nvar,nvar2-4)-1 ! Read passive scalars if any
+                    do ivar=1,npscal-1 ! Read passive scalars if any
                        read(ilun)xx
                        do i=1,ncache
-                          !uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
-                          uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
+                          uold(ind_grid(i)+iskip,firstindex_pscal+ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
                        end do
                     end do
                  endif
@@ -315,7 +288,7 @@ subroutine init_hydro
                  ! Read internal energy
                  read(ilun)xx
                  do i=1,ncache
-                    uold(ind_grid(i)+iskip,firstindex_pscal+npscal)=xx(i)
+                    uold(ind_grid(i)+iskip,firstindex_pscal+npscal)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
                  end do
 
 #endif
