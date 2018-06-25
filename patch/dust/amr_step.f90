@@ -30,7 +30,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! unless you check all consequences first                           !
   !-------------------------------------------------------------------!
   integer::i,idim,ivar,idust,icycle, ncycle
-  logical::ok_defrag,output_now_all,d_cycle_ok
+  logical::ok_defrag,output_now_all,d_cycle_ok,io_dust_all
   real(dp):: max_dens
   logical,save::first_step=.true.
 #if NIMHD==1
@@ -41,7 +41,6 @@ recursive subroutine amr_step(ilevel,icount)
   if(numbtot(1,ilevel)==0)return
 
   if(verbose)write(*,999)icount,ilevel
-
 
   call boundary_frig(ilevel)
 
@@ -109,7 +108,7 @@ recursive subroutine amr_step(ilevel,icount)
         end do
      end if
   end if
-  max_dens=log10(Maxval(uold(:,1))*scale_d)
+
   !--------------------------
   ! Load balance
   !--------------------------
@@ -137,6 +136,10 @@ recursive subroutine amr_step(ilevel,icount)
         end if
      endif
   end if
+     max_dens=log10(Maxval(uold(:,1)*scale_d-uold(:,firstindex_pscal+1)*scale_d))
+     if (abs(max_dens)<=13.1.and.abs(max_dens)>=12.9) output_now=.true.
+     if (abs(max_dens)<=12.1.and.abs(max_dens)>=11.9) output_now=.true.
+     if (abs(max_dens)<=11.1.and.abs(max_dens)>=10.9) output_now=.true.
 
   !-----------------
   ! Update sink cloud particle properties
@@ -165,7 +168,8 @@ recursive subroutine amr_step(ilevel,icount)
      call MPI_BARRIER(MPI_COMM_WORLD,mpi_err)
      call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
 #endif
-     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.or.abs(max_dens-11)<=0.1.EQV..true.)then
+   
+     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout).or.output_now_all.EQV..true.)then
                                call timer('io','start')
         if(.not.ok_defrag)then
            call defrag
