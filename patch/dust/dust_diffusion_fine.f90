@@ -182,9 +182,10 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
   do ivar =1, nvar
-     call make_virtual_fine_dp(uold(1,ivar),ilevel)
+    call make_virtual_fine_dp(uold(1,ivar),ilevel)
   end do
-  call set_vdust(ilevel)
+  if (.not.mhd_dust)call set_vdust(ilevel)
+  if (mhd_dust) call set_vdust_mhd(ilevel)
   call upload_fine(ilevel)
 
   do idim =1,ndim
@@ -209,8 +210,9 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   do idust=1,ndust
      call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
   end do
-  call set_vdust(ilevel)
-  
+
+  if (.not.mhd_dust)call set_vdust(ilevel)
+  if (mhd_dust) call set_vdust_mhd(ilevel)
   call upload_fine(ilevel)
   do idust=1,ndust
      call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)

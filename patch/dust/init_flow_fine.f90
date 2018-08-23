@@ -490,12 +490,16 @@ subroutine region_condinit(x,q,dx,nn)
   integer::i,j,k
   real(dp)::vol,r,xn,yn,zn,en
   real(dp)::sum_dust
-#if NDUST>0
-  integer::idust
-#endif
 #if NVAR>8
   integer::ivar
 #endif
+#if NDUST>0
+  integer::idust
+  real(dp):: epsilon_0
+  real(dp),dimension(1:ndust):: dustMRN
+  epsilon_0 = dust_ratio(1)
+#endif
+
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   ! Set some (tiny) default values in case n_region=0
@@ -586,7 +590,16 @@ subroutine region_condinit(x,q,dx,nn)
              do idust=1,ndust
                 q(i,firstindex_ndust+idust)= dust_region(k,idust)
                 sum_dust = sum_dust+dust_region(k,idust)
+             end do
+           if(mrn) then
+              sum_dust = 0.0d0
+              call init_dust_ratio(epsilon_0, dustMRN)
+              do idust =1,ndust
+                 q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+                 if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
+                 sum_dust = sum_dust + q(i, firstindex_ndust+idust)
               end do
+           endif             
               q(i,1) = q(i,1)+sum_dust*d_region(k)
 #endif
 
@@ -641,6 +654,15 @@ subroutine region_condinit(x,q,dx,nn)
               q(i,firstindex_ndust+ivar) = q(i,firstindex_ndust+ivar) + dust_region(k,ivar)
               sum_dust                   = sum_dust + q(i,firstindex_ndust+ivar)
            end do
+           if(mrn) then
+              sum_dust = 0.0d0
+              call init_dust_ratio(epsilon_0, dustMRN)
+              do idust =1,ndust
+                 q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+                 if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
+                 sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+              end do
+           endif
               q(i,1) = q(i,1) + sum_dust*q(i,1)
 #endif
            

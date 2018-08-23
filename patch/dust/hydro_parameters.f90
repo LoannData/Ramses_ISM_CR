@@ -249,6 +249,7 @@ module hydro_parameters
   logical :: flag_dust=.true.
   logical :: visco_dust =.true.
   logical :: no_interaction = .false.
+  logical :: mhd_dust =.false.
   real(dp),dimension(1:ndust) :: K_dust = 1.0_dp
   real(dp),dimension(1:ndust):: grain_size = 1.0e-7_dp ! Dust properties (1:ndust) where the sizes of the grains are stocked
   real(dp),dimension(1:ndust):: grain_dens = 1.0_dp ! Dust properties (1:ndust) where the intrinsic of the grains are stocked
