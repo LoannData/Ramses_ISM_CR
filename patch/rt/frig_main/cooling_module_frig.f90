@@ -38,7 +38,6 @@ subroutine solve_cooling_frig(nH,T2,zsolar,boost,dt,deltaT2,ncell)
      deltaT2(i) = (TT - TT_ini) * scale_T2
   end do
 end subroutine solve_cooling_frig
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1098,14 +1097,16 @@ end subroutine contribution
 !PH modifies the name to avoid conflict with calc_temp from previous SAm/frig version
 !which does not take into account extinction 
 !19/01/2017
-subroutine  calc_temp_extinc(NN,TT,dt_tot_unicode,vcolumn_dens,coeff_chi) 
+!subroutine  calc_temp_extinc(NN,TT,dt_tot_unicode,vcolumn_dens,coeff_chi) 
+!modified by PH 3/07/2018 coeff_chi is now stored and is not recalculated 
+subroutine  calc_temp_extinc(NN,TT,dt_tot_unicode,coeff_chi) 
   use amr_parameters
   use hydro_commons
   
   implicit none
   
   real(dp)                                                   :: NN,TT, dt_tot_unicode,coeff_chi
-  real(dp), dimension(1:NdirExt_m,1:NdirExt_n),intent(inout) :: vcolumn_dens
+!  real(dp), dimension(1:NdirExt_m,1:NdirExt_n),intent(inout) :: vcolumn_dens
   
   integer             :: n,i,j,k,idim, iter, itermax               
   real(dp)            :: dt, dt_tot, temps, dt_max, itermoy,extinct
@@ -1187,7 +1188,9 @@ subroutine  calc_temp_extinc(NN,TT,dt_tot_unicode,vcolumn_dens,coeff_chi)
      
      !! here we pass the value of the column density
      
-     call chaud_froid_2(TT,NN,ref,dRefdT,vcolumn_dens,scale_l,coeff_chi)             
+!     call chaud_froid_2(TT,NN,ref,dRefdT,vcolumn_dens,scale_l,coeff_chi)             
+!PH modifies this as coeff_chi is now stored 
+     call chaud_froid_2(TT,NN,ref,dRefDT,coeff_chi)    
      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
      
      if (iter == 0) then
@@ -1581,14 +1584,16 @@ end subroutine init_radiative
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! 2012 VV Modified to include the extinction
-subroutine chaud_froid_2(T,n,ref,dRefDT,vcolumn_dens,sc_l,coeff_chi)    
-  use hydro_commons,only:NdirExt_m,NdirExt_n
+!subroutine chaud_froid_2(T,n,ref,dRefDT,vcolumn_dens,sc_l,coeff_chi)    
+!PH modifies this as coeff_chi is now stored 
+subroutine chaud_froid_2(T,n,ref,dRefDT,coeff_chi)    
+!  use hydro_commons,only:NdirExt_m,NdirExt_n
   use amr_parameters
   
   implicit none
   
-  real(dp)                                                   :: T, n, ref, dRefDT, sc_l,coeff_chi    
-  real(dp), dimension(1:NdirExt_m,1:NdirExt_n),intent(inout) :: vcolumn_dens
+  real(dp)                                                   :: T, n, ref, dRefDT,coeff_chi    
+!  real(dp), dimension(1:NdirExt_m,1:NdirExt_n),intent(inout) :: vcolumn_dens
 
   integer                :: nnn,index_m,index_n          
   real(dp)               :: P,x,ne,extinct,coef             !x est le taux d'ionisation
@@ -1781,23 +1786,10 @@ subroutine chaud_froid_2(T,n,ref,dRefDT,vcolumn_dens,sc_l,coeff_chi)
   G0 = 1.0_dp/1.7_dp
   G0 = G0*p_UV             ! p_UV: parameter of variation of UV
                            ! defined in the namelist
-  coeff_chi  = 1.0D0
+!  coeff_chi  = 1.0D0
 
-  !---  we calculate the extinction using the column density   ----
   if(extinction) then
-     extinct=0.0_dp
-
-     !! Loop in theta and phi 
-     do index_m=1,NdirExt_m
-        do index_n=1,NdirExt_n
-
-           ! now take the exponential and sum over directions 
-           extinct = extinct + exp(-vcolumn_dens(index_m,index_n)*coef) 
-        end do
-     end do
-     coeff_chi  = extinct/(NdirExt_m*NdirExt_n)
      G0 = G0*coeff_chi  
-
   end if
   !G0 has been modified and it considers the extinction
   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
@@ -2408,6 +2400,7 @@ subroutine simple_chemostep1(ind_grid,ngrid,ilevel) !
   real(kind=8),dimension(1:nvector),save     :: ekin,emag,T2,erad_loc
   integer                      :: neulS=8+nrad+nextinct, neulP=5
   real(dp)                     :: testf = 1.d-8
+  real(dp)                     :: TT, coeff_chi
 
   logical:: once
 
@@ -2482,19 +2475,19 @@ subroutine simple_chemostep1(ind_grid,ngrid,ilevel) !
      do i=1,nleaf
         
 !#if NSCHEM !=0                                                                                                                                                        
-
-#if NEXTINCT>1
-                                                                                                                                                       
+        !calculate temperature
         T2(i)=(gamma-1.0)*(T2(i)-ekin(i)-emag(i)-erad_loc(i))/(uold(ind_leaf(i),1) - uold(ind_leaf(i),neulS+1))
-#else
-        T2(i)=(gamma-1.0)*(T2(i)-ekin(i)-emag(i)-erad_loc(i))/(uold(ind_leaf(i),1))
-#endif
+
+        !the last factor is the mean mass per particle - 0.4 is for helium abundance
+        T2(i) = T2(i)*scale_T2 * (  0.4 + uold(ind_leaf(i),1) / (uold(ind_leaf(i),1) - uold(ind_leaf(i),neulS+1))  )
+
+
         if(isnan(T2(i))) write(*,*) "WARNING: T2(i) is NaN: P,Ekin,Emag,Erad,dens,nH2", uold(ind_leaf(i),neulP), ekin(i), emag(i), erad_loc(i), uold(ind_leaf(i),1), uold(ind_leaf(i),neulS+1)
         if(T2(i) .LE. 0 ) write(*,*) "WARNING: T2(i) < 0: P,Ekin,Emag,Erad,dens,nH2", uold(ind_leaf(i),neulP), ekin(i), emag(i), erad_loc(i), uold(ind_leaf(i),1), uold(ind_leaf(i),neulS+1)
         if(isnan(T2(i)) .OR. T2(i) .LT. 0) stop
         
-        T2(i) = T2(i)*scale_T2
-        
+
+
      end do
 
 
@@ -2537,6 +2530,24 @@ subroutine simple_chemostep1(ind_grid,ngrid,ilevel) !
 
         ! 3rd: I actualize the value in the vector
         uold(ind_leaf(i),neulS+1) = nH2
+
+
+#if NEXTINCT>1                                                                                                                                     
+        !now calculate the cooling
+        !take care it is done here and not in cooling_fine
+        TT = T2(i) / scale_T2  !from physical units to code units
+        !TAKE CARE here TT / scale_T2 is the true code temperature and not T/mu 
+        !the extinction due to dust 
+        coeff_chi = uold(ind_leaf(i),firstindex_extinct+1)
+        call calc_temp_extinc(ntot,TT,dt_ilev,coeff_chi) 
+
+        !this factor is the mean mass per particle, it goes from 1.4 to 2.4 - 0.4 is for helium abundance
+        TT = TT /  (  0.4 + uold(ind_leaf(i),1) / (uold(ind_leaf(i),1) - uold(ind_leaf(i),neulS+1))  )
+
+        !now recalculate the internal energy
+        uold(ind_leaf(i),neulP) = TT / (gamma-1.0) * (uold(ind_leaf(i),1) - uold(ind_leaf(i),neulS+1)) + ekin(i)+ emag(i) + erad_loc(i)
+#endif
+
 
      end do   ! leaf
 

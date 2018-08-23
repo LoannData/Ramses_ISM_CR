@@ -541,10 +541,12 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('cooling','start')
   if((hydro).and.(.not.static_gas)) then
         if(extinction) call extinction_fine(ilevel)
+!!NOTE cooling is now done in simple_chem if it is called so colling_fine should not be called 
 #if NEXTINCT > 1
         if(extinction) call simple_chem(ilevel)
-#endif
+#else
         if((neq_chem.or.cooling .or. barotrop .or. extinction .or. isothermal) .and. T2_star>0.0) call cooling_fine(ilevel)
+#endif
         ! Romain master version
         ! if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
   endif
