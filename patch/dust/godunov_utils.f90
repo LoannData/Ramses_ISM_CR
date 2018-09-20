@@ -62,7 +62,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      enddo
 
 #endif     
-     call temperature_eos((1.0_dp-sum_dust)*rho(k),uu(k,nvar),tcell(k),ht)
+     call temperature_eos((1.0_dp-sum_dust)*rho(k),uu(k,nvar),tcell(k),ht,sum_dust)
      ionisrate(k) = default_ionisrate
      ! fin modif nimhd
 #endif

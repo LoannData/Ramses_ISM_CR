@@ -139,7 +139,7 @@ recursive subroutine amr_step(ilevel,icount)
      max_dens=log10(Maxval(uold(:,1)*scale_d-uold(:,firstindex_pscal+1)*scale_d))
     ! if (abs(max_dens)<=13.1.and.abs(max_dens)>=12.9) output_now=.true.
     ! if (abs(max_dens)<=12.1.and.abs(max_dens)>=11.9) output_now=.true.
-     if (abs(max_dens)<=11.1.and.abs(max_dens)>=10.9) output_now=.true.
+    ! if (abs(max_dens)<=11.1.and.abs(max_dens)>=10.9) output_now=.true.
 
   !-----------------
   ! Update sink cloud particle properties

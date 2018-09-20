@@ -545,7 +545,7 @@ subroutine add_pdv_source_terms(ilevel)
            enddo
 
 #endif           
-           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht)
+           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht,sum_dust)
 
            ! Compute radiative pressure in all groups
            do igroup=1,ngrp
@@ -1947,7 +1947,7 @@ if(fld)then
 
 #endif
            ! Compute gas temperature in cgs
-           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht)
+           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht,sum_dust)
 
            frad(ind_cell(i),1:ndim)=0.0d0
            
@@ -2000,7 +2000,7 @@ if(fld)then
            enddo
 
 #endif           
-           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht)
+           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht,sum_dust)
 
            frad(ind_cell(i),1:ndim)=zero
 

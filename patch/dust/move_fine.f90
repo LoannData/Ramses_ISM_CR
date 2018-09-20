@@ -476,7 +476,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
               sum_dust = sum_dust + uold(indp(j,ind),firstindex_ndust+idust)/d
            end do
 #endif           
-           call temperature_eos((1.0_dp-sum_dust)*d,eps,tcell,ht)
+           call temperature_eos((1.0_dp-sum_dust)*d,eps,tcell,ht,sum_dust)
            frho(j) = frho(j) + d * vol(j,ind)*scale_d
            ftpg(j) = ftpg(j) + tcell * vol(j,ind)
 #if NGRP>0

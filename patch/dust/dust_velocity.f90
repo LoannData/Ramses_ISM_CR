@@ -27,7 +27,7 @@ subroutine set_vdust(ilevel)
   real(dp), dimension(1:ndust) ::d_grain,l_grain
   real(dp) :: dd,ee,cmp_Cv_eos,d0,r0
   integer  :: ht
-  real(dp):: epsilon_0
+  real(dp):: epsilon_0, dt_dust,wnorm
   real(dp),dimension(1:ndust):: dustMRN
   epsilon_0 = dust_ratio(1)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -276,14 +276,27 @@ subroutine set_vdust(ilevel)
                t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
                if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/K_dust(idust)
                if(dust_barr) t_stop (idust)= 0.1_dp
-               if (d .le. dens_floor) t_stop(idust) =t_stop_floor 
                tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
             end do
             do idust = 1,ndust
                t_stop(idust) = t_stop(idust)+tstop_tot
                do idim=1,ndim
                   v_dust(ind_cell(i),idust,idim)=t_stop(idust)*gradP(i,idim)/d
+		end do	  
+             
+	      if (NDIM.eq.1)  dt_dust= courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1)))
+
+              if (NDIM.eq.2)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2)))
+
+              if (NDIM.eq.3)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2))+abs(v_dust(ind_cell(i),idust,3)))  
+              if(d .le. dens_floor .and. dt_dust .le.dtnew(ilevel).and. reduce_wdust .eqv. .true.) then   
+	      if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
+ 	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
+	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
+              do idim=1,ndim       
+              v_dust(ind_cell(i),idust,idim)= sign(min(abs(v_dust(ind_cell(i),idust,idim)),eta_dust*courant_factor*dx_loc/dtnew(ilevel)*abs(v_dust(ind_cell(i),idust,idim))/wnorm),v_dust(ind_cell(i),idust,idim))
                end do   
+            end if
             end do
          end do
    end do
