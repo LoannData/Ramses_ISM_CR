@@ -1777,7 +1777,7 @@ subroutine make_sink_from_clump(ilevel)
               enddo
  
 #endif
-              call temperature_eos((1.0_dp-sum_dust)*d,eint,temp,ht)
+              call temperature_eos((1.0_dp-sum_dust)*d,eint,temp,ht,sum_dust)
 
               do ivar=imetal,lastindex_pscal
                  z(ivar)=uold(ind_cell_new(i),ivar)/d

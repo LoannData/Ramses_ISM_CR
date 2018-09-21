@@ -1,4 +1,4 @@
-subroutine set_vdust(ilevel)
+subroutine set_vdust_mhd(ilevel)
   use amr_commons
   use hydro_commons
   use units_commons
@@ -27,7 +27,7 @@ subroutine set_vdust(ilevel)
   real(dp), dimension(1:ndust) ::d_grain,l_grain
   real(dp) :: dd,ee,cmp_Cv_eos,d0,r0
   integer  :: ht
-  real(dp):: epsilon_0, dt_dust,wnorm
+  real(dp):: epsilon_0,zgrain, chigrain,gammad,e,mgrain
   real(dp),dimension(1:ndust):: dustMRN
   epsilon_0 = dust_ratio(1)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -43,7 +43,7 @@ subroutine set_vdust(ilevel)
   t_stop=0.0d0
   sum_dust=0.0d0
   pi =3.14159265358979323846_dp
-  dens_floor=0.0d0
+    dens_floor=0.0d0
 #if NDUST>0
      do idust =1,ndust
         dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
@@ -56,19 +56,14 @@ subroutine set_vdust(ilevel)
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
   dens_floor=d0
-  if(mrn.eqv..true.) then
-     call size_dust(l_grain)
-     do idust=1,ndust
-       l_grain(idust) = l_grain(idust)/scale_l
-       d_grain(idust)=grain_dens(idust)/scale_d
-    end do
-  else
-     do idust=1,ndust
-       d_grain(idust)=grain_dens(idust)/scale_d
-       l_grain(idust)=grain_size(idust)/scale_l
-    end do
- endif
-  
+  do idust=1,ndust
+     d_grain(idust)=grain_dens(idust)/scale_d
+     l_grain(idust)=grain_size(idust)/scale_l
+  end do
+  zgrain = -1.0d0
+  chigrain= 0.01d0
+  e=4.803d-10
+  mgrain = 4.0/3.0*pi *d_grain(1)* l_grain(1)**3.0
   iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
   iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
   iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
@@ -265,49 +260,65 @@ subroutine set_vdust(ilevel)
            call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pressure)
            call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
            if(dust_barr)  cs = 1.0_dp
-           if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
+          
             sum_dust=0.0d0
             do idust = 1, ndust
                sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
             end do
             tstop_tot=0.0d0
             t_stop=0.0d0
-            do idust = 1,ndust
-               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
-               if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/K_dust(idust)
-               if(dust_barr) t_stop (idust)= 0.1_dp
-               tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
-            end do
-            do idust = 1,ndust
-               t_stop(idust) = t_stop(idust)+tstop_tot
-               do idim=1,ndim
-                  v_dust(ind_cell(i),idust,idim)=t_stop(idust)*gradP(i,idim)/d
-		end do	  
-             
-	      if (NDIM.eq.1)  dt_dust= courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1)))
+            t_stop(1) = d_grain(1)*l_grain(1)*SQRT(pi*gamma/8.0_dp)/cs/d
+            gammad = zgrain*chigrain*e *d /mgrain *(1.0d0-2.0*sum_dust)/(1.0d0-sum_dust)
+            call charged_grains(gammad,A,B,C,t_stop(1),gradP(i,1)/d,gradP(i,2)/d,gradP(i,3)/d,&
+                 &v_dust(ind_cell(i),1,1),v_dust(ind_cell(i),1,2),v_dust(ind_cell(i),1,3))
+            if (d .le. dens_floor) v_dust(ind_cell(i),1,1)=0.0d0
+            if (d .le. dens_floor) v_dust(ind_cell(i),1,2)=0.0d0
+            if (d .le. dens_floor) v_dust(ind_cell(i),1,3)=0.0d0
 
-              if (NDIM.eq.2)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2)))
-
-              if (NDIM.eq.3)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2))+abs(v_dust(ind_cell(i),idust,3)))  
-              if(d .le. dens_floor .and. dt_dust .le.dtnew(ilevel).and. reduce_wdust .eqv. .true.) then   
-	      if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
- 	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
-	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
-              do idim=1,ndim       
-              v_dust(ind_cell(i),idust,idim)= sign(min(abs(v_dust(ind_cell(i),idust,idim)),eta_dust*courant_factor*dx_loc/dtnew(ilevel)*abs(v_dust(ind_cell(i),idust,idim))/wnorm),v_dust(ind_cell(i),idust,idim))
-               end do   
-            end if
-            end do
          end do
    end do
 enddo
 
-111 format('   Entering set_vdust for level ',i2)
+111 format('   Entering set_vdust_mhd for level ',i2)
 
-end subroutine set_vdust
+end subroutine set_vdust_mhd
 
 
 !###########################################################
 !###########################################################
 !###########################################################
 !###########################################################
+
+subroutine charged_grains(gammad,bx,by,bz,ts,dpxd,dpyd,dpzd,dvx,dvy,dvz)
+  use amr_commons
+  use hydro_commons
+  use units_commons
+  implicit none
+  real (dp) :: gammad,bx,by,bz,ts,dpxd,dpyd,dpzd
+  real (dp) :: dvx,dvy,dvz
+  real (dp) :: freqx,freqy,freqz,delta_gyr,freqs
+  real (dp) :: a11, a12, a13, a21, a22, a23, a31, a32, a33
+
+  freqs = 1.0d0/ts
+  freqx = (gammad*bx)
+  freqy = (gammad*by)
+  freqz = (gammad*bz)
+
+  delta_gyr= (freqx+ freqy + freqz)/freqs
+
+  !'rotation' matrix
+  a11 = freqs**2.0+freqx**2.0 
+  a12 = freqx*freqy +freqs*freqz
+  a13 = freqx*freqz -freqs*freqy
+  a21 = freqx*freqy -freqs*freqz
+  a22 = freqs**2.0+freqy**2.0
+  a23 = freqz*freqy+freqx*freqs
+  a31 = freqx*freqz + freqs*freqy
+  a32 = freqy*freqz - freqx*freqs
+  a33 =  freqs**2.0+freqz**2.0
+
+  !differential velocity
+  dvx = (a11 *dpxd + a12 *dpyd + a13* dpzd)/(freqs**3.0*(1+delta_gyr**2.0))
+  dvy = (a21 *dpxd + a22 *dpyd + a23* dpzd)/(freqs**3.0*(1+delta_gyr**2.0))
+  dvz = (a31 *dpxd + a32 *dpyd + a33* dpzd)/(freqs**3.0*(1+delta_gyr**2.0))
+end subroutine charged_grains

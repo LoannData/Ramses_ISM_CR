@@ -249,6 +249,8 @@ module hydro_parameters
   logical :: flag_dust=.true.
   logical :: visco_dust =.true.
   logical :: no_interaction = .false.
+  logical :: mhd_dust =.false.
+  logical :: reduce_wdust=.false.
   real(dp),dimension(1:ndust) :: K_dust = 1.0_dp
   real(dp),dimension(1:ndust):: grain_size = 1.0e-7_dp ! Dust properties (1:ndust) where the sizes of the grains are stocked
   real(dp),dimension(1:ndust):: grain_dens = 1.0_dp ! Dust properties (1:ndust) where the intrinsic of the grains are stocked
@@ -257,7 +259,7 @@ module hydro_parameters
   real(dp) :: size_max  = 2.5d-5
   real(dp) :: mrn_index = 3.5d0
   integer :: slope_dust = 3 ! 1 for upwind, 2 for minmod, 3 for vanleer
-  real(dp) :: eta_dust =1.0d-3
+  real(dp) :: eta_dust =1.0
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2

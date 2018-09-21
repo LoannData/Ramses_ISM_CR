@@ -11,7 +11,7 @@ subroutine init_hydro
 #if NENER>0
   integer::irad
 #endif
-  integer::nvar2,ilevel2,numbl2,ilun,ibound,istart
+  integer::nvar2,ilevel2,numbl2,ilun,ibound,idim,istart
   integer::ncpu2,ndim2,nlevelmax2,nboundary2
   integer ,dimension(:),allocatable::ind_grid
   real(dp),dimension(:),allocatable::xx
@@ -265,6 +265,7 @@ subroutine init_hydro
                        end do
                     end do
                  endif
+
 #endif
 
                  ! Read in the temperature
@@ -305,12 +306,23 @@ subroutine init_hydro
 #endif
                  endif
 
+#if NDUST>0
+           do idust=1,ndust
+              do idim=1,ndim   
+                 read(ilun)xx        
+                 do i=1,ncache
+                    v_dust(ind_grid(i)+iskip,idust,idim)=0.0!xx(i)!/(1.0d0-sum_dust)
+                 end do
               end do
-              deallocate(ind_grid,xx)
-           end if
+           end do
+#endif
+
         end do
-     end do
-     close(ilun)
+        deallocate(ind_grid,xx)
+     end if
+  end do
+end do
+close(ilun)
      ! Send the token
 #ifndef WITHOUTMPI
      if(IOGROUPSIZE>0) then

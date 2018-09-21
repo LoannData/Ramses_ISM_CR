@@ -681,7 +681,7 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
 !                  do idust = 1,Ndust
 !                     sum_dust=sum_dust+ q(l,i,j,k,firstindex_ndust+idust)
 !                  end do
-!                     call temperature_eos((1.0d0-sum_dust)*q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
+!                     call temperature_eos((1.0d0-sum_dust)*q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht,sum_dust)
 !                  endif
 !                  bcell = A*A + B*B + C*C
 !                  sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell,ionisrate)*jcentersquare(l,i,j,k)
@@ -965,7 +965,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 !                  do idust = 1,Ndust
 !                     sum_dust=sum_dust+ q(l,i,j,k,firstindex_ndust+idust)
 !                  end do              
-!                     call temperature_eos((1.0d0-sum_dust)*q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
+!                     call temperature_eos((1.0d0-sum_dust)*q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht,sum_dust)
 !                  endif
 !                  bcell = A*A + B*B + C*C
 !                  sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell)*jcentersquare(l,i,j,k)*dt
@@ -1457,7 +1457,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 !                  do idust = 1,Ndust
 !                     sum_dust=sum_dust+ q(l,i,j,k,firstindex_ndust+idust)
 !                  end do              
-!                     call temperature_eos((1.0d0-sum_dust)*q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht)
+!                     call temperature_eos((1.0d0-sum_dust)*q(l,i,j,k,1),q(l,i,j,k,nvar),tcell,ht,sum_dust)
 !                  endif
 !                  bcell = A*A + B*B + C*C
 !                  sp0 = sp0 +(gamma-1.d0)*etaohmdiss(q(l,i,j,k,1),bcell,tcell)*jcentersquare(l,i,j,k)*dt
@@ -5562,9 +5562,9 @@ do k=min(1,ku1+1),max(1,ku2-1)
 #if NDUST>0
                   sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/u(l,i,j,k,1)
 #endif                  
-                  call temperature_eos((1.0d0-sum_dust)*rhox,epsx,tcellx,ht)
-                  call temperature_eos((1.0d0-sum_dust)*rhoy,epsy,tcelly,ht)
-                  call temperature_eos((1.0d0-sum_dust)*rhoz,epsz,tcellz,ht)
+                  call temperature_eos((1.0d0-sum_dust)*rhox,epsx,tcellx,ht,sum_dust)
+                  call temperature_eos((1.0d0-sum_dust)*rhoy,epsy,tcelly,ht,sum_dust)
+                  call temperature_eos((1.0d0-sum_dust)*rhoz,epsz,tcellz,ht,sum_dust)
 !!$                  tcelly=10.
 !!$                  tcellx=10.
 !!$                  tcellz=10.
@@ -5618,7 +5618,7 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     
                  ! Compute gas temperature in cgs
 !                     if(eos ) then 
-!                        call temperature_eos((1.0d0-sum_dust)*rhof,epsf,tcellf,ht)
+!                        call temperature_eos((1.0d0-sum_dust)*rhof,epsf,tcellf,ht,sum_dust)
 !                     elseif(barotrop)then
 !                        tcellf=barotrop1D(rhof*scale_d)
 !                     elseif(ntestDADM.eq.1)then
@@ -5632,7 +5632,7 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     elseif(ntestDADM.eq.1)then
                        tcellf=1.0d0
                     else 
-                       call temperature_eos((1.0d0-sum_dust)*rhof,epsf,tcellf,ht)
+                       call temperature_eos((1.0d0-sum_dust)*rhof,epsf,tcellf,ht,sum_dust)
                     endif
                     
                     etaod2=etaohmdiss(rhof,bsqf,tcellf,ionisrate)
@@ -5712,8 +5712,8 @@ do k=min(1,ku1+1),max(1,ku2-1)
                        sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/rhocell
                     end do   
 #endif                    
-                    call temperature_eos((1.0d0-sum_dust)*rhocell,u(l,i,j,k,nvar),tcell,ht)
-!                    if(nmagdiffu2.eq.1)call temperature_eos((1.0d0-sum_dust)*rhocell,u(l,i,j,k,3),tcell,ht)
+                    call temperature_eos((1.0d0-sum_dust)*rhocell,u(l,i,j,k,nvar),tcell,ht,sum_dust)
+!                    if(nmagdiffu2.eq.1)call temperature_eos((1.0d0-sum_dust)*rhocell,u(l,i,j,k,3),tcell,ht,sum_dust)
                     end if
                     
                     jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdiss(rhocell,bcell,tcell,ionisrate)*dt
@@ -5834,8 +5834,8 @@ jcenter=0.0d0
                     sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/rhocell
                  end do   
 #endif                 
-                 call temperature_eos((1.0d0-sum_dust)*u(l,i,j,k,1),u(l,i,j,k,nvar),tcell,ht)
-                 if(nambipolar2.eq.1)call temperature_eos((1.0d0-sum_dust)*u(l,i,j,k,1),u(l,i,j,k,3),tcell,ht)
+                 call temperature_eos((1.0d0-sum_dust)*u(l,i,j,k,1),u(l,i,j,k,nvar),tcell,ht,sum_dust)
+                 if(nambipolar2.eq.1)call temperature_eos((1.0d0-sum_dust)*u(l,i,j,k,1),u(l,i,j,k,3),tcell,ht,sum_dust)
               end if
              
 

@@ -173,7 +173,7 @@ subroutine make_boundary_diffusion(ilevel,igroup)
                        sum_dust = sum_dust + uu(i,firstindex_ndust+idust)/rho
                     end do
 #endif 
-                    call temperature_eos((1.0_dp-sum_dust)*rho,eps,t2,ht)
+                    call temperature_eos((1.0_dp-sum_dust)*rho,eps,t2,ht,sum_dust)
                     t2    = Tr_floor ! comment this for radiative shock
 
                     unew(ind_cell(i),nvar+3) = t2
@@ -393,7 +393,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
                        sum_dust = sum_dust + uu(i,firstindex_ndust+idust)/rho
                     end do
 #endif       
-                    call temperature_eos(rho*(1.0_dp-sum_dust),eps,t2,ht)
+                    call temperature_eos(rho*(1.0_dp-sum_dust),eps,t2,ht,sum_dust)
 
 #if NGRP>0
                     uu(i,ind_trad(1)) = t2

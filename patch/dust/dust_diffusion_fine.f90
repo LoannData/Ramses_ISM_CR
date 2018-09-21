@@ -136,7 +136,7 @@ subroutine set_uold_dust(ilevel)
            end do
 #endif
            enint=0.0d0
-           call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5) -e_kin -e_mag , temp, ht )
+           call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5) -e_kin -e_mag , temp, ht,sum_dust_new )
            rho_gas =  uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_new*d
            call enerint_eos (rho_gas, temp , enint)
            unew(active(ilevel)%igrid(i)+iskip,5) = enint + e_kin +e_mag
@@ -182,9 +182,10 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
   do ivar =1, nvar
-     call make_virtual_fine_dp(uold(1,ivar),ilevel)
+    call make_virtual_fine_dp(uold(1,ivar),ilevel)
   end do
-  call set_vdust(ilevel)
+  if (.not.mhd_dust)call set_vdust(ilevel)
+  if (mhd_dust) call set_vdust_mhd(ilevel)
   call upload_fine(ilevel)
 
   do idim =1,ndim
@@ -209,8 +210,9 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   do idust=1,ndust
      call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
   end do
-  call set_vdust(ilevel)
-  
+
+  if (.not.mhd_dust)call set_vdust(ilevel)
+  if (mhd_dust) call set_vdust_mhd(ilevel)
   call upload_fine(ilevel)
   do idust=1,ndust
      call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)

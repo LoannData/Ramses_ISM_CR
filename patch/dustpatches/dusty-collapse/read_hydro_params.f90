@@ -64,7 +64,7 @@ subroutine read_hydro_params(nml_ok)
        & ,gamma_rad &
 #endif
 #if NDUST>0
-       &, grain_size, grain_dens, K_dust, K_drag,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index &
+       &, grain_size, grain_dens, K_dust, K_drag,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index ,mhd_dust,eta_dust,reduce_wdust &
 #endif       
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d &
        & ,positivity_type
@@ -641,7 +641,7 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #if USE_FLD==1 || USE_M_1==1
      !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
-     call temperature_eos(d_bound(i)*(1.0_dp-sum_dust),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
+     call temperature_eos(d_bound(i)*(1.0_dp-sum_dust),P_bound(i)/(gamma-1.0d0),T_bound(i),ht,sum_dust)
      do j=1,ngrp
         boundary_var(i,firstindex_er+j)=radiation_source(T_bound(i),j)/(scale_d*scale_v**2)
         er_bound=er_bound+boundary_var(i,firstindex_er+j)
@@ -980,12 +980,12 @@ subroutine read_hydro_params(nml_ok)
            epsilon_n = 1.0d0
            
            do ii=1,1000
-              call temperature_eos(d_loc/scale_d,eint_old/(scale_d*scale_v**2),temp_new,ht)
+              call temperature_eos(d_loc/scale_d,eint_old/(scale_d*scale_v**2),temp_new,ht,sum_dust)
               if (ht==1) then
                  eint_old=0.d0
                  exit
               end if
-              call temperature_eos(d_loc/scale_d,eint_old*1.001_dp/(scale_d*scale_v**2),temp_new2,ht)
+              call temperature_eos(d_loc/scale_d,eint_old*1.001_dp/(scale_d*scale_v**2),temp_new2,ht,sum_dust)
               if (ht==1) then
                  eint_old=0.d0
                  exit
@@ -1015,8 +1015,8 @@ subroutine read_hydro_params(nml_ok)
            d_loc = (10.**rho_eos(ir,1))
            T0 = 10.**(ener_eos(ir,ie))
            
-           call temperature_eos(d_loc/scale_d,(T0-0.001_dp*T0)/(scale_d*scale_v**2),temp_new,ht)
-           call temperature_eos(d_loc/scale_d,(T0+0.001_dp*T0)/(scale_d*scale_v**2),temp_new2,ht)
+           call temperature_eos(d_loc/scale_d,(T0-0.001_dp*T0)/(scale_d*scale_v**2),temp_new,ht,sum_dust)
+           call temperature_eos(d_loc/scale_d,(T0+0.001_dp*T0)/(scale_d*scale_v**2),temp_new2,ht,sum_dust)
            
            if((temp_new2-temp_new) .ne. 0.0_dp)then
               Cv_eos(ir,ie)=(0.002_dp*T0)/(temp_new2-temp_new)

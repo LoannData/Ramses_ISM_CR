@@ -359,7 +359,7 @@ subroutine backup_hydro(filename)
                     sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+idust)/d
                  end do
 #endif                    
-                 call temperature_eos((1.0d0-sum_dust)*d,e,cmp_temp,ht)
+                 call temperature_eos((1.0d0-sum_dust)*d,e,cmp_temp,ht,sum_dust)
                  xdp(i)=cmp_temp
              
               end do
@@ -368,11 +368,6 @@ subroutine backup_hydro(filename)
            do idust=1,ndust
               do idim=1,ndim           
                  do i=1,ncache
-                    d=max(uold(ind_grid(i)+iskip,1),smallr)
-                    sum_dust=0.0d0
-                 do ivar=1,ndust
-                    sum_dust=sum_dust+uold(ind_grid(i)+iskip,firstindex_ndust+ivar)/d
-                 end do
                     xdp(i)=v_dust(ind_grid(i)+iskip,idust,idim)!/(1.0d0-sum_dust)
                  end do
                  write(ilun)xdp
