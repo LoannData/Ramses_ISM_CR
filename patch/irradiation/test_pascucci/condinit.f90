@@ -44,7 +44,12 @@ subroutine condinit(x,u,dx,nn)
 
   ! Add here, if you wish, some user-defined initial conditions
   ! ........
-  boxlen = 2000.0d0
+  if (test=='pascucci') then
+     boxlen = 2000.0d0
+  else if (test=='pinte') then
+     boxlen = 800.0d0
+  endif
+
   x0=0.5*boxlen
   y0=0.5*boxlen
 #if NDIM>2
@@ -55,10 +60,18 @@ subroutine condinit(x,u,dx,nn)
   ! AU in code units
   au = 1.496e13/scale_l
 
-  !boxlen = 2000 for kuiper (namelist)                                                                    
-  rd  = 500.* au ! boxlen/4=500AU
-  zd  = 125.* au ! boxlen/16=125AU
-  rin = 1. * au
+  if (test=='pascucci') then
+     !boxlen = 2000 for pascucci/kuiper (namelist)                                                                    
+     rd  = 500.* au ! boxlen/4=500AU
+     zd  = 125.* au ! boxlen/16=125AU
+     rin = 1. * au
+  else if (test=='pinte') then
+     rd  = 100.* au ! boxlen/8=100AU
+     zd  = 10.* au ! boxlen/80=10AU
+     rin = 0.1 * au
+  endif
+
+
   rho0=rho_disk0/scale_d !2.874d-18/scale_d!8.321d-18/scale_d
   
   Temp=Tr_floor
@@ -77,14 +90,23 @@ subroutine condinit(x,u,dx,nn)
      ! In 2D or 3D, rs is a cylindrical radius
      rs  = abs(xx)
      h   = zd*(rs/rd)**1.125
-     rho = rho0*((rs/rd)**(-1.0d0))*exp(-pi/4.0d0*(abs(yy)/h)**2)
+     if (test=='pascucci') then
+        rho = rho0*((rs/rd)**(-1.0d0))*exp(-pi/4.0d0*(yy/h)**2)
+     else if (test=='pinte') then
+        rho = rho0*((rs/rd)**(-2.625d0))*exp(-0.5d0*(yy/h)**2)
+     endif
 #if NDIM>2  
      rs  = sqrt(xx**2+yy**2)
      h   = zd*(rs/rd)**1.125
 #endif
-     rho = rho0*((rs/rd)**(-1.0d0))*exp(-pi/4.0d0*(abs(zz)/h)**2)
-     ! truncated disc below Rin
-     if (rs .lt. Rin) then
+     if (test=='pascucci') then
+        rho = rho0*((rs/rd)**(-1.0d0))*exp(-pi/4.0d0*(zz/h)**2)
+     else if (test=='pinte') then
+        rho = rho0*((rs/rd)**(-2.625d0))*exp(-0.5d0*(zz/h)**2)
+     endif
+
+     ! truncated disc below rin
+     if (rs .lt. rin) then
         rho = smallr
      endif
 

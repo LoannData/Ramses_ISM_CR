@@ -84,11 +84,12 @@ module radiation_parameters
 
   logical::store_matrix=.true.
 
-  real(dp)::Tstar     = 5000.
-  real(dp)::rstar     = 1.
-  real(dp)::rho_disk0 = 2.874d-18
-  real(dp)::Rin       = 0.1d0
-  real(dp)::dtmax     = 1.d32
+  real(dp)::Tstar        = 5000.
+  real(dp)::rstar        = 1.
+  character(LEN=8)::test = ''
+  real(dp)::rho_disk0    = 2.874d-18
+  real(dp)::Rin          = 0.1d0
+  real(dp)::dtmax        = 1.d32
 
 #if USE_FLD==1 && NGRP == 1
   logical, parameter :: bicg_to_cg = .true.
@@ -753,7 +754,7 @@ function planck_ana(dens,Tp,Tr,igroup)
         b = y1 - a * x1
 
         planck_ana = dens*10.0d0**(a*y + b)
-        !write(*,*) "planck ana/dens for group : ", 10.0d0**(a*y + b), igroup
+        !write(*,*) "Tstar, planck ana/dens for group : ", Tstar, 10.0d0**(a*y + b), igroup
         
   !      planck_ana = 0.0 !test1 Econs, pas de couplage gaz - radiation
   !      write(*,*) "test E cons, planck ana=0, rosseland ana = cst1, cst2"
@@ -1181,11 +1182,16 @@ subroutine init_opacities_pascucci
   
   ! set array space
   pascucci_n_tab = 1000
-
-  grain_size = 1.2e-05_dp
-  rho_grain  = 3.6_dp
-  opafname   = 'optSi.dat' !'kappa_DraineLee_1984.dat' is the same with more points
-  !optSi : wavelength (microns), scat cross section (m2), ext cross section (m2)
+  if (test=='pascucci') then
+     grain_size = 1.2e-05_dp
+     rho_grain  = 3.6_dp
+     opafname   = 'optSi.dat' !'kappa_DraineLee_1984.dat' is the same with more points
+     !optSi : wavelength (microns), scat cross section (m2), ext cross section (m2)
+  else if (test=='pinte') then
+     grain_size = 1.0e-04_dp
+     rho_grain  = 3.5_dp
+     opafname   = 'kappa_weingartnerdraine.dat'
+  endif
   grain_mass = 4.0d0/3.0d0 * 3.1415 * grain_size**3 * rho_grain
 
   allocate(kappa_pascucci_p(ngrp,pascucci_n_tab),kappa_pascucci_r(ngrp,pascucci_n_tab))
@@ -1206,7 +1212,11 @@ subroutine init_opacities_pascucci
   open(46,file=opafname)
   do while(.true.)
      read(46,*,end=556) oplambda(i),dum1,dum2
-     opknul(i) = dum2 - dum1 ! abs = ext - scat
+     if (test=='pascucci') then
+        opknul(i) = dum2 - dum1 ! abs = ext - scat
+     else if (test=='pinte') then
+        opknul(i) = dum2 !dum1 = ext ; dum2 = abs; dum3 = sca
+     endif
      i = i + 1
   enddo
   556 continue
@@ -1217,7 +1227,11 @@ subroutine init_opacities_pascucci
   do i = 1,n
      oplambda(i) = oplambda(i)*1.0e-04_dp !wavelength to cm
      opnu(i) = clight / oplambda(i) !wavelength to frequency
-     opknu(i) =  opknul(i) * 1.0e04_dp / grain_mass / 100_dp !op in m2 => cm2, div my mass and dust to gas ratio
+     if (test=='pascucci') then
+        opknu(i) =  opknul(i) * 1.0e04_dp / grain_mass / 100_dp !op in m2 => cm2 in opsi.dat, div my mass and dust to gas ratio
+     else if (test=='pinte') then
+        opknu(i) =  opknul(i) / 100_dp !op in cm2/g in kWD, div my dust to gas ratio
+     endif
 !         write(*,*) opnu(n-i+1),opknu(n-i+1)
   enddo
 

@@ -2943,7 +2943,7 @@ subroutine read_sink_params()
   end if
 
   if(mass_sink_direct_force<0.)then
-     mass_sink_direct_force=huge(0._dp)
+     mass_sink_direct_force=1.d100 !huge(0._dp) created segfault if multiplied by >1
   end if
 
 end subroutine read_sink_params

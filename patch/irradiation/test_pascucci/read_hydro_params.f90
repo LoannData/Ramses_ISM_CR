@@ -101,7 +101,7 @@ subroutine read_hydro_params(nml_ok)
        & ,rt_feedback,PMS_evol,Hosokawa_track,energy_fix &
        & ,facc_star,facc_star_lum,store_matrix &
        & ,external_radiation_field,stellar_photon &
-       & ,Tstar,rstar &
+       & ,Tstar,rstar,test &
        & ,rho_disk0, Rin, rt_protostar_fld
 
   ! modif nimhd

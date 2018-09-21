@@ -383,7 +383,15 @@ subroutine init_hydro
                     enddo
                  end do
 #endif
-                 
+                 !raph force rad fld
+                 !do ivar=1,ndim
+                 !  do i=1,ncache
+                 !      xdp(i) = frad(ind_grid(i)+iskip, idim)
+                 !   enddo
+                 !   read(ilun)xdp
+                 !enddo
+                 !raph
+        
               end do
               deallocate(ind_grid,xx)
            end if

@@ -10,7 +10,10 @@ subroutine file_descriptor_hydro(filename)
 
   character(LEN=80)::filename
   character(LEN=80)::fileloc
-  integer::ivar,ilun
+  integer::ivar,ilun,firstindex_frad
+
+
+  firstindex_frad = nvar+8
 
   if(verbose)write(*,*)'Entering file_descriptor_hydro'
 
@@ -22,9 +25,9 @@ subroutine file_descriptor_hydro(filename)
 
   ! Write run parameters
 #ifdef RT
-  write(ilun,'("nvar        =",I11)')nvar+4+NGroups*(ndim+1)
+  write(ilun,'("nvar        =",I11)')nvar+4+NGroups*(ndim+1)+ndim !+ndim pour frad raph
 #else
-  write(ilun,'("nvar        =",I11)')nvar+4
+  write(ilun,'("nvar        =",I11)')nvar+4+ndim !+ndim pour frad raph
 #endif  
   ivar=1
   write(ilun,'("variable #",I2,": density")')ivar
@@ -159,8 +162,18 @@ endif
      write(ilun,'("variable #",I2,": photon_number_yflux_",I1)')nvar+4+ivar+2,ivar
      write(ilun,'("variable #",I2,": photon_number_zflux_",I1)')nvar+4+ivar+3,ivar
   end do
+
+  !raph pour force radiative
+  ivar = 1
+  write(ilun,'("variable #",I2,": frad_x",I1)')nvar+8+ivar!,ivar should not be here, take example on velocity
+  ivar = 2
+  write(ilun,'("variable #",I2,": frad_y",I1)')nvar+8+ivar
+  ivar = 3
+  write(ilun,'("variable #",I2,": frad_z",I1)')nvar+8+ivar
+  !raph pour force radiative
 #endif
-    
+
+
   close(ilun)
 
 end subroutine file_descriptor_hydro
@@ -170,6 +183,7 @@ subroutine backup_hydro(filename)
   use hydro_commons
   use rt_hydro_commons
   use rt_parameters
+  use radiation_parameters, only: frad !raph pour  force rad fld
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -212,9 +226,9 @@ subroutine backup_hydro(filename)
 !      write(ilun)nvar+3
 !   endif
 #ifdef RT
-  write(ilun)nvar+4+NGroups*(ndim+1)
+  write(ilun)nvar+4+NGroups*(ndim+1)+ndim !+ndim raph pour frad
 #else
-  write(ilun)nvar+4
+  write(ilun)nvar+4 !+ndim raph pour frad FLD only
 #endif
   write(ilun)ndim
   write(ilun)nlevelmax
@@ -430,6 +444,14 @@ subroutine backup_hydro(filename)
                  enddo
               end do
 #endif
+              !raph force rad fld
+              do idim=1,ndim
+                 do i=1,ncache
+                    xdp(i) = frad(ind_grid(i)+iskip, idim)
+                 enddo
+                 write(ilun)xdp
+              enddo
+              !raph
 
            end do
            deallocate(ind_grid, xdp)
