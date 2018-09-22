@@ -167,7 +167,7 @@ subroutine cmpflxmdust(qm,im1,im2,jm1,jm2,km1,km2, &
               uright = qp(l,i,j,k,ndust+ndim*(idust-1)+xdim,xdim)
               ! Compute fluxes
               call upwind_dust(uleft,uright,qleft,qright,flx(l,i,j,k,idust))
-              
+              !call hlldust(uleft,uright,qleft,qright,flx(l,i,j,k,idust))
               !flx(l,i,j,k,idust)= uleft*qleft
            end do
         end do
@@ -194,37 +194,46 @@ SUBROUTINE hlldust(vleft,vright,uleft,uright,fgdnv)
   REAL(dp):: vleft,vright,SL,SR,fmean, udiff
 
 
-  !SL=min(abs(vleft),abs(vright))
-  !SR=max(abs(vleft),abs(vright))
+  SL=min(abs(vleft),abs(vright))
+  SR=max(abs(vleft),abs(vright))
   fleft= uleft*vleft
   fright= uright*vright
  
   ! the HLL flux
-  !if (SR-SL.ne.0.0d)fgdnv = (SR*fleft-SL*fright+SR*SL*(uright-uleft))/(SR-SL)
-  fmean =  half * ( fright + fleft )
-  udiff  = half * ( uright - uleft )
-  fgdnv = fmean - MAX(abs(vleft),abs(vright)) * udiff
+  fgdnv = (SR*fleft-SL*fright+SR*SL*(uright-uleft))/(SR-SL)
+  !fmean =  half * ( fright + fleft )
+  !udiff  = half * ( uright - uleft )
+  !fgdnv = fmean - half*(abs(vleft)+abs(vright)) * udiff
 
 END SUBROUTINE hlldust
-SUBROUTINE upwind_dust(vleft,vright,qleft,qright,fgdnv)
+SUBROUTINE upwind_dust(vleft,vright,uleft,uright,fgdnv)
   USE amr_parameters
   USE const
   USE hydro_parameters
-  ! 1D Upwind Riemann solver
+  ! 1qqD Upwind Riemann solver
   IMPLICIT NONE
   REAL(dp)::zero_flux
-  REAL(dp)::qleft,qright,vleft,vright,vd
+  REAL(dp)::uleft,uright,vleft,vright,vd
   REAL(dp)::fgdnv
 
   REAL(dp)::fleft,fright,fmean
   REAL(dp)::udiff
+  fleft= uleft*vleft
+  fright= uright*vright
+
+  ! find the mean flux
+  fmean =  half * ( fright + fleft )
+  
 
   ! find the mean normal velocity
-  vd = half * (vleft+vright )
+  vleft =half * (vleft+vright )
 
+  ! difference between the 2 states
+  udiff = half * ( uright - uleft )
 
   ! the Upwind flux
-  fgdnv = max(vd*qleft,0.0d0)+min(vd*qright,0.0d0)
+  fgdnv = fmean - ABS(vleft) * udiff
+  ! the Upwind flux
 
 END SUBROUTINE upwind_dust
 !###########################################################

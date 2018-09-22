@@ -55,8 +55,8 @@ subroutine read_hydro_params(nml_ok)
        &, dust_region &
 #endif
        & ,A_region,B_region,C_region &
-       & ,alpha_dense_core,beta_dense_core,crit,delta_rho,mass_c,rap,cont &
-       & ,ff_sct,ff_rt,ff_act,ff_vct,theta_mag,bb_test &
+       & ,alpha_dense_core,beta_dense_core,crit,delta_rho,mass_c,rap,cont,plum_test,exp_plum &
+       & ,ff_sct,ff_rt,ff_act,ff_vct,theta_mag,bb_test, f_dens ,omega_machida &
        & ,contrast,Mach,uniform_bmag,r0_box
   namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr &
        & ,niter_riemann,slope_type,slope_mag_type,switch_solv,switch_solv_dens &
@@ -64,7 +64,7 @@ subroutine read_hydro_params(nml_ok)
        & ,gamma_rad &
 #endif
 #if NDUST>0
-       &, grain_size, grain_dens, K_dust, K_drag,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index ,mhd_dust,eta_dust,reduce_wdust &
+       &, grain_size, grain_dens, K_dust, K_drag,slope_dust,epsil_cons,dust_ratio,mrn, size_min, size_max, mrn_index ,mhd_dust,eta_dust,beta_dust,reduce_wdust &
 #endif       
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d &
        & ,positivity_type

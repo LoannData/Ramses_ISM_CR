@@ -111,6 +111,7 @@ subroutine courant_fine(ilevel)
               if (NDIM.eq.2)  dt_dust =min(dt_dust,eta_dust*courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))))
   
               if (NDIM.eq.3)  dt_dust =min(dt_dust,eta_dust*courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))))
+
            end do
         !end do
         end do

@@ -490,7 +490,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! Hyperbolic solver
                                call timer('hydro - godunov','start')
      call godunov_fine(ilevel)
-   
+
      !Update boundaries
                                call timer('hydro - ghostzones','start')
 #ifdef SOLVERmhd
@@ -513,7 +513,8 @@ recursive subroutine amr_step(ilevel,icount)
      endif
 
      ! Set uold equal to unew
-                               call timer('hydro - set uold','start')
+                              call timer('hydro - set uold','start')
+ 
      call set_uold(ilevel)
 
 

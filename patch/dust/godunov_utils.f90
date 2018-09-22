@@ -902,6 +902,7 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      endif
   end do
 #endif
+
   !Thermal energy
   fgdnv(nvar+1) = uo*einto
   

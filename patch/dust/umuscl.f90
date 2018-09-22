@@ -2003,7 +2003,7 @@ subroutine cmpflxm(qm,im1,im2,jm1,jm2,km1,km2, &
               ! Other advected quantities
 #if NVAR>8
               do n = 9, nvar
-                 flx(l,i,j,k,n) = fgdnv(n)
+                 flx(l,i,j,k,n) =fgdnv(n)
               end do
 #endif  
               ! Normal velocity estimate

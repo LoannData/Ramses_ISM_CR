@@ -56,7 +56,9 @@ subroutine set_unew_dust(ilevel)
         do i=1,active(ilevel)%ngrid
             !unew(active(ilevel)%igrid(i)+iskip,5) = uold(active(ilevel)%igrid(i)+iskip,5)
            do idust=1,ndust
-              unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)+dflux_dust(active(ilevel)%igrid(i)+iskip,idust)
+              if (.not.epsil_cons) unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)+dflux_dust(active(ilevel)%igrid(i)+iskip,idust)
+              if (epsil_cons) unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)+dflux_dust(active(ilevel)%igrid(i)+iskip,idust)*unew(active(ilevel)%igrid(i)+iskip,1)
+
            end do
         end do
      end do
@@ -184,8 +186,8 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   do ivar =1, nvar
     call make_virtual_fine_dp(uold(1,ivar),ilevel)
   end do
-  if (.not.mhd_dust)call set_vdust(ilevel)
-  if (mhd_dust) call set_vdust_mhd(ilevel)
+  !if (.not.mhd_dust)call set_vdust(ilevel)
+  !if (mhd_dust) call set_vdust_mhd(ilevel)
   call upload_fine(ilevel)
 
   do idim =1,ndim
@@ -211,13 +213,13 @@ subroutine dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
      call make_virtual_reverse_dp(dflux_dust(1,idust),ilevel)
   end do
 
-  if (.not.mhd_dust)call set_vdust(ilevel)
-  if (mhd_dust) call set_vdust_mhd(ilevel)
+ ! if (.not.mhd_dust)call set_vdust(ilevel)
+  !if (mhd_dust) call set_vdust_mhd(ilevel)
   call upload_fine(ilevel)
   do idust=1,ndust
      call make_virtual_fine_dp(uold(1,firstindex_ndust+idust),ilevel)
   end do
-  call make_virtual_fine_dp(uold(1,5),ilevel)
+  !call make_virtual_fine_dp(uold(1,5),ilevel)
   do idim =1,ndim
      do idust=1,ndust
        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
@@ -261,7 +263,10 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   real(dp),dimension(1:nvector,1:twotondim,1:nvar+3),save::u2
   real(dp),dimension(1:nvector,0:twondim  ,1:ndust*ndim),save::u1dust
   real(dp),dimension(1:nvector,1:twotondim,1:ndust*ndim),save::u2dust
+  real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndust,1:ndim),save::udust
+  
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndust+ndust*ndim),save::uloc
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),save::upress
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndust,1:ndim),save::flux
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
   integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
@@ -384,12 +389,19 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
                  u1(i,j,ivar)=uold(ibuffer_father(i,j),ivar)
               end do
            end do
+           if (epsil_cons) then
+           do idust=1,ndust 
+              do i=1,nbuffer
+                 u1(i,j,firstindex_ndust+idust)=uold(ibuffer_father(i,j),firstindex_ndust+idust)/uold(ibuffer_father(i,j),1)
+              end do
+           end do
+           end if 
            do i=1,nbuffer
               ind1(i,j)=son(ibuffer_father(i,j))
            end do
         end do
         call interpol_hydro(u1,ind1,u2,nbuffer)
-        call interpol_hydro_dust(u1dust,ind1,u2dust,nbuffer)
+        !call interpol_hydro_dust(u1dust,ind1,u2dust,nbuffer)
 
      end if
      !Loop over 2x2x2 cells
@@ -415,21 +427,29 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
         !Gather dust variables
 
         do i=1,nexist
+           do ivar=1,nvar+3
+              upress(ind_exist(i),i3,j3,k3,ivar)=uold(ind_cell(i),ivar)              
+           end do    
            do idust=1,ndust
               uloc(ind_exist(i),i3,j3,k3,idust)=uold(ind_cell(i),firstindex_ndust+idust)
+              if (epsil_cons) uloc(ind_exist(i),i3,j3,k3,idust)=uold(ind_cell(i),firstindex_ndust+idust)/uold(ind_cell(i),1)
             end do
               do idim= 1,ndim
                  do idust=1,ndust
-                    uloc(ind_exist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= v_dust(ind_cell(i),idust,idim)
+                !    uloc(ind_exist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= v_dust(ind_cell(i),idust,idim)
                  end do
-                 !print*, v_dust(ind_cell(i),idust,idim), ndust+ndim*(idust-1)+idim, idim
                end do
             end do
-           do i=1,nbuffer
-              uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)
-              do idim= 1,ndim
+            do i=1,nbuffer
+               do ivar =1, nvar+3
+               upress(ind_nexist(i),i3,j3,k3,ivar)=u2(i,ind_son,firstindex_ndust+ivar)                  
+               end do
+               do idust=1,ndust
+                  uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)                  
+                end do
+                   do idim= 1,ndim
                  do idust=1,ndust
-                    uloc(ind_nexist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= u2dust(i,ind_son,ndim*(idust-1)+idim)
+               !     uloc(ind_nexist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= u2dust(i,ind_son,ndim*(idust-1)+idim)
                  end do
               end do
            end do
@@ -446,7 +466,80 @@ end do
   
   !-----------------------------------------------
   ! Compute flux due to dust diffusion
-  !-----------------------------------------------
+!-----------------------------------------------
+call v_dust1(upress,udust,dx,ncache)
+  do idim=1,ndim
+     i0=0; j0=0; k0=0
+     if(idim==1)i0=1
+     if(idim==2)j0=1
+     if(idim==3)k0=1   
+  do k2=k2min,k2max
+  do j2=j2min,j2max
+  do i2=i2min,i2max
+     ind_son=1+i2+2*j2+4*k2
+     iskip=ncoarse+(ind_son-1)*ngridmax
+        do i=1,ncache
+           ind_cell(i)=iskip+ind_grid(i)
+        end do
+        i3=1+i2
+        j3=1+j2
+        k3=1+k2
+        do i=1,ncache
+           if(son(ind_cell(i))==0)then
+              do idust=1,ndust
+              v_dust(ind_cell(i),idust,idim)  =  udust(i,i3,j3,k3,idust,idim)
+            enddo
+           end if
+     end do
+  end do
+  end do
+  end do
+end do
+!---------------------------
+  ! Gather 6x6x6 cells stencil
+  !---------------------------
+  ! Loop over 3x3x3 neighboring father cells
+  do k1=k1min,k1max
+  do j1=j1min,j1max
+  do i1=i1min,i1max
+   
+     !Loop over 2x2x2 cells
+     do k2=k2min,k2max
+     do j2=j2min,j2max
+     do i2=i2min,i2max
+        ind_son=1+i2+2*j2+4*k2
+        iskip=ncoarse+(ind_son-1)*ngridmax
+        do i=1,nexist
+           ind_cell(i)=iskip+igrid_nbor(ind_exist(i))
+        end do
+        i3=1; j3=1; k3=1
+        if(ndim>0)i3=1+2*(i1-1)+i2
+        if(ndim>1)j3=1+2*(j1-1)+j2
+        if(ndim>2)k3=1+2*(k1-1)+k2
+        !Gather dust variables
+
+        do i=1,nexist
+              do idim= 1,ndim
+                 do idust=1,ndust
+                    uloc(ind_exist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= udust(i,i3,j3,k3,idust,idim)
+                 end do
+               end do
+            end do
+            do i=1,nbuffer
+                   do idim= 1,ndim
+                 do idust=1,ndust
+                    uloc(ind_nexist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)=  udust(i,i3,j3,k3,idust,idim)
+                 end do
+              end do
+           end do
+        end do
+
+     end do
+  end do
+end do
+     !End loop over cells
+end do
+end do
 
   !call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
   call dustdiff_predict(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
@@ -495,7 +588,9 @@ end do
               do idust=1,ndust
                  !Update rhodust
                 ! print *, unew(ind_cell(i),firstindex_ndust+idust)
-                 unew(ind_cell(i),firstindex_ndust+idust)=unew(ind_cell(i),firstindex_ndust+idust) +(flux(i,i3,j3,k3,idust,idim)&
+                 if(epsil_cons)unew(ind_cell(i),firstindex_ndust+idust)=unew(ind_cell(i),firstindex_ndust+idust) +uold(ind_cell(i),1)*(flux(i,i3,j3,k3,idust,idim)&
+                      &-flux(i,i3+i0,j3+j0,k3+k0,idust,idim))
+                 if(.not.epsil_cons)unew(ind_cell(i),firstindex_ndust+idust)=unew(ind_cell(i),firstindex_ndust+idust) +(flux(i,i3,j3,k3,idust,idim)&
                       &-flux(i,i3+i0,j3+j0,k3+k0,idust,idim))
                  !print *, flux(i,i3,j3,k3,idust,idim)&
                  !     &,-flux(i,i3+i0,j3+j0,k3+k0,idust,idim), unew(ind_cell(i),firstindex_ndust+idust)

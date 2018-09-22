@@ -247,6 +247,7 @@ module hydro_parameters
   logical :: K_drag = .false.
   logical :: mrn = .false.
   logical :: flag_dust=.true.
+  logical :: epsil_cons=.false.
   logical :: visco_dust =.true.
   logical :: no_interaction = .false.
   logical :: mhd_dust =.false.
@@ -260,6 +261,11 @@ module hydro_parameters
   real(dp) :: mrn_index = 3.5d0
   integer :: slope_dust = 3 ! 1 for upwind, 2 for minmod, 3 for vanleer
   real(dp) :: eta_dust =1.0
+  real(dp) :: beta_dust =1.0
+  real(dp) :: omega_machida=0.03
+  real(dp) :: f_dens =1.68d0
+  real(dp) :: exp_plum=2.5
+  logical  :: plum_test=.false.
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2

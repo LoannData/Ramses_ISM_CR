@@ -53,7 +53,8 @@ subroutine condinit(x,u,dx,nn)
   real(dp)::ener_rot,ener_grav,ener_therm,ener_grav2,ener_turb,dd,ee,theta_mag_radians
   real(dp),dimension(1000):: mass_rad    
   real(dp),dimension(1:3,1:3):: rot_M,rot_invM,rot_tilde
-  
+  !plummers_modif
+  real(dp):: plum
   real(dp) :: sum_dust
 #if NDUST>0
   integer :: idust
@@ -72,7 +73,7 @@ subroutine condinit(x,u,dx,nn)
   theta_mag_radians = theta_mag/180.0d0*pi
 
 
-  if(bb_test)then
+  if(bb_test.or.plum_test)then
      sum_dust=0.0d0
 #if NDUST>0
      do idust =1,ndust
@@ -88,6 +89,8 @@ subroutine condinit(x,u,dx,nn)
      r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
      ! cloud density equal to unity
      d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
+
+     plum = 3.0*mass_c/(4.0*pi*r0**3)
      ! threshold for ambipolar fluxes
      !rho_threshold = d0/10.d0
      ! cloud rotation
@@ -204,6 +207,7 @@ subroutine condinit(x,u,dx,nn)
         IF(rs .le. r0) THEN 
 
            q(i,id) = d0*(1.0+delta_rho*cos(2.*atan(yy/(cos(theta_mag_radians)*xx-sin(theta_mag_radians)*zz))))!/(1.0+(rs**2/r0**2))
+           if (plum_test)  q(i,id) =  plum*(1+(xx**2.0+yy**2.0+zz**2.0)/(2.88*r0)**2)**(-exp_plum)
            if(Mach .ne. 0)then
               q(i,iu) =  v_rms*(q_idl(1,ind_i,ind_j,ind_k)-vx_tot/dble(count_vrms))
               q(i,iv) =  v_rms*(q_idl(2,ind_i,ind_j,ind_k)-vy_tot/dble(count_vrms))
@@ -218,6 +222,8 @@ subroutine condinit(x,u,dx,nn)
 #endif
         ELSE
            q(i,id) = d0/contrast
+           if (plum_test)  q(i,id) =  plum*(1+(xx**2.0+yy**2.0+zz**2.0)/r0**2)**(-exp_plum)
+
            xx = r0 * xx / rc
            yy = r0 * yy / rc
            if(Mach .ne. 0)then
@@ -893,7 +899,7 @@ subroutine calc_boxlen
     C_s = sqrt( Tr_floor / scale_T2 )
 
     
-    if(bb_test)then
+    if(bb_test.or.plum_test)then
      sum_dust=0.0d0
 #if NDUST>0
      do idust =1,ndust

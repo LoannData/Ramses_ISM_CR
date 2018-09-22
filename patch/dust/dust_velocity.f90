@@ -285,16 +285,15 @@ subroutine set_vdust(ilevel)
 		end do	  
              
 	      if (NDIM.eq.1)  dt_dust= courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1)))
-
               if (NDIM.eq.2)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2)))
-
               if (NDIM.eq.3)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2))+abs(v_dust(ind_cell(i),idust,3)))  
+
               if(d .le. dens_floor .and. dt_dust .le.dtnew(ilevel).and. reduce_wdust .eqv. .true.) then   
 	      if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
  	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
 	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
               do idim=1,ndim       
-              v_dust(ind_cell(i),idust,idim)= sign(min(abs(v_dust(ind_cell(i),idust,idim)),eta_dust*courant_factor*dx_loc/dtnew(ilevel)*abs(v_dust(ind_cell(i),idust,idim))/wnorm),v_dust(ind_cell(i),idust,idim))
+              v_dust(ind_cell(i),idust,idim)= sign(beta_dust*courant_factor*dx_loc/dtnew(ilevel)*abs(v_dust(ind_cell(i),idust,idim))/wnorm,v_dust(ind_cell(i),idust,idim))
                end do   
             end if
             end do
@@ -311,3 +310,478 @@ end subroutine set_vdust
 !###########################################################
 !###########################################################
 !###########################################################
+subroutine v_dust1(upress,udust,dx,ngrid)
+  use amr_parameters
+  use const             
+  use hydro_parameters
+  use amr_commons
+  use hydro_commons
+  use units_commons,ONLY:scale_m
+  use cloud_module
+  use cooling_module,ONLY:kB,mH
+  use radiation_parameters
+
+  implicit none
+  
+  integer ::ngrid
+  real(dp)::dx,dy,dz,dt
+  real(dp)::scale,d,u,v,w,eold,A,B,C,pressure,e_mag,e_kin,enint,d0,r0
+  
+  
+  ! Input states
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::upress
+  real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndust,1:ndim)::udust
+  
+  real(dp),dimension(1:ndust)  :: t_stop
+  real(dp)  ::cs,pi,tstop_tot,t_stop_floor,dens_floor
+  real(dp), dimension(1:ndust) ::d_grain,l_grain
+  ! Output fluxes
+
+  ! Local scalar variables
+  real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2 
+  integer::i,j,k,l,ivar, idust,idim
+  integer::ilo,ihi,jlo,jhi,klo,khi
+  real(dp):: epsilon_0, dt_dust,wnorm,pr,pl,sum_dust
+  real(dp),dimension(1:ndust):: dustMRN
+  epsilon_0 = dust_ratio(1)
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  t_stop_floor=0.0d0
+  sum_dust=0.0d0
+  t_stop=0.0d0
+  sum_dust=0.0d0
+  pi =3.14159265358979323846_dp
+  dens_floor=0.0d0
+  dens_floor=0.0d0
+#if NDUST>0
+     do idust =1,ndust
+        dustMRN(idust) = dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+     end do     
+     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
+     do idust =1,ndust
+           sum_dust = sum_dust + dustMRN(idust)
+        end do   
+#endif   
+  r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
+  d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
+  dens_floor=d0  
+
+  if(mrn.eqv..true.) then
+     call size_dust(l_grain)
+     do idust=1,ndust
+       l_grain(idust) = l_grain(idust)/scale_l
+       d_grain(idust)=grain_dens(idust)/scale_d
+    end do
+  else
+     do idust=1,ndust
+       d_grain(idust)=grain_dens(idust)/scale_d
+       l_grain(idust)=grain_size(idust)/scale_l
+    end do
+ endif       
+  ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
+  jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
+  klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
+
+ ! Compute the dust velocity X direction
+
+  do k=klo,khi
+  do j=jlo,jhi
+  do i=if1,if2        
+     do l = 1, ngrid
+            tstop_tot=0.0d0
+            t_stop=0.0d0
+              if(energy_fix)then
+            !compute right pressure
+              d=upress(l,i+1,j,k,1)
+              enint=upress(l,i+1,j,k,nvar)
+           else
+              d=upress(l,i+1,j,k,1)
+              u=upress(l,i+1,j,k,2)/d
+              v=upress(l,i+1,j,k,3)/d
+              w=upress(l,i+1,j,k,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i+1,j,k,6)+upress(l,i+1,j,k,nvar+1))
+              B=0.5d0*(upress(l,i+1,j,k,7)+upress(l,i+1,j,k,nvar+2))
+              C=0.5d0*(upress(l,i+1,j,k,8)+upress(l,i+1,j,k,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i+1,j,k,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i+1,j,k,5)
+              else   
+                 enint=upress(l,i+1,j,k,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i+1,j,k,firstindex_ndust+idust)/d
+           end do
+           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pr)
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           if(dust_barr) pr = (1.0_dp-sum_dust)*d*cs*cs
+            !compute left pressure
+              if(energy_fix)then
+              d=upress(l,i-1,j,k,1)
+              enint=upress(l,i-1,j,k,nvar)
+           else
+              d=upress(l,i-1,j,k,1)
+              u=upress(l,i-1,j,k,2)/d
+              v=upress(l,i-1,j,k,3)/d
+              w=upress(l,i-1,j,k,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i-1,j,k,6)+upress(l,i-1,j,k,nvar+1))
+              B=0.5d0*(upress(l,i-1,j,k,7)+upress(l,i-1,j,k,nvar+2))
+              C=0.5d0*(upress(l,i-1,j,k,8)+upress(l,i-1,j,k,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i-1,j,k,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i-1,j,k,5)
+              else   
+                 enint=upress(l,i-1,j,k,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i-1,j,k,firstindex_ndust+idust)/d
+           end do
+           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pl)
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           if(dust_barr) pl = (1.0_dp-sum_dust)*d*cs*cs
+             !compute  central sound speed
+              if(energy_fix)then
+              d=upress(l,i,j,k,1)
+              enint=upress(l,i,j,k,nvar)
+           else
+              d=upress(l,i,j,k,1)
+              u=upress(l,i,j,k,2)/d
+              v=upress(l,i,j,k,3)/d
+              w=upress(l,i,j,k,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i,j,k,6)+upress(l,i,j,k,nvar+1))
+              B=0.5d0*(upress(l,i,j,k,7)+upress(l,i,j,k,nvar+2))
+              C=0.5d0*(upress(l,i,j,k,8)+upress(l,i,j,k,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i,j,k,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i,j,k,5)
+              else   
+                 enint=upress(l,i,j,k,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i,j,k,firstindex_ndust+idust)/d
+           end do
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           
+            do idust = 1,ndust
+               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
+               if(K_drag)  t_stop(idust) = upress(l,i,j,k,firstindex_ndust+idust)/K_dust(idust)
+               if(dust_barr) t_stop (idust)= 0.1_dp
+               tstop_tot= tstop_tot-t_stop(idust)*(upress(l,i,j,k,firstindex_ndust+idust)/d)
+            end do
+            do idust = 1,ndust
+               t_stop(idust) = t_stop(idust)+tstop_tot
+               udust(l,i,j,k,idust,1)=t_stop(idust)*(pr-pl)/(2.0d0*dx)/d
+               if(d .le. dens_floor)  udust(l,i,j,k,idust,1)=0.0d0
+
+          end do
+    enddo
+  enddo
+  enddo
+  enddo
+#if NDIM>1
+ ! Compute the dust velocity y direction
+  do k=klo,khi
+  do j=jf1,jf2
+  do i=ilo,ihi
+     
+     do l = 1, ngrid
+
+            tstop_tot=0.0d0
+            t_stop=0.0d0
+              if(energy_fix)then
+            !compute right pressure
+              d=upress(l,i,j+1,k,1)
+              enint=upress(l,i,j+1,k,nvar)
+           else
+              d=upress(l,i,j+1,k,1)
+              u=upress(l,i,j+1,k,2)/d
+              v=upress(l,i,j+1,k,3)/d
+              w=upress(l,i,j+1,k,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i,j+1,k,6)+upress(l,i,j+1,k,nvar+1))
+              B=0.5d0*(upress(l,i,j+1,k,7)+upress(l,i,j+1,k,nvar+2))
+              C=0.5d0*(upress(l,i,j+1,k,8)+upress(l,i,j+1,k,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i,j+1,k,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i,j+1,k,5)
+              else   
+                 enint=upress(l,i,j+1,k,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i,j+1,k,firstindex_ndust+idust)/d
+           end do
+           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pr)
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           if(dust_barr) pr = (1.0_dp-sum_dust)*d*cs*cs
+            !compute left pressure
+              if(energy_fix)then
+                 d=upress(l,i,j-1,k,1)
+              enint=upress(l,i,j-1,k,nvar)
+           else
+              d=upress(l,i,j-1,k,1)
+              u=upress(l,i,j-1,k,2)/d
+              v=upress(l,i,j-1,k,3)/d
+              w=upress(l,i,j-1,k,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i,j-1,k,6)+upress(l,i,j-1,k,nvar+1))
+              B=0.5d0*(upress(l,i,j-1,k,7)+upress(l,i,j-1,k,nvar+2))
+              C=0.5d0*(upress(l,i,j-1,k,8)+upress(l,i,j-1,k,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i,j-1,k,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i,j-1,k,5)
+              else   
+                 enint=upress(l,i,j-1,k,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i,j-1,k,firstindex_ndust+idust)/d
+           end do
+           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pl)
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           if(dust_barr) pl = (1.0_dp-sum_dust)*d*cs*cs
+             !compute  central sound speed
+              if(energy_fix)then
+              d=upress(l,i,j,k,1)
+              enint=upress(l,i,j,k,nvar)
+           else
+              d=upress(l,i,j,k,1)
+              u=upress(l,i,j,k,2)/d
+              v=upress(l,i,j,k,3)/d
+              w=upress(l,i,j,k,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i,j,k,6)+upress(l,i,j,k,nvar+1))
+              B=0.5d0*(upress(l,i,j,k,7)+upress(l,i,j,k,nvar+2))
+              C=0.5d0*(upress(l,i,j,k,8)+upress(l,i,j,k,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i,j,k,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i,j,k,5)
+              else   
+                 enint=upress(l,i,j,k,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i,j,k,firstindex_ndust+idust)/d
+           end do
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           
+            do idust = 1,ndust
+               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
+               if(K_drag)  t_stop(idust) = upress(l,i,j,k,firstindex_ndust+idust)/K_dust(idust)
+               if(dust_barr) t_stop (idust)= 0.1_dp
+               tstop_tot= tstop_tot-t_stop(idust)*(upress(l,i,j,k,firstindex_ndust+idust)/d)
+            end do
+            do idust = 1,ndust
+               t_stop(idust) = t_stop(idust)+tstop_tot
+               udust(l,i,j,k,idust,2)=t_stop(idust)*(pr-pl)/(2.0d0*dx)/d
+               if(d .le. dens_floor)  udust(l,i,j,k,idust,2)=0.0d0
+
+          end do
+    enddo
+  enddo
+  enddo
+  enddo
+#endif 
+
+#if NDIM>2
+ ! Compute the dust velocity z direction
+  do k=kf1,kf2
+  do j=jlo,jhi
+  do i=ilo,ihi      
+     do l = 1, ngrid
+
+            tstop_tot=0.0d0
+            t_stop=0.0d0
+              if(energy_fix)then
+            !compute right pressure
+              d=upress(l,i,j,k+1,1)
+              enint=upress(l,i,j,k+1,nvar)
+           else
+              d=upress(l,i,j,k+1,1)
+              u=upress(l,i,j,k+1,2)/d
+              v=upress(l,i,j,k+1,3)/d
+              w=upress(l,i,j,k+1,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i,j,k+1,6)+upress(l,i,j,k+1,nvar+1))
+              B=0.5d0*(upress(l,i,j,k+1,7)+upress(l,i,j,k+1,nvar+2))
+              C=0.5d0*(upress(l,i,j,k+1,8)+upress(l,i,j,k+1,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i,j,k+1,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i,j,k+1,5)
+              else   
+                 enint=upress(l,i,j,k+1,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i,j,k+1,firstindex_ndust+idust)/d
+           end do
+           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pr)
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           if(dust_barr) pr = (1.0_dp-sum_dust)*d*cs*cs
+            !compute left pressure
+              if(energy_fix)then
+                 d=upress(l,i,j,k-1,1)
+              enint=upress(l,i,j,k-1,nvar)
+           else
+              d=upress(l,i,j,k-1,1)
+              u=upress(l,i,j,k-1,2)/d
+              v=upress(l,i,j,k-1,3)/d
+              w=upress(l,i,j,k-1,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i,j,k-1,6)+upress(l,i,j,k-1,nvar+1))
+              B=0.5d0*(upress(l,i,j,k-1,7)+upress(l,i,j,k-1,nvar+2))
+              C=0.5d0*(upress(l,i,j,k-1,8)+upress(l,i,j,k-1,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i,j,k-1,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i,j,k-1,5)
+              else   
+                 enint=upress(l,i,j,k-1,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i,j,k-1,firstindex_ndust+idust)/d
+           end do
+           call pressure_eos  ((1.0_dp-sum_dust)*d,enint,pl)
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           if(dust_barr) pl = (1.0_dp-sum_dust)*d*cs*cs
+             !compute  central sound speed
+              if(energy_fix)then
+              d=upress(l,i,j,k,1)
+              enint=upress(l,i,j,k,nvar)
+           else
+              d=upress(l,i,j,k,1)
+              u=upress(l,i,j,k,2)/d
+              v=upress(l,i,j,k,3)/d
+              w=upress(l,i,j,k,4)/d
+              e_mag= 0.0_dp
+#ifdef SOLVERmhd                           
+              A=0.5d0*(upress(l,i,j,k,6)+upress(l,i,j,k,nvar+1))
+              B=0.5d0*(upress(l,i,j,k,7)+upress(l,i,j,k,nvar+2))
+              C=0.5d0*(upress(l,i,j,k,8)+upress(l,i,j,k,nvar+3))
+              e_mag=0.5d0*(A**2+B**2+C**2)
+#endif
+              e_kin=0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+              do irad=1,nener
+                 e_mag=e_mag+upress(l,i,j,k,8+irad)
+              end do
+#endif
+              if(dust_barr) then
+                 enint=upress(l,i,j,k,5)
+              else   
+                 enint=upress(l,i,j,k,5)-e_kin- e_mag
+              endif
+           endif
+           sum_dust=0.0_dp
+           do idust = 1, ndust
+              sum_dust = sum_dust + upress(l,i,j,k,firstindex_ndust+idust)/d
+           end do
+           call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+           if(dust_barr)  cs = 1.0_dp
+           
+            do idust = 1,ndust
+               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
+               if(K_drag)  t_stop(idust) = upress(l,i,j,k,firstindex_ndust+idust)/K_dust(idust)
+               if(dust_barr) t_stop (idust)= 0.1_dp
+               tstop_tot= tstop_tot-t_stop(idust)*(upress(l,i,j,k,firstindex_ndust+idust)/d)
+            end do
+            do idust = 1,ndust
+               t_stop(idust) = t_stop(idust)+tstop_tot
+               udust(l,i,j,k,idust,3)=t_stop(idust)*(pr-pl)/(2.0d0*dx)/d
+               if(d .le. dens_floor)  udust(l,i,j,k,idust,3)=0.0d0
+
+          end do
+    enddo
+  enddo
+  enddo
+  enddo
+#endif 
+
+end subroutine v_dust1
+
+
+ 
