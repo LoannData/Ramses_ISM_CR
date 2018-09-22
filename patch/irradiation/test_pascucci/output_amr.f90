@@ -441,6 +441,10 @@ subroutine output_info(filename)
   use pm_commons
   use radiation_parameters,only: mu_gas
   use units_commons
+#ifdef RT
+  use rt_cooling_module,only: kappaAbs
+  use rt_parameters, only: group_egy
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -458,6 +462,7 @@ subroutine output_info(filename)
 
   ! Conversion factor from user units to cgs units
   !call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+
 
   ! Local constants
   nx_loc=nx; ny_loc=ny; nz_loc=nz
@@ -504,6 +509,11 @@ subroutine output_info(filename)
   write(ilun,'("nent        =",I11)')nent
   write(ilun,'("npscal      =",I11)')npscal
   write(ilun,'("nextinct    =",I11)')nextinct
+#ifdef RT
+  write(ilun,'("kappa_abs    =",E23.15)')kappaAbs
+  write(ilun,'("group_egy    =",E23.15)')group_egy
+#endif
+
   write(ilun,*)
 
   ! Write ordering information

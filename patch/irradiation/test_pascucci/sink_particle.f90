@@ -2943,7 +2943,7 @@ subroutine read_sink_params()
   end if
 
   if(mass_sink_direct_force<0.)then
-     mass_sink_direct_force=1.d100 !huge(0._dp) created segfault if multiplied by >1
+     mass_sink_direct_force=huge(0._dp)*1d-100 !huge=1d308 which gives an error if multiplied by >1
   end if
 
 end subroutine read_sink_params
@@ -3942,7 +3942,7 @@ subroutine radiative_feedback_sink(ilevel)
   use hydro_commons
   use cloud_module,only: rt_protostar_m1
   use cooling_module,only: clight
-  use radiation_parameters,only:stellar_photon,aR
+  use radiation_parameters,only:stellar_photon,aR,Tstar
   use units_commons
 #ifdef RT
   use rt_hydro_commons
@@ -3965,7 +3965,7 @@ subroutine radiative_feedback_sink(ilevel)
   integer,dimension(1:nvector)::ind_grid,ind_cell
   real(dp)::x,y,z,dx,dxx,dyy,dzz,drr,rr,pi
   real(dp)::scale,dx_loc,vol_loc,rmax2,rmax
-  real(dp)::q,h_loc,kernelvalue,weight,radiation_source, Tstar,Lum_group
+  real(dp)::q,h_loc,kernelvalue,weight,radiation_source,Lum_group!,Tstar
   real(dp),dimension(1:3)::skip_loc
   real(dp),dimension(1:twotondim,1:3)::xc
   logical ,dimension(1:nvector)::ok
@@ -4051,7 +4051,6 @@ subroutine radiative_feedback_sink(ilevel)
                  endif
                  drr=dxx*dxx+dyy*dyy+dzz*dzz
                  rr=sqrt(drr)
-                 
                  if(drr.lt.rmax2)then
                     q = rr/h_loc
                     !              
@@ -4062,27 +4061,30 @@ subroutine radiative_feedback_sink(ilevel)
                     if ((q.ge.1.0)  .and.(q.lt.2.0)) kernelvalue = 0.25d0*(2.0d0-q)**3
                     weight = kernelvalue/(pi*h_loc**3)
                     weight =1.0d0 ! bypass wightin. Maybe to be reconsidered...
-                    Tstar = Teff_sink(isink)
+                   ! Tstar = Teff_sink(isink)
                     if(Tstar .gt. 0)then
                        if(.not. rt_protostar_m1)then                       
                           if(stellar_photon)then
                              igrp=1    ! Put all stellar radiative flux in the first group 
-                             uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_sink(isink)*weight*dtnew(ilevel)/((4.0d0*pi*rmax**3)/3.0d0)
-                             uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_sink(isink)*weight*dtnew(ilevel)/((4.0d0*pi*rmax**3)/3.0d0)
+                             uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_sink(isink)*weight*dtnew(ilevel)/(8.0d0*rmax**3)!((4.0d0*pi*rmax**3)/3.0d0)
+                             uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_sink(isink)*weight*dtnew(ilevel)/(8.0d0*rmax**3)!((4.0d0*pi*rmax**3)/3.0d0)
                           else
                              do igrp=1,ngrp 
-                                Lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)/((4.0d0*pi*rmax**3)/3.0d0)
-                                uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_group*weight*dtnew(ilevel)
-                                uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_group*weight*dtnew(ilevel)
+                                !write(*,*) 'lumsink, lumgroup: ', Lum_sink(isink), Lum_group
+                                Lum_group = radiation_source(Tstar,igrp)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)
+                                uold(ind_cell(i),5     )=uold(ind_cell(i),5     ) + Lum_group*weight*dtnew(ilevel)/(8.0d0*rmax**3)!((4.0d0*pi*rmax**3)/3.0d0)
+                                uold(ind_cell(i),8+igrp)=uold(ind_cell(i),8+igrp) + Lum_group*weight*dtnew(ilevel)/(8.0d0*rmax**3)!((4.0d0*pi*rmax**3)/3.0d0)
                              end do
                           end if
                        endif
 #ifdef RT
+                       !write(*,*) rt_protostar_m1, Tstar
                        if(rt_protostar_m1)then
                           ! We assume that energy is transported with M1 (rather than a number of photons with a mean energy groupe_egy).
                           ! To be reconsidered when we will do Hii ionisation for later evolution.
                           Lum_group = aR*(Tstar**4)/(scale_d*scale_v**2)*(pi*rsink_star(isink)**2*clight/scale_v)
-                          rtunew(ind_cell(i),1)=rtunew(ind_cell(i),1) + Lum_group*weight*dtnew(ilevel)/((group_egy(1)*ev_to_erg)/scale_d/scale_v**2)
+                          !write(*,*) 'Lum_group= ', Lum_group
+                          rtunew(ind_cell(i),1)=rtunew(ind_cell(i),1) + Lum_group*weight*dtnew(ilevel)/((group_egy(1)*ev_to_erg)/scale_d/scale_v**2)/(8.0d0*rmax**3)!((4.0d0*pi*rmax**3)/3.0d0)
                        end if
 #endif
                     end if
