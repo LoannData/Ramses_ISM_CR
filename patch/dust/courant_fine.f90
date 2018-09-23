@@ -198,7 +198,7 @@ subroutine courant_fine(ilevel)
            dt_loc=min(dt_loc,dt_lev)
 #endif
 #if NDUST>0           
-           dt_loc=min(dt_loc,dt_dust)
+         !  dt_loc=min(dt_loc,dt_dust)
            !dt_loc=courant_factor*dx/(abs(speedx))
            !print *, speedx,courant_factor, dx,dt_loc
 #endif           

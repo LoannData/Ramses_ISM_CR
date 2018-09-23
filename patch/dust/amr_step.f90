@@ -354,14 +354,7 @@ recursive subroutine amr_step(ilevel,icount)
   
 
 #if NDUST>0
-  if (.not.mhd_dust)call set_vdust(ilevel)
-  if (mhd_dust) call set_vdust_mhd(ilevel)
-  call upload_fine(ilevel)
-  do idim =1,ndim
-     do idust=1,ndust
-        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-     end do
-  end do
+ call vdust_fine(ilevel)
 #endif
     !----------------------
   ! Compute new time step
@@ -622,8 +615,11 @@ recursive subroutine amr_step(ilevel,icount)
   endif
 #if NDUST>0
   if(dust_diffusion)then
-                     call timer('dust - diffusion','start')
-     call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
+     call timer('dust - diffusion','start')
+  call vdust_fine(ilevel) 
+  call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
+  call vdust_fine(ilevel)
+
   end if
 #endif
 

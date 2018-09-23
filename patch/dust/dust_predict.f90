@@ -200,10 +200,10 @@ SUBROUTINE hlldust(vleft,vright,uleft,uright,fgdnv)
   fright= uright*vright
  
   ! the HLL flux
-  fgdnv = (SR*fleft-SL*fright+SR*SL*(uright-uleft))/(SR-SL)
-  !fmean =  half * ( fright + fleft )
-  !udiff  = half * ( uright - uleft )
-  !fgdnv = fmean - half*(abs(vleft)+abs(vright)) * udiff
+  !fgdnv = (SR*fleft-SL*fright+SR*SL*(uright-uleft))/(SR-SL)
+  fmean =  half * ( fright + fleft )
+  udiff  = half * ( uright - uleft )
+  fgdnv = fmean - half*(abs(vleft)+abs(vright)) * udiff
 
 END SUBROUTINE hlldust
 SUBROUTINE upwind_dust(vleft,vright,uleft,uright,fgdnv)
@@ -457,7 +457,7 @@ subroutine trace3d_dust(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               !sw0 = -ud*dwx-vd*dwy-wd*dwz 
               ! Right state at left interface
               qp(l,i,j,k,idust,1) = rhod       - half*drhox + srho0*dtdx*half
-              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud   - half*dux   !+ su0*dtdx*half
+              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud  - half*dux   !+ su0*dtdx*half
               qp(l,i,j,k,ndust+ndim*(idust-1)+2,1) = vd - half*dvx  ! + sv0*dtdx*half
               qp(l,i,j,k,ndust+ndim*(idust-1)+3,1) = wd - half*dwx   !+ sw0*dtdx*half
               ! Left state at left interface
