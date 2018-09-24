@@ -166,8 +166,8 @@ subroutine cmpflxmdust(qm,im1,im2,jm1,jm2,km1,km2, &
               uleft = qm(l,i,j,k,ndust+ndim*(idust-1)+xdim,xdim)
               uright = qp(l,i,j,k,ndust+ndim*(idust-1)+xdim,xdim)
               ! Compute fluxes
-              call upwind_dust(uleft,uright,qleft,qright,flx(l,i,j,k,idust))
-              !call hlldust(uleft,uright,qleft,qright,flx(l,i,j,k,idust))
+              !call upwind_dust(uleft,uright,qleft,qright,flx(l,i,j,k,idust))
+              call hlldust(uleft,uright,qleft,qright,flx(l,i,j,k,idust))
               !flx(l,i,j,k,idust)= uleft*qleft
            end do
         end do

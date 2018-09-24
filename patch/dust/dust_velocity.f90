@@ -26,13 +26,13 @@ subroutine vdust_fine(ilevel)
      end do
      call vdustfine1(ind_grid,ngrid,ilevel)
   end do
-
-  call upload_fine(ilevel)
   do idim =1,ndim
      do idust=1,ndust
        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
      end do
   end do
+  call upload_fine(ilevel)
+
   if(simple_boundary)call make_boundary_hydro(ilevel)
 
 111 format('   Entering vdust_fine for level ',i2)
@@ -778,7 +778,7 @@ if (reduce_wdust .eqv. .true.) then
               if (NDIM.eq.2)  dt_dust  = courant_factor*dx/(abs( udust(l,i,j,k,idust,1))+abs( udust(l,i,j,k,idust,2)))
               if (NDIM.eq.3)  dt_dust  = courant_factor*dx/(abs(udust(l,i,j,k,idust,1))+abs( udust(l,i,j,k,idust,2))+abs(udust(l,i,j,k,idust,3)))
  
-              if( dt_dust .le.dt.or.+upress(l,i,j,k,1) .lt. d0 .and. reduce_wdust .eqv. .true.) then   
+              if(upress(l,i,j,k,1) .lt. d0 .and. reduce_wdust .eqv. .true.) then   
 	      if (NDIM.eq.1) wnorm =abs( udust(l,i,j,k,idust,1))
  	      if (NDIM.eq.2) wnorm =sqrt( udust(l,i,j,k,idust,1)**2.0+ udust(l,i,j,k,idust,2)**2.0)
 	      if (NDIM.eq.3) wnorm =sqrt(udust(l,i,j,k,idust,1)**2.0+udust(l,i,j,k,idust,2)**2.0+udust(l,i,j,k,idust,3)**2.0)

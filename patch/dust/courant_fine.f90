@@ -106,11 +106,11 @@ subroutine courant_fine(ilevel)
         do i=1,nleaf
         !do idim=1,ndim
            do idust=1,ndust
-              if (NDIM.eq.1)  dt_dust =min(dt_dust,eta_dust*courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))))
+              if (NDIM.eq.1.and.abs(v_dust(ind_leaf(i),idust,1)).ne.0.0d0)  dt_dust =min(dt_dust,eta_dust*courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))))
            
-              if (NDIM.eq.2)  dt_dust =min(dt_dust,eta_dust*courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))))
+              if (NDIM.eq.2.and.(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2)))).ne.0.0d0)  dt_dust =min(dt_dust,eta_dust*courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))))
   
-              if (NDIM.eq.3)  dt_dust =min(dt_dust,eta_dust*courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))))
+              if (NDIM.eq.3.and.(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3)))).ne.0.0d0)  dt_dust =min(dt_dust,eta_dust*courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))))
 
            end do
         !end do
@@ -198,7 +198,7 @@ subroutine courant_fine(ilevel)
            dt_loc=min(dt_loc,dt_lev)
 #endif
 #if NDUST>0           
-         !  dt_loc=min(dt_loc,dt_dust)
+           dt_loc=min(dt_loc,dt_dust)
            !dt_loc=courant_factor*dx/(abs(speedx))
            !print *, speedx,courant_factor, dx,dt_loc
 #endif           
