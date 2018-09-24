@@ -783,7 +783,7 @@ if (reduce_wdust .eqv. .true.) then
  	      if (NDIM.eq.2) wnorm =sqrt( udust(l,i,j,k,idust,1)**2.0+ udust(l,i,j,k,idust,2)**2.0)
 	      if (NDIM.eq.3) wnorm =sqrt(udust(l,i,j,k,idust,1)**2.0+udust(l,i,j,k,idust,2)**2.0+udust(l,i,j,k,idust,3)**2.0)
               do idim=1,ndim       
-             !udust(l,i,j,k,idust,idim) = sign(beta_dust*courant_factor*dx/dt*abs(udust(l,i,j,k,idust,idim))/wnorm,udust(l,i,j,k,idust,idim))
+             udust(l,i,j,k,idust,idim) = sign(beta_dust*courant_factor*dx/dt*abs(udust(l,i,j,k,idust,idim))/wnorm,udust(l,i,j,k,idust,idim))
                end do   
             end if   
           end do
