@@ -1481,7 +1481,7 @@ double precision function barotrop1D(rhon,sumd)
   integer :: j
 
   if(analytical_barotrop)then
-     barotrop1D = Tr_floor * ( 1.0d0 + (rhon/(n_star))**(gamma-1.0d0) )
+     barotrop1D = Tr_floor * ( 1.0d0 + (rhon/(n_star*sumd*100.0d0/(1.0-sumd)))**(gamma-1.0d0) )
   else
      inp=rhon ! in g.cc
      ll=(1.d0+(log10(inp)-rhomin_barotrop)/drho_barotrop)
