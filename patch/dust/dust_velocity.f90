@@ -289,12 +289,12 @@ subroutine set_vdust(ilevel)
               if (NDIM.eq.2)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2)))
 
               if (NDIM.eq.3)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2))+abs(v_dust(ind_cell(i),idust,3)))  
-              if(d .le. dens_floor .and. dt_dust .le.dtnew(ilevel).and. reduce_wdust .eqv. .true.) then   
+              if(d .le. dens_floor .and. reduce_wdust .eqv. .true.) then   
 	      if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
  	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
 	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
               do idim=1,ndim       
-              v_dust(ind_cell(i),idust,idim)= sign(min(abs(v_dust(ind_cell(i),idust,idim)),eta_dust*courant_factor*dx_loc/dtnew(ilevel)*abs(v_dust(ind_cell(i),idust,idim))/wnorm),v_dust(ind_cell(i),idust,idim))
+              v_dust(ind_cell(i),idust,idim)= sign(eta_dust*courant_factor*dx_loc/dtnew(ilevel)*abs(v_dust(ind_cell(i),idust,idim))/wnorm,v_dust(ind_cell(i),idust,idim))
                end do   
             end if
             end do

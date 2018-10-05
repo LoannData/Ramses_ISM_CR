@@ -425,8 +425,10 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
                  !print*, v_dust(ind_cell(i),idust,idim), ndust+ndim*(idust-1)+idim, idim
                end do
             end do
-           do i=1,nbuffer
-              uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)
+            do i=1,nbuffer
+              do idust=1,ndust
+                 uloc(ind_nexist(i),i3,j3,k3,idust)=u2(i,ind_son,firstindex_ndust+idust)
+              end do
               do idim= 1,ndim
                  do idust=1,ndust
                     uloc(ind_nexist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= u2dust(i,ind_son,ndim*(idust-1)+idim)
