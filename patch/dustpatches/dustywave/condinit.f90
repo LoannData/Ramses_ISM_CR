@@ -32,9 +32,9 @@ subroutine condinit(x,u,dx,nn)
   real(dp)::xn,x0,sum_dust, t_stop, rho_0, epsilon_0, delta_rho0,v0, pi,P_0,rho_gas, dusttogas
       pi =3.14159265358979323846_dp
       dusttogas = 1.0d0!0.10
-      rho_gas =1.0
+      rho_gas =1.0_dp
       rho_0 = rho_gas + dusttogas*rho_gas
-      epsilon_0=  dusttogas*rho_gas/rho_0
+      epsilon_0 =  dusttogas*rho_gas/rho_0
       delta_rho0= 1.0e-4_dp
       v0  = delta_rho0
       q(1:nn,2)=0.0d0
@@ -63,8 +63,7 @@ subroutine condinit(x,u,dx,nn)
             q(i,firstindex_ndust+idust) = epsilon_0!*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
             sum_dust= sum_dust + q(i,firstindex_ndust+idust)
          end do
-         !P_0 = (1.0d0-epsilon_0)*rho_0/gamma
-         q(i,5)=(1.0d0-epsilon_0)*q(i,1)!/gamma
+         q(i,5)=(1.0d0-epsilon_0)*q(i,1)
       end do
       
      ! Convert primitive to conservative variables

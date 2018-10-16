@@ -203,7 +203,7 @@ subroutine dustYflx(uin,myflux,dy,dt,ngrid)
   do i=ilo,ihi
      do l = 1, ngrid
         do idust=1,ndust
-           speed =   0.5d0*(uin(l,i,j,k,ndust+idust)+uin(l,i,j-1,k,ndust+idust))!uin(l,i,j,k,ndust+idust*2)
+           speed =   0.5d0*(uin(l,i,j,k,ndust+idust*2)+uin(l,i,j-1,k,ndust+idust*2))!uin(l,i,j,k,ndust+idust*2)
            fy(idust)= max(speed*uin(l,i,j-1,k,idust),0.0d0)+ min(speed*uin(l,i,j,k,idust),0.0d0)
            !Second order terms
            if(speed.ge.0.0d0) isl = j-1
@@ -265,7 +265,7 @@ subroutine dustZflx(uin,myflux,dz,dt,ngrid)
   do i=ilo,ihi
      do l = 1, ngrid
         do idust=1,ndust
-           speed =   0.5d0*(uin(l,i,j,k,ndust+idust)+uin(l,i,j,k-1,ndust+idust))!uin(l,i,j,k,ndust+idust*3)
+           speed =   0.5d0*(uin(l,i,j,k,ndust+idust*3)+uin(l,i,j,k-1,ndust+idust*3))!uin(l,i,j,k,ndust+idust*3)
            fz(idust)= max(speed*uin(l,i,j,k-1,idust),0.0d0)+ min(speed*uin(l,i,j,k,idust),0.0d0)
            !Second order terms
            if(speed.ge.0.0d0) isl = k-1
