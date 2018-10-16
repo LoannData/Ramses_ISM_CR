@@ -235,8 +235,11 @@ SUBROUTINE read_rt_groups()
   use rt_parameters
   use rt_cooling_module
   use SED_module
+  use radiation_parameters !raph for kappaAbs=kplanck(Tstar)
+  use hydro_parameters, only: ngrp
   implicit none
-  integer::i
+  integer::i, igrp !igrp for kappaAbs=kplanck(Tstar)
+  real(dp)::planck_ana !raph for kappaAbs=kplanck(Tstar)
 !-------------------------------------------------------------------------
   namelist/rt_groups/group_csn, group_cse, group_egy, spec2group         &
        & , groupL0, groupL1, kappaAbs, kappaSc
@@ -279,6 +282,15 @@ SUBROUTINE read_rt_groups()
   ! Read namelist file
   rewind(1)
   read(1,NML=rt_groups,END=101)
+
+  if (ngrp==1) then
+     kappaAbs = planck_ana(1.0d0, Tstar, Tstar ,1) !M1 opacity at stellar Temp
+     if(myid==1) write(*,*) "kappaAbs = kappa planck at star temperature"
+  else
+     if(myid==1) write(*,*) "ngrp>1 so kappaAbs is taken from the namelist"
+  endif  
+
+
 101 continue              ! no harm if no rt namelist
 
   if(minval(group_egy) .le. 0d0 .and. myid==1) then

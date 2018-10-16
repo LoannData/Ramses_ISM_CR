@@ -34,8 +34,8 @@ GRACKLE = 0
 EXEC = ramses
 
 MPI = 1
-#COMP = "GNU"
-COMP = "INTEL"
+COMP = "GNU"
+#COMP = "INTEL"
 
 
 ifeq ($(NIMHD),1)
@@ -112,14 +112,14 @@ endif
 # INTEL
 ifeq ($(COMP),"INTEL")
    ifeq ($(MPI),1)
-      F90 = mpiifort
+      F90 = mpif90
 #      FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
       FFLAGS = -cpp $(DEFINES) -DNOSYSTEM
    else
       F90 = ifort
       FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
    endif
-   FFLAGS += -O3 -xHost -fp-model source 
+   FFLAGS += -O3 -fp-model source 
 #   FFLAGS += -warn all -O0 -g -traceback -fpe0 -ftrapuv -check bounds
 endif
 
@@ -178,10 +178,10 @@ LIBS = $(LIBMPI) $(LIBS_GRACKLE)
 
 # Lapack
 ifeq ($(USE_M_1),1)
-LIBS += -mkl=sequential
+LIBS += -llapack
 else
 ifneq ($(NGRP),$(filter $(NGRP),0 1))
-LIBS += -mkl=sequential
+LIBS += -llapack
 endif
 endif
 #############################################################################
@@ -195,7 +195,7 @@ ifeq ($(GRACKLE),1)
 MODOBJ += grackle_parameters.o
 endif
 MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o cooling_module.o bisection.o sparse_mat.o \
-         clfind_commons.o gadgetreadfile.o write_gitinfo.o #write_makefile.o write_gitinfo.o write_patch.o 
+         clfind_commons.o gadgetreadfile.o write_makefile.o write_gitinfo.o write_patch.o 
 
 MODOBJ += radiation_parameters.o rt_parameters.o rt_hydro_commons.o coolrates_module.o \
 	  rt_spectra.o  rt_metal_cooling_module.o rt_cooling_module.o rt_flux_module.o \

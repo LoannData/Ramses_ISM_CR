@@ -441,8 +441,8 @@ subroutine output_info(filename)
   use pm_commons
   use radiation_parameters,only: mu_gas
   use units_commons
-#ifdef RT
-  use rt_cooling_module,only: kappaAbs
+#ifdef RT 
+  use rt_cooling_module,only: kappaAbs !raph pour frad
   use rt_parameters, only: group_egy
 #endif
   implicit none
