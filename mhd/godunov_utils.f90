@@ -25,7 +25,12 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   real(dp),dimension(1:nvector),save::bsqrt  ! corresponds to sqrt(B*B)
   real(dp)::xx,betaadbricolo,betaad
   real(dp),dimension(1:nvector),save::rhoad,xpress
-  real(dp)::etaohmdiss,reshall,barotrop1D
+  real(dp)::etaohmdiss,barotrop1D
+  real(dp),dimension(1:nvector),save::tcell,ionisrate
+#if HALL==1
+  real(dp)::cw,cw1
+  real(dp)::eta_hall_chimie
+#endif
   integer :: ntest
   ! fin modif nimhd
 #endif
@@ -36,9 +41,6 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   integer::k,idim
 #if NENER>0
   integer::irad
-#endif
-#if NIMHD==1
-  real(dp),dimension(1:nvector),save::tcell,ionisrate
 #endif
 
   smallp = smallr*smallc**2/gamma
@@ -108,7 +110,17 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
            cc=half*(B2(k)/rho(k)+a2(k))
            BN=half*(uu(k,5+idim)+uu(k,nvar+idim))
            cf=sqrt(cc+sqrt(cc**2-a2(k)*BN**2/rho(k)))
+#if HALL==1
+           if(nhall==1) then
+             cw1=abs(eta_hall_chimie(rho(k),tcell(k),ionisrate(k),B2(k))/(2.0d0*dx)) ! Whistler wave speed
+             cw = cw1+sqrt(cw1**2+B2(k)/rho(k))                  ! Whistler wave speed
+           else
+             cw=0d0
+           end if
+           ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf+cw
+#else
            ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf
+#endif
         end do
      end do
   endif
@@ -142,15 +154,20 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      dthallbis=1.d34
   else
      dthallbis=1.d34
+#if HALL==1
      do k = 1,ncell
-        xx=reshall(rhoad(k))*bsqrt(k)
+        xx=eta_hall_chimie(rhoad(k),tcell(k),ionisrate(k),B2(k))
         if(xx.gt.0.d0) then
            dthallb=coefhall*dx*dx/xx
         else
            dthallb=1.d34
         endif
+        cw1=abs(xx)/(2.0d0*dx) ! Whistler wave speed
+        cw = cw1+sqrt(cw1**2+B2(k)/uu(k,1))                  ! Whistler wave speed
+        dthallb=coefhall*dx/cw
         dthallbis=min(dthallbis,dthallb)      
      end do
+#endif
   endif
 
   ! Ohmic dissipation
@@ -519,8 +536,13 @@ SUBROUTINE lax_friedrich(qleft,qright,fgdnv,zero_flux)
   fmean =  half * ( fright + fleft ) * zero_flux
 
   ! find the largest eigenvalue in the normal direction to the interface
-  CALL find_speed_info(qleft ,vleft )
+#if HALL==1
+  CALL find_speed_info(qleft ,vleft,0d0)
+  CALL find_speed_info(qright,vright,0d0)
+#else
+  CALL find_speed_info(qleft ,vleft)
   CALL find_speed_info(qright,vright)
+#endif
 
   ! difference between the 2 states
   udiff  = half * ( uright - uleft )
@@ -553,8 +575,13 @@ SUBROUTINE hll(qleft,qright,fgdnv)
   CALL find_mhd_flux(qright,uright,fright)
 
   ! find the largest eigenvalue in the normal direction to the interface
-  CALL find_speed_fast(qleft ,cfleft )
+#if HALL==1
+  CALL find_speed_fast(qleft ,cfleft,0d0)
+  CALL find_speed_fast(qright,cfright,0d0)
+#else
+  CALL find_speed_fast(qleft ,cfleft)
   CALL find_speed_fast(qright,cfright)
+#endif
   vleft =qleft (3)
   vright=qright(3)
   SL=min(min(vleft,vright)-max(cfleft,cfright),zero)
@@ -647,8 +674,13 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   eintr=Pr*entho
 
   ! Find the largest eigenvalues in the normal direction to the interface
+#if HALL==1
+  CALL find_speed_fast(qleft ,cfastl,0d0)
+  CALL find_speed_fast(qright,cfastr,0d0)
+#else
   CALL find_speed_fast(qleft ,cfastl)
   CALL find_speed_fast(qright,cfastr)
+#endif
 
   ! Compute HLL wave speed
   SL=min(ul,ur)-max(cfastl,cfastr)
@@ -969,7 +1001,11 @@ END SUBROUTINE find_mhd_flux
 !###########################################################
 !###########################################################
 !###########################################################
+#if HALL==1
+SUBROUTINE find_speed_info(qvar,vel_info,dx)
+#else
 SUBROUTINE find_speed_info(qvar,vel_info)
+#endif
   USE amr_parameters
   USE const
   USE hydro_parameters
@@ -985,6 +1021,13 @@ SUBROUTINE find_speed_info(qvar,vel_info)
   REAL(dp),DIMENSION(1:nvar):: qvar
   REAL(dp) :: vel_info
   REAL(dp) :: d,P,u,v,w,A,B,C,B2,c2,d2,cf
+#if HALL==1
+  REAL(dp) :: cw,cw1,eta,tcell
+  REAL(dp) :: dx
+  REAL(dp) :: ionisrate=1d-17
+  REAL(dp) :: eta_hall_chimie
+  integer :: ht
+#endif
 
   d=qvar(1); P=qvar(2); u=qvar(3); A=qvar(4)
   v=qvar(5); B=qvar(6); w=qvar(7); C=qvar(8)
@@ -999,16 +1042,37 @@ SUBROUTINE find_speed_info(qvar,vel_info)
   end do
 #endif
 
+#if HALL==1
+  cw=0d0
+  if(nhall==1 .and. dx>0) then
+    call temperature_eos(d,P/(gamma-1),tcell,ht)
+    eta=abs(eta_hall_chimie(d,tcell,ionisrate,B2))
+    cw1=eta/(2.0d0*dx) ! Whistler wave speed
+    cw = cw1+sqrt(cw1**2+B2/d)                  ! Whistler wave speed
+  else
+    cw=0d0
+  end if
+#endif
+
   d2 = half*(B2/d+c2)
   cf = sqrt( d2 + sqrt(d2**2-c2*A*A/d) )
   vel_info = cf+abs(u)
+#if HALL==1
+  if (nhall==1) vel_info=abs(u)+max(cf,cw)
+#else
+  vel_info=abs(u)+cf
+#endif
 
 END SUBROUTINE find_speed_info
 !###########################################################
 !###########################################################
 !###########################################################
 !###########################################################
+#if HALL==1
+SUBROUTINE find_speed_fast(qvar,vel_info,dx)
+#else
 SUBROUTINE find_speed_fast(qvar,vel_info)
+#endif
   USE amr_parameters
   USE const
   USE hydro_parameters
@@ -1023,6 +1087,13 @@ SUBROUTINE find_speed_fast(qvar,vel_info)
   REAL(dp),DIMENSION(1:nvar):: qvar
   REAL(dp) :: vel_info
   REAL(dp) :: d,P,u,v,w,A,B,C,B2,c2,d2,cf
+#if HALL==1
+  REAL(dp) :: dx
+  REAL(dp) :: cw,cw1,eta,tcell
+  REAL(dp) :: ionisrate=1d-17
+  REAL(dp) :: eta_hall_chimie
+  integer :: ht
+#endif
 
   d=qvar(1); P=qvar(2); u=qvar(3); A=qvar(4)
   v=qvar(5); B=qvar(6); w=qvar(7); C=qvar(8)
@@ -1036,9 +1107,27 @@ SUBROUTINE find_speed_fast(qvar,vel_info)
      c2 = c2 + gamma_rad(nent+irad)*(gamma_rad(nent+irad)-1.0d0)*qvar(firstindex_er+irad)/d
   end do
 #endif
+
+#if HALL==1
+  cw=0d0
+  if(nhall==1 .and. dx>0) then
+    call temperature_eos(d,P/(gamma-1),tcell,ht)
+    eta=abs(eta_hall_chimie(d,tcell,ionisrate,B2))
+    cw1=dabs(eta/(2.0d0*dx)) ! Whistler wave speed
+    cw = cw1+dsqrt(cw1**2+B2/d)                  ! Whistler wave speed
+  else
+    cw=0d0
+  end if
+#endif
+
   d2 = half*(B2/d+c2)
   cf = sqrt( d2 + sqrt(d2**2-c2*A*A/d) )
   vel_info = cf
+#if HALL==1
+  if (nhall == 1) vel_info=max(cf,cw)
+#else
+  if (nhall == 1) vel_info=cf
+#endif
 
 END SUBROUTINE find_speed_fast
 !###########################################################
@@ -1212,8 +1301,11 @@ SUBROUTINE athena_roe(qleft,qright,fmean,zero_flux)
 
   IF( llf ) THEN
      fmean = half * ( fright + fleft ) * zero_flux
-     CALL find_speed_info(qleft ,vleft )
+#if HALL==1
+     CALL find_speed_info(qleft ,vleft ,0d0)
+#else
      CALL find_speed_info(qright,vright)
+#endif
      udiff = half * ( uright - uleft )
      fmean = fmean - MAX(vleft,vright) * udiff
      RETURN
