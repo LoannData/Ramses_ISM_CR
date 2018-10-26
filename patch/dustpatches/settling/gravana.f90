@@ -4,11 +4,7 @@
 !#########################################################
 subroutine gravana(x,f,dx,ncell)
   use amr_parameters
-  use units_commons
-  use hydro_parameters
   use poisson_parameters
-  use cooling_module      , only : kb,mh
-  use radiation_parameters,only:mu_gas
   implicit none
   integer ::ncell                         ! Size of input arrays
   real(dp)::dx                            ! Cell size
@@ -19,29 +15,37 @@ subroutine gravana(x,f,dx,ncell)
   ! x(i,1:ndim) are cell center position in [0,boxlen] (user units).
   ! f(i,1:ndim) is the gravitational acceleration in user units.
   !================================================================
-  integer::idim,i,idust
-  real(dp)::gmass,emass,xmass,ymass,zmass,rr,rx,ry,rz,cs2,sum_dust
+  integer::idim,i
+  real(dp)::gmass,emass,xmass,ymass,zmass,rr,rx,ry,rz
+
   ! Constant vector
- 
+  if(gravity_type==1)then
+     do idim=1,ndim
+        do i=1,ncell
+           f(i,idim)=gravity_params(idim)
+        end do
+     end do
+  end if
+
   ! Point mass
   if(gravity_type==2)then
-     gmass=gravity_params(1)! delta_rho
+     gmass=gravity_params(1) ! GM
      emass=dx
-     emass=gravity_params(2) ! z1
-     xmass=gravity_params(3) ! z0
+     emass=gravity_params(2) ! Softening length
+     xmass=gravity_params(3) ! Point mass coordinates
      ymass=gravity_params(4)
      zmass=gravity_params(5)
      do i=1,ncell
-        cs2=gamma*kb*Temper/mu_gas/mH/scale_v/scale_v
-        sum_dust=0.0d0
-        do idust=1,ndust
-           sum_dust=sum_dust+dust_ratio(idust)/(1.0+dust_ratio(idust))
-        end do
-        
-       if(x(i,2)>boxlen/2.0) f(i,2)=-cs2*(1.0d0-sum_dust)*log(gmass)/(emass)
-       if(x(i,2)<boxlen/2.0) f(i,2)=cs2*(1.0d0-sum_dust)*log(gmass)/(emass)
+        rx=0.0d0; ry=0.0d0; rz=0.0d0
+        rx=x(i,1)
+#if NDIM>1
+        ry=x(i,2)-boxlen/2.0
+#endif
 
-      end do
+        rr=sqrt(ry**2+emass**2)
+        f(i,1)=0.0d0
+        f(i,2)=-gmass*ry/rr**3
+     end do
   end if
 
 end subroutine gravana

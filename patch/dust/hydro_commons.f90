@@ -11,6 +11,8 @@ module hydro_commons
 #if NDUST>0  
   real(dp),allocatable,dimension(:,:):: dflux_dust ! Dust flux from refined interfaces
   real(dp),allocatable,dimension(:,:,:):: v_dust ! Differential velocity of the dust phases
+  !real(dp),allocatable,dimension(:,:,:):: v_dust_0 ! Initial differential velocity of the dust phases, to compute decay
+
 #endif  
   real(dp),allocatable,dimension(:)::rho_barotrop,temp_barotrop
   real(dp)::mass_tot=0.0D0,mass_tot_0=0.0D0

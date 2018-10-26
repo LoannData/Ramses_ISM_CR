@@ -245,6 +245,7 @@ module hydro_parameters
 
   ! Dust related parameters
   logical :: K_drag = .false.
+  logical :: decay_dust=.false.
   logical :: mrn = .false.
   logical :: flag_dust=.true.
   logical :: visco_dust =.true.

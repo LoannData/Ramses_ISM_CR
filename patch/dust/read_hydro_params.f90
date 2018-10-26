@@ -27,7 +27,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/init_params/filetype,initfile,multiple,nregion,region_type &
        & ,x_center,y_center,z_center,aexp_ini &
        & ,length_x,length_y,length_z,exp_region &
-       & ,d_region,u_region,v_region,w_region,p_region,frac_Pcr &
+       & ,d_region,u_region,v_region,w_region,p_region,frac_Pcr&
 #if NENER>NGRP
        & ,prad_region &
 #endif
@@ -47,7 +47,7 @@ subroutine read_hydro_params(nml_ok)
        & ,gamma_rad &
 #endif
 #if NDUST>0       
-       &,grain_size, grain_dens, K_dust, K_drag,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index, &
+       &,grain_size, grain_dens, K_dust, K_drag,decay_dust,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index, &
        & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust&
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d

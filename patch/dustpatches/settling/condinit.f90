@@ -30,11 +30,11 @@ subroutine condinit(x,u,dx,nn)
   !================================================================
   integer::ivar, idust, i
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp)::x0,sum_dust,ee,H_disc,rho_sim,cs2,R0,m_center,rc,xx,yy,zz,gravi
+  real(dp)::x0,sum_dust,ee,H_disc,rho_sim,cs,r_disk,xx,yy,zz
   real(dp),dimension(1:ndust):: dustMRN
   real(dp):: epsilon_0
-  rho_sim = rho_0/scale_d
-  cs2=gamma*kb*Temper/mu_gas/mh/scale_v/scale_v
+  rho_sim = 6.0e-13/scale_d
+  r_disk=5.0
   epsilon_0 = dust_ratio(1)
   q(1:nn,2)=0.0d0
   q(1:nn,3)=0.0d0
@@ -52,7 +52,6 @@ subroutine condinit(x,u,dx,nn)
   do i=1,nn
      xx=x(i,1)
      yy=x(i,2)-boxlen/2.0
-     rc= sqrt(xx**2.0+yy**2.0+gravity_params(2)**2)
      sum_dust=0.0d0
 #if NDUST>0
      do idust =1,ndust
@@ -64,14 +63,13 @@ subroutine condinit(x,u,dx,nn)
         q(i,firstindex_ndust+idust) = dustMRN(idust)
      end do
 #endif
-     gravi =-cs2*abs((1.0d0-sum_dust)*log(gravity_params(1))/(gravity_params(2)))
-        H_disc =-gravity_params(2)/log(gravity_params(1))
-        q(i,1)=rho_sim*exp(-abs(yy/(H_disc)))+1d-22/scale_d
-        q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs2
+     H_disc =0.25d0
+     cs = H_disc/r_disk**(3.0/2.0)
+        q(i,1)=rho_sim*exp(-abs(yy**2.0/(2.0*H_disc**2.0)))+1d-22/scale_d
+        q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs**2.0
         q(i,2)= 0.0d0
         q(i,3)= 0.0d0
         q(i,4)= 0.0d0
-
   end do
   
      ! Convert primitive to conservative variables

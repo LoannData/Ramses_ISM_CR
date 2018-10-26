@@ -1034,9 +1034,8 @@ SUBROUTINE find_speed_info(qvar,vel_info)
      sum_dust=sum_dust+qvar(firstindex_ndust+idust)
   end do
 #endif
-  d = d * (1.0d0-sum_dust)
   
-  c2 = gamma*P/d
+  c2 = gamma*P/d/(1.0d0-sum_dust)
 #if NENER>0
   do irad = 1,nent
      c2 = c2 + gamma_rad(irad)*qvar(8+irad)/d
@@ -1083,8 +1082,7 @@ SUBROUTINE find_speed_fast(qvar,vel_info)
      sum_dust=sum_dust+qvar(firstindex_ndust+idust)
   end do
 #endif
-  d = d * (1.0d0-sum_dust)
-  c2 = gamma*P/d
+  c2 = gamma*P/d/ (1.0d0-sum_dust)
 #if NENER>0
   do irad = 1,nent
      c2 = c2 + gamma_rad(irad)*qvar(8+irad)/d
