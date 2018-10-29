@@ -672,10 +672,10 @@ subroutine diffusion_cg (ilevel,Nsub)
      lhs=zero
      do igrp=1,ngrp
         Trold = cal_Teg(uold(liste_ind(i),firstindex_er+igrp)*scale_E0,igrp)
-        !do im1=1, 1000
-        !   temp = 10.0d0**(0.5+log10(im1*1.0d0))
-        !   if(myid==1)write(*,*) "temp= , kp = ", temp, planck_ana(rho*scale_d,temp,tr,igrp)/(rho*scale_d)
-        !enddo
+        do im1=1, 1000
+           temp = 10.0d0**(0.5+log10(im1*1.0d0))
+           if(myid==1)write(*,*) "temp= , kp = ", temp, (planck_ana(rho*scale_d,temp,tr,igrp)+planck_ana_scat(rho*scale_d,temp,tr,igrp))/(rho*scale_d)
+        enddo
         wdtB = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa
         wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
         

@@ -90,6 +90,7 @@ module radiation_parameters
   real(dp)::rho_disk0    = 2.874d-18
   real(dp)::Rin          = 0.1d0
   real(dp)::dtmax        = 1.d32
+  logical ::isoscat      = .false.
 
 #if USE_FLD==1 && NGRP == 1
   logical, parameter :: bicg_to_cg = .true.
@@ -132,8 +133,10 @@ module mod_opacities
   real(dp), dimension(:,:,:,:), allocatable :: kappa_opmesh_r      !< Regular mesh of Rosseland opacities
   real(dp), dimension(:,:,:  ), allocatable :: kappa_dustgas_p     !< Rosseland opacities from Dust + Gas
   real(dp), dimension(:,:,:  ), allocatable :: kappa_dustgas_r     !< Rosseland opacities from Dust + Gas
-  real(dp), dimension(:,:    ), allocatable :: kappa_pascucci_p    !< Rosseland opacities from Draine & Lee
+  real(dp), dimension(:,:    ), allocatable :: kappa_pascucci_p    !< Planck opacities from Draine & Lee
   real(dp), dimension(:,:    ), allocatable :: kappa_pascucci_r    !< Rosseland opacities from Draine & Lee
+  real(dp), dimension(:,:    ), allocatable :: kappaext_pascucci_p !< Planck extinction opa from Draine & Lee
+  real(dp), dimension(:,:    ), allocatable :: kappaext_pascucci_r !< Rosseland extinction opa from Draine & Lee
   real(dp), dimension(:      ), allocatable :: t_pascucci          !< Temperature of points for Draine & Lee
   real(dp), dimension(:      ), allocatable :: logt_dustgas        !< Temperature of points for Dust+Gas data
   real(dp), dimension(:      ), allocatable :: logd_dustgas        !< Density of points for Dust+Gas data
@@ -707,7 +710,7 @@ end subroutine init_opacities
 !
 !> Compute Planck average opacity.
 !<
-function planck_ana(dens,Tp,Tr,igroup)
+real(dp) function planck_ana(dens,Tp,Tr,igroup)
 
   use radiation_parameters
   use mod_opacities
@@ -715,8 +718,10 @@ function planck_ana(dens,Tp,Tr,igroup)
 
   implicit none
 
-  integer             :: igroup,ival,jval,kval,i1,i2
-  real(dp)            :: dens,Tp,Tr,div1,div2,planck_ana  
+  real(dp), intent(in):: dens,Tp,Tr
+  integer, intent(in) :: igroup
+  integer             :: ival,jval,kval,i1,i2
+  real(dp)            :: div1,div2
   real(dp)            :: x,y,z,dx,dy,dz,a,b
   real(dp)            :: x0,x1,x2,y0,y1,y2,z0,z1
   real(dp)            :: c00,c01,c10,c11,c0,c1
@@ -749,12 +754,13 @@ function planck_ana(dens,Tp,Tr,igroup)
 
         y1 = kappa_pascucci_p(igroup,i1)
         y2 = kappa_pascucci_p(igroup,i2)
+     
 
         a = (y2 - y1) / (x2 - x1)
         b = y1 - a * x1
 
         planck_ana = dens*10.0d0**(a*y + b)
-        !write(*,*) "Tstar, planck ana/dens for group : ", Tstar, 10.0d0**(a*y + b), igroup
+     !write(*,*) "Tstar, planck ana/dens for group : ", Tstar, 10.0d0**(a*y + b), igroup
         
   !      planck_ana = 0.0 !test1 Econs, pas de couplage gaz - radiation
   !      write(*,*) "test E cons, planck ana=0, rosseland ana = cst1, cst2"
@@ -850,6 +856,69 @@ end function planck_ana
 !##################################################################################################
 !##################################################################################################
 
+
+!  Function PLANCK_ANA_SCAT:                 
+!                                        
+!> Compute Planck average opacity on scattering, for M1 flux equation. Useless for energy equation
+!<                              
+real(dp) function planck_ana_scat(dens,Tp,Tr,igroup)
+
+  use radiation_parameters
+  use mod_opacities
+
+  implicit none
+
+  real(dp),intent(in) :: dens,Tp,Tr
+  integer,intent(in)  :: igroup
+  integer             :: i1,i2
+  real(dp)            :: x,y,a,b
+  real(dp)            :: x1,x2,y1,y2
+
+  ! compute dust and gas opacities                                             
+  x = log10(dens)
+  y = log10(Tp)
+
+  i1 = floor((y - t_pascucci(1))/dt_kappa_pascucci) + 1
+
+  if(i1 >= pascucci_n_tab)then
+
+!!$     do ig = 1,ngr                                                   
+        planck_ana_scat = dens*10.0d0**(kappaext_pascucci_p(igroup,pascucci_n_tab)-kappa_pascucci_p(igroup,pascucci_n_tab))
+        ! scattering = extinction - absorption
+!!$     enddo                                                       
+
+  else
+
+     i2 = i1 + 1
+
+     x1 = t_pascucci(i1)
+     x2 = t_pascucci(i2)
+
+     if (isoscat) then !add condition on rtprotostarm1 to be sure?
+        !isotropic scattering => kp(kabs+ksca) pour M1 flux, kp(kabs) for M1 energy, kp(kabs) pour fld from planck_ana
+        y1 = kappaext_pascucci_p(igroup,i1) - kappa_pascucci_p(igroup,i1)
+        y2 = kappaext_pascucci_p(igroup,i2) - kappa_pascucci_p(igroup,i2)
+     else
+     !   if(myid == 1) write(*,*) "Trying to add scattering without isoscat on"
+        y1 = 0
+        y2 = 0
+     endif
+
+     a = (y2 - y1) / (x2 - x1)
+     b = y1 - a * x1
+
+     planck_ana_scat = dens*10.0d0**(a*y + b)
+     !write(*,*) "Tstar, planck ana/dens for group : ", Tstar, 10.0d0**(a*y + b), igroup
+  endif
+
+end function planck_ana_scat
+
+!##################################################################################################
+!##################################################################################################
+!##################################################################################################
+!##################################################################################################
+
+
 !  Function ROSSELAND_ANA:
 !
 !> Compute Rosseland mean opacity.
@@ -924,6 +993,7 @@ function rosseland_ana(dens,Tp,Tr,igroup)
 
 !!$     do ig = 1,ngr
         rosseland_ana = dens*10.0d0**(kappa_pascucci_r(igroup,pascucci_n_tab))
+        if (isoscat) rosseland_ana = dens*10.0d0**(kappaext_pascucci_r(igroup,pascucci_n_tab))
 !        kappar_t(ig,i) = ten**(kappa_pascucci_r(ig,pascucci_n_tab))
 !!$     enddo
 
@@ -936,18 +1006,19 @@ function rosseland_ana(dens,Tp,Tr,igroup)
 
 !!$     do ig = 1,ngr
 
-        y1 = kappa_pascucci_r(igroup,i1)
-        y2 = kappa_pascucci_r(igroup,i2)
-
+        if (isoscat) then
+           y1 = kappaext_pascucci_r(igroup,i1)
+           y2 = kappaext_pascucci_r(igroup,i2)
+        else 
+           y1 = kappa_pascucci_r(igroup,i1)
+           y2 = kappa_pascucci_r(igroup,i2)
+        endif
         a = (y2 - y1) / (x2 - x1)
         b = y1 - a * x1
 
         rosseland_ana = dens*10.0d0**(a*y + b)
 
- !       rosseland_ana = 1.11*10.0d0**(-22.0)
 !        if(stellar_photon .and. igroup==1)  rosseland_ana =7.9*10.0d0**(-20.0)
-        !test1 Econs          
-
 
 !!$        y1 = kappa_pascucci_r(igroup,i1)
 !!$        y2 = kappa_pascucci_r(igroup,i2)
@@ -1162,14 +1233,15 @@ subroutine init_opacities_pascucci
 
   implicit none
   
-  real(dp), dimension(:), allocatable :: opnu,opknu
+  real(dp), dimension(:), allocatable :: opnu,opknu,opknuext
   integer , parameter                 :: nopmax = 1000
   integer                             :: i,n,ig,it,is
-  integer , dimension(ngrp)            :: inu_min1,inu_max1,inu_min2,inu_max2
-  real(dp), dimension(nopmax)         :: oplambda,opknul
+  integer , dimension(ngrp)           :: inu_min1,inu_max1,inu_min2,inu_max2
+  real(dp), dimension(nopmax)         :: oplambda,opknul,opknule
   real(dp)                            :: dum1,dum2,dum3,integral1,integral2
   real(dp)                            :: integral3,integral4,integral5,integral6
   real(dp)                            :: temp,temp1,dt,tmin,m,nu1,nu2,op1,op2,grain_size,rho_grain,grain_mass
+  real(dp)                            :: mext,op1ext, op2ext
   character (len=200)                 :: opafname,opfilelist,path
   integer                             :: kernel_size,j,kw
   real(dp), dimension(:), allocatable :: gkernel
@@ -1191,12 +1263,15 @@ subroutine init_opacities_pascucci
      grain_size = 1.0e-04_dp
      rho_grain  = 3.5_dp
      opafname   = 'kappa_weingartnerdraine.dat'
+     !kappa_wd : wavelength (microns), ext cross section (cm2/g), abs, sca
   endif
   grain_mass = 4.0d0/3.0d0 * 3.1415 * grain_size**3 * rho_grain
 
   allocate(kappa_pascucci_p(ngrp,pascucci_n_tab),kappa_pascucci_r(ngrp,pascucci_n_tab))
+  if (isoscat) allocate(kappaext_pascucci_p(ngrp,pascucci_n_tab),kappaext_pascucci_r(ngrp,pascucci_n_tab))
   allocate(t_pascucci(pascucci_n_tab))
   allocate(opnu(nopmax),opknu(nopmax))
+  if (isoscat) allocate(opknuext(nopmax))
 
   ! read data from opacity file
   i = 1
@@ -1214,8 +1289,10 @@ subroutine init_opacities_pascucci
      read(46,*,end=556) oplambda(i),dum1,dum2
      if (test=='pascucci') then
         opknul(i) = dum2 - dum1 ! abs = ext - scat
+        if (isoscat) opknule(i) = dum2
      else if (test=='pinte') then
         opknul(i) = dum2 !dum1 = ext ; dum2 = abs; dum3 = sca
+        if (isoscat) opknule(i) = dum1
      endif
      i = i + 1
   enddo
@@ -1229,8 +1306,10 @@ subroutine init_opacities_pascucci
      opnu(i) = clight / oplambda(i) !wavelength to frequency
      if (test=='pascucci') then
         opknu(i) =  opknul(i) * 1.0e04_dp / grain_mass / 100_dp !op in m2 => cm2 in opsi.dat, div my mass and dust to gas ratio
+        if (isoscat) opknuext(i) = opknule(i) * 1.0e04_dp / grain_mass / 100_dp
      else if (test=='pinte') then
         opknu(i) =  opknul(i) / 100_dp !op in cm2/g in kWD, div my dust to gas ratio
+        if (isoscat) opknuext(i) = opknule(i) / 100_dp
      endif
 !         write(*,*) opnu(n-i+1),opknu(n-i+1)
   enddo
@@ -1301,7 +1380,7 @@ subroutine init_opacities_pascucci
         if(inu_min1(ig) .ne. inu_min2(ig))then
            nu1 = opnu (inu_min1(ig))
            nu2 = opnu (inu_min2(ig))
-           m = ( opknu(inu_min2(ig)) - opknu(inu_min1(ig)) ) / (nu2 - nu1)
+           m    = ( opknu(inu_min2(ig)) - opknu(inu_min1(ig)) ) / (nu2 - nu1)
            op1 = m * (nu_min_hz(ig)-nu1) + opknu(inu_min1(ig))
            op2 = opknu(inu_min2(ig))
            nu1 = nu_min_hz(ig)
@@ -1348,15 +1427,71 @@ subroutine init_opacities_pascucci
         endif
 !         write(*,*) 'got to here 5'
 !     write(*,*) "is, kp1 kr1, kp2, kr2",is, kappa_pascucci_p(1,is),kappa_pascucci_r(1,is),kappa_pascucci_p(2,is),kappa_pascucci_r(2,is)
+
+        if (isoscat) then
+           !Same for the extinction
+           integral1 = zero
+           integral2 = zero
+           integral3 = zero
+           integral4 = zero
+           integral5 = zero
+           integral6 = zero
+           ! First part of the curve between numin and inumin
+           if(inu_min1(ig) .ne. inu_min2(ig))then
+              nu1 = opnu (inu_min1(ig))
+              nu2 = opnu (inu_min2(ig))
+              mext   = ( opknuext(inu_min2(ig)) - opknuext(inu_min1(ig)) ) / (nu2 - nu1)
+              op1ext = mext * (nu_min_hz(ig)-nu1) + opknuext(inu_min1(ig))
+              op2ext = opknuext(inu_min2(ig))
+              nu1 = nu_min_hz(ig)
+              call compute_integral(integral1,integral2,integral3,integral4, &
+                   integral5,integral6,nu1,nu2,op1ext,op2ext,ten**(t_pascucci(is)))
+           endif
+           ! Last part of the curve between inumax and numax
+           if(inu_max1(ig) .ne. inu_max2(ig))then
+              nu1 = opnu (inu_max1(ig))
+              nu2 = opnu (inu_max2(ig))
+              mext = ( opknuext(inu_max2(ig)) - opknuext(inu_max1(ig)) ) / (nu2 - nu1)
+              op1ext = opknuext(inu_max1(ig))
+              op2ext = m * (nu_max_hz(ig)-op1) + opknuext(inu_max1(ig))
+              nu2 = nu_max_hz(ig)
+              call compute_integral(integral1,integral2,integral3,integral4, &
+                   integral5,integral6,nu1,nu2,op1ext,op2ext,ten**(t_pascucci(is)))
+           endif
+           ! Middle part between inumin and inumax
+           do i = inu_min2(ig),inu_max1(ig)-1
+              nu1 = opnu (i  )
+              nu2 = opnu (i+1)
+              op1ext = opknuext(i  )
+              op2ext = opknuext(i+1)
+              call compute_integral(integral1,integral2,integral3,integral4, &
+                   integral5,integral6,nu1,nu2,op1ext,op2ext,ten**(t_pascucci(is)))
+           enddo
+
+           if(abs(integral2) < 1.0e-50_dp)then
+              kappaext_pascucci_p(ig,is) = integral5 / integral6
+           else
+              kappaext_pascucci_p(ig,is) = integral1 / integral2
+           endif
+           if(abs(integral4) < 1.0e-50_dp)then
+              kappaext_pascucci_r(ig,is) = integral5 / integral6
+           else
+              kappaext_pascucci_r(ig,is) = integral3 / integral4
+           endif
+        endif
      enddo
 
 !     write(*,*) t_pascucci(is),kappa_pascucci_p(1,is),kappa_pascucci_r(1,is)
   
   enddo
   
-  
+!  if(myid==1) write(*,*) kappa_pascucci_p, kappa_pascucci_r, kappaext_pascucci_p, kappaext_pascucci_r
   kappa_pascucci_p = log10(kappa_pascucci_p)
   kappa_pascucci_r = log10(kappa_pascucci_r)
+  if (isoscat) then
+     kappaext_pascucci_p = log10(kappaext_pascucci_p)
+     kappaext_pascucci_r = log10(kappaext_pascucci_r)
+  endif
 
   if(myid==1) write(*,*) '#########################################################'
 

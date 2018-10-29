@@ -375,6 +375,7 @@ contains
        ! Set dust absorption and scattering rates [s-1]:
        dustAbs(:)  = kAbs_loc(:) *rho*Zsolar(icell)*rt_c_cgs
        dustSc(iIR) = kSc_loc(iIR)*rho*Zsolar(icell)*rt_c_cgs
+!       if(myid==1) write(*,*) "kabsloc, dustabs, kscloc, dustsc: ", kAbs_loc, dustAbs, kSc_loc, dustSc
     endif
 
     !(i) UPDATE PHOTON DENSITY AND FLUX **********************************
@@ -406,9 +407,13 @@ contains
        ! IR, optical and UV depletion by dust absorption: ----------------
        if(rt_isIR) & !IR scattering/abs on dust (abs after T update)
             phSc(iIR)  = phSc(iIR) + dustSc(iIR)
+       
        do igroup=1,nGroups        ! Deplete photons, since they go into IR
           if( .not. (rt_isIR .and. igroup.eq.iIR) ) &  ! IR done elsewhere
+               !write(*,*) "phabs,dustabs, phsc, dustsc: ", phAbs(igroup), dustAbs(igroup), phSc(igroup),dustSc(igroup)
                phAbs(igroup) = phAbs(igroup) + dustAbs(igroup)
+               phSc(igroup)  = phSc(igroup) + dustSc(igroup)!+ 1d3*rho*rt_c_cgs ! Mie scattering rate in s-1
+               ! changer constante de scattering par planck mean of kappa scatt
        end do
 
        dmom(1:nDim)=0d0

@@ -102,7 +102,7 @@ subroutine read_hydro_params(nml_ok)
        & ,facc_star,facc_star_lum,store_matrix &
        & ,external_radiation_field,stellar_photon &
        & ,Tstar,rstar,test &
-       & ,rho_disk0, Rin, rt_protostar_fld
+       & ,rho_disk0, Rin, rt_protostar_fld, isoscat
 
   ! modif nimhd
   namelist/nonidealmhd_params/nambipolar,gammaAD &
