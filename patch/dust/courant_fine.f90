@@ -106,11 +106,11 @@ subroutine courant_fine(ilevel)
         do i=1,nleaf
         !do idim=1,ndim
            do idust=1,ndust
-              if (NDIM.eq.1)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))))
+              if (NDIM.eq.1.and.dust_diffusion)  dt_dust =min(dt_dust,courant_factor*dx/(abs(uold(ind_leaf(i),2)/uold(ind_leaf(i),1)+abs(v_dust(ind_leaf(i),idust,1)))))
            
-              if (NDIM.eq.2)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))))
+              if (NDIM.eq.2.and.dust_diffusion)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))))
   
-              if (NDIM.eq.3)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))))
+              if (NDIM.eq.3.and.dust_diffusion)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))))
            end do
         !end do
         end do

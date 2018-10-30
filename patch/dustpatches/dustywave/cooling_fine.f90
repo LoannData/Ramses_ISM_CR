@@ -83,8 +83,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   use amr_commons
   use hydro_commons
   use cooling_module
-  use radiation_parameters,only:mu_gas
-
+  use radiation_parameters, ONLY: mu_gas
 #ifdef grackle
   use grackle_parameters
 #endif
@@ -140,10 +139,11 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 #endif
 
   real(dp) :: barotrop1D,mincolumn_dens
-  real(dp)                                   :: x0, y0, z0,coeff_chi,cst2, coef, sum_dust
+  real(dp)                                   :: x0, y0, z0,coeff_chi,cst2, coef
   double precision                           :: v_extinction
-  integer::uleidx,uleidy,uleidz,uleidh,igrid,ii,indc2,iskip2,ind_ll, idust
-
+  integer::uleidx,uleidy,uleidz,uleidh,igrid,ii,indc2,iskip2,ind_ll
+  real(dp) ::sum_dust
+  integer:: idust
 
   !-------------- SPHERICAL DIRECTIONS ------------------------------------------------!
 !  real(dp),dimension(1:nvector,1:ndir)                 :: col_dens                     !
@@ -253,7 +253,13 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 
      ! Compute rho
      do i=1,nleaf
-        nH(i)=MAX(uold(ind_leaf(i),1),smallr)
+        sum_dust=0.0d0
+#if NDUST>0
+        do idust= 1,ndust
+           sum_dust= sum_dust + uold(ind_leaf(i),firstindex_ndust+idust)
+        end do
+#endif           
+        nH(i)=MAX(uold(ind_leaf(i),1)-sum_dust,smallr)
      end do
 
      ! Compute metallicity in solar units
@@ -380,6 +386,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 
      ! Compute nH in H/cc
      do i=1,nleaf
+        
         nH(i)=nH(i)*scale_nH
      end do
 
@@ -410,7 +417,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         end do
      else
         do i=1,nleaf
-           T2min(i) =  mu_gas*mH/kb/gamma !T2_star*(nH(i)/nISM)**(g_star-1.0)
+           T2min(i) = mu_gas*mH/kB/scale_v**2/gamma!T2_star*(nH(i)/nISM)**(g_star-1.0)
         end do
      endif
      !==========================================
@@ -648,15 +655,10 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            end do
         endif
      endif
+
      ! Compute polytrope internal energy
      do i=1,nleaf
-        sum_dust=0.0d0
-#if NDUST>0
-        do idust=1,ndust
-           sum_dust = sum_dust +uold(ind_leaf(i),firstindex_ndust+idust)/uold(ind_leaf(i),1)
-        end do   
-#endif        
-        T2min(i) =(1.0d0-sum_dust)*nH(i)/(gamma-1.0)! T2min(i)*(1.0d0-sum_dust)*nH(i)/scale_T2/(gamma-1.0)
+        T2min(i) = T2min(i)*nH(i)/scale_T2/(gamma-1.0)
      end do
 
      ! Update fluid internal energy
@@ -669,11 +671,11 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      ! Update total fluid energy
      if(isothermal)then
         do i=1,nleaf
-           uold(ind_leaf(i),5) = T2min(i) + ekk(i) + err(i) + emag(i)
+           uold(ind_leaf(i),ndim+2) = T2min(i) + ekk(i) + err(i) + emag(i)
         end do
-     else if(cooling .or. neq_chem)then
+     else if((cooling .or. neq_chem) .and. .not.fld)then
         do i=1,nleaf
-           uold(ind_leaf(i),5) = T2(i) + T2min(i) + ekk(i) + err(i) + emag(i)
+           uold(ind_leaf(i),ndim+2) = T2(i) + T2min(i) + ekk(i) + err(i) + emag(i)
         end do
      endif
 
@@ -818,7 +820,7 @@ subroutine pressure_eos(rho_temp,Enint_temp,Peos)
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Peos
 
-  Peos = rho_temp!(gamma-1.d0)*Enint_temp
+  Peos = rho_temp
 
   return
 
@@ -827,7 +829,7 @@ end subroutine pressure_eos
 !===========================================================================================
 !===========================================================================================
 !===========================================================================================
-subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
+subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht,sd)
   use amr_parameters      ,only:dp
   use hydro_commons       ,only:gamma
   use cooling_module      ,only:kB,mH
@@ -838,7 +840,7 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   ! This routine computes the temperature from the density and 
   ! internal volumic energy. Inputs/output are in code units.
   !--------------------------------------------------------------
-  real(dp), intent(in) :: Enint_temp,rho_temp
+  real(dp), intent(in) :: Enint_temp,rho_temp,sd
   integer , intent(out):: ht 
   real(dp), intent(out):: Teos
   real(dp)::rho,Enint
@@ -846,7 +848,7 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   rho   = rho_temp*scale_d
   Enint = Enint_temp*scale_d*scale_v**2 
 
-  Teos = Enint/(rho*kB/(mu_gas*mH*(gamma-1.0d0)))
+  Teos = mu_gas*mH/kB/gamma/scale_v**2
 
   ht=1
 
@@ -875,9 +877,10 @@ subroutine enerint_eos(rho_temp,temp_temp,Eeos)
   rho  = rho_temp * scale_d
   temp = temp_temp
 
-  Eeos = rho/(gamma-1.0)! rho*kB/(mu_gas*mH*(gamma-1.0))*temp/(scale_d*scale_v**2)
+  Eeos = rho/(gamma-1.0)
 
   return
+  
 
 end subroutine enerint_eos
 !==================================================================================
@@ -895,9 +898,10 @@ subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Cseos
 
-  Cseos = sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
-
+  Cseos = 1.0d0
   return
+
+ 
 
 end subroutine soundspeed_eos
 !==================================================================================

@@ -605,6 +605,9 @@ subroutine output_header(filename)
            write(ilun,'(a)',advance='no')'metal '
         endif
      endif
+#if NDUST>0
+          write(ilun,'(a)',advance='no')'density tgas trad ext bfield epsilon'
+#endif     
      close(ilun)
 
   endif

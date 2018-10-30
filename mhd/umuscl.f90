@@ -100,8 +100,12 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::fluxmd,fluxh,fluxad
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::emfambdiff,fluxambdiff
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::emfohmdiss,fluxohm 
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::emfhall,fluxhall
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3),save:: fvisco
+#if HALL==1
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3),save:: bpred
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2),save:: rppred
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:4,1:3),save::vhall
+#endif
   integer:: ntest
   !real(dp) :: gammaadbis,densionbis
   !real(dp) :: dttemp, rhotemp,btemp
@@ -121,11 +125,14 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   emfohmdiss=0.d0
   fluxohm=0.d0
   jcentersquare=0.d0
-  emfhall=0.d0
-  fluxhall=0.d0
   fluxmd=0.d0
   fluxh=0.d0
   fluxad=0.d0
+#if HALL==1
+  bpred=1.d0
+  rppred=0.d0
+  vhall=0.d0
+#endif
   
   bemfx=0.d0
   bemfy=0.d0
@@ -173,13 +180,6 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   
   endif
   
-  ! Hall effect
-  
-  if(nhall.eq.1)then
-     call computehall(uin,qin,ngrid,dx,dy,dz,florentzx,florentzy,florentzz,fluxh,emfhall,fluxhall)
-  
-  endif
-  
   ! OHMIC DISSIPATION
   
   if(nmagdiffu.eq.1) then
@@ -223,8 +223,20 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 !   call trace3d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid,jcentersquare)
 !   ! fin modif nimhd
 ! #else
+#if HALL==1
+  call trace3d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid,bpred,rppred)
+#else
   call trace3d(qin,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
+#endif
 ! #endif
+
+#if NIMHD==1
+#if HALL==1
+!print*, 'BBB',bpred(:,:,:,:,:,:)
+     if(nhall==1) call computvhall(qin,dx,dy,dz,ngrid,bpred,rppred,vhall)
+#endif
+#endif
+
 #endif
 
   ! Solve for 1D flux in X direction
@@ -260,7 +272,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
            do i=if1,if2
               do l=1,ngrid
   
-                 flux(l,i,j,k,ivar,1)=flux(l,i,j,k,ivar,1)+(fluxambdiff(l,i,j,k,1)+fluxhall(l,i,j,k,1)+fluxohm(l,i,j,k,1) )*dt/dx
+                 flux(l,i,j,k,ivar,1)=flux(l,i,j,k,ivar,1)+(fluxambdiff(l,i,j,k,1)+fluxohm(l,i,j,k,1) )*dt/dx
   
               end do
            end do
@@ -326,7 +338,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
            do i=ilo,ihi
               do l=1,ngrid
   
-                 flux(l,i,j,k,ivar,2)=flux(l,i,j,k,ivar,2)+(fluxambdiff(l,i,j,k,2)+fluxhall(l,i,j,k,2)+fluxohm(l,i,j,k,2))*dt/dy
+                 flux(l,i,j,k,ivar,2)=flux(l,i,j,k,ivar,2)+(fluxambdiff(l,i,j,k,2)+fluxohm(l,i,j,k,2))*dt/dy
   
               end do
            end do
@@ -393,7 +405,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
            do i=ilo,ihi
               do l=1,ngrid
   
-                 flux(l,i,j,k,ivar,3)=flux(l,i,j,k,ivar,3)+(fluxambdiff(l,i,j,k,3)+fluxhall(l,i,j,k,3)+fluxohm(l,i,j,k,3))*dt/dz
+                 flux(l,i,j,k,ivar,3)=flux(l,i,j,k,ivar,3)+(fluxambdiff(l,i,j,k,3)+fluxohm(l,i,j,k,3))*dt/dz
   
               end do
            end do
@@ -435,7 +447,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
      do j=jf1,jf2
         do i=ilo,ihi
            do l=1,ngrid
-              emfx(l,i,j,k)=( emfambdiff(l,i,j,k,nxx)+emfohmdiss(l,i,j,k,nxx)+emfhall(l,i,j,k,nxx)  )*dt/dx
+              emfx(l,i,j,k)=( emfambdiff(l,i,j,k,nxx)+emfohmdiss(l,i,j,k,nxx)  )*dt/dx
            end do
         end do
      end do
@@ -445,7 +457,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
      do j=jlo,jhi
         do i=if1,if2
            do l=1,ngrid
-              emfy(l,i,j,k)=( emfambdiff(l,i,j,k,nyy)+emfohmdiss(l,i,j,k,nyy)+emfhall(l,i,j,k,nyy) )*dt/dx
+              emfy(l,i,j,k)=( emfambdiff(l,i,j,k,nyy)+emfohmdiss(l,i,j,k,nyy) )*dt/dx
            end do
         end do
      end do
@@ -454,7 +466,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
      do j=jf1,jf2
         do i=if1,if2
            do l=1,ngrid
-              emfz(l,i,j,k)=( emfambdiff(l,i,j,k,nzz)+emfohmdiss(l,i,j,k,nzz)+emfhall(l,i,j,k,nzz) )*dt/dx
+              emfz(l,i,j,k)=( emfambdiff(l,i,j,k,nzz)+emfohmdiss(l,i,j,k,nzz) )*dt/dx
            end do
         end do
      end do
@@ -466,11 +478,19 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 
 #if NDIM>1
   ! Solve for EMF in Z direction
+#if HALL==1
+  CALL cmp_mag_flx(qRT,iu1+1,iu2+1,ju1+1,ju2+1,ku1  ,ku2  , &
+       &           qRB,iu1+1,iu2+1,ju1  ,ju2  ,ku1  ,ku2  , &
+       &           qLT,iu1  ,iu2  ,ju1+1,ju2+1,ku1  ,ku2  , &
+       &           qLB,iu1  ,iu2  ,ju1  ,ju2  ,ku1  ,ku2  , &
+       &               if1  ,if2  ,jf1  ,jf2  ,klo  ,khi  , 2,3,4,6,7,8,emf,ngrid,dx,vhall)
+#else
   CALL cmp_mag_flx(qRT,iu1+1,iu2+1,ju1+1,ju2+1,ku1  ,ku2  , &
        &           qRB,iu1+1,iu2+1,ju1  ,ju2  ,ku1  ,ku2  , &
        &           qLT,iu1  ,iu2  ,ju1+1,ju2+1,ku1  ,ku2  , &
        &           qLB,iu1  ,iu2  ,ju1  ,ju2  ,ku1  ,ku2  , &
        &               if1  ,if2  ,jf1  ,jf2  ,klo  ,khi  , 2,3,4,6,7,8,emf,ngrid)
+#endif
  
  ! Save vector in output array
   do k=klo,khi
@@ -480,7 +500,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
         emfz(l,i,j,k)=emf(l,i,j,k)*dt/dx
 #if NIMHD==1
         ! modif nimhd
-        emfz(l,i,j,k)=emfz(l,i,j,k)+(emfambdiff(l,i,j,k,nzz)+emfohmdiss(l,i,j,k,nzz)+emfhall(l,i,j,k,nzz) )*dt/dx
+        emfz(l,i,j,k)=emfz(l,i,j,k)+(emfambdiff(l,i,j,k,nzz)+emfohmdiss(l,i,j,k,nzz))*dt/dx
         ! fin modif nimhd
 #endif
      end do
@@ -502,11 +522,19 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 
 #if NDIM>2
   ! Solve for EMF in Y direction
+#if HALL==1
+  CALL cmp_mag_flx(qRT,iu1+1,iu2+1,ju1,ju2,ku1+1,ku2+1, &
+       &           qLT,iu1  ,iu2  ,ju1,ju2,ku1+1,ku2+1, &
+       &           qRB,iu1+1,iu2+1,ju1,ju2,ku1  ,ku2  , &
+       &           qLB,iu1  ,iu2  ,ju1,ju2,ku1  ,ku2  , &
+       &               if1  ,if2  ,jlo,jhi,kf1  ,kf2  , 4,2,3,8,6,7,emf,ngrid,dx,vhall)
+#else
   CALL cmp_mag_flx(qRT,iu1+1,iu2+1,ju1,ju2,ku1+1,ku2+1, &
        &           qLT,iu1  ,iu2  ,ju1,ju2,ku1+1,ku2+1, &
        &           qRB,iu1+1,iu2+1,ju1,ju2,ku1  ,ku2  , &
        &           qLB,iu1  ,iu2  ,ju1,ju2,ku1  ,ku2  , &
        &               if1  ,if2  ,jlo,jhi,kf1  ,kf2  , 4,2,3,8,6,7,emf,ngrid)
+#endif
   ! Save vector in output array
   do k=kf1,kf2
   do j=jlo,jhi
@@ -515,7 +543,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
         emfy(l,i,j,k)=emf(l,i,j,k)*dt/dx
 #if NIMHD==1
         ! modif nimhd
-        emfy(l,i,j,k)=emfy(l,i,j,k)+ ( emfambdiff(l,i,j,k,nyy)+emfohmdiss(l,i,j,k,nyy)+emfhall(l,i,j,k,nyy) )*dt/dx
+        emfy(l,i,j,k)=emfy(l,i,j,k)+ ( emfambdiff(l,i,j,k,nyy)+emfohmdiss(l,i,j,k,nyy) )*dt/dx
         ! fin modif nimhd
 #endif
      end do
@@ -523,11 +551,19 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   end do
   end do
   ! Solve for EMF in X direction
+#if HALL==1
+  CALL cmp_mag_flx(qRT,iu1,iu2,ju1+1,ju2+1,ku1+1,ku2+1, &
+       &           qRB,iu1,iu2,ju1+1,ju2+1,ku1  ,ku2  , &
+       &           qLT,iu1,iu2,ju1  ,ju2  ,ku1+1,ku2+1, &
+       &           qLB,iu1,iu2,ju1  ,ju2  ,ku1  ,ku2  , &
+       &               ilo,ihi,jf1  ,jf2  ,kf1  ,kf2  , 3,4,2,7,8,6,emf,ngrid,dx,vhall)
+#else
   CALL cmp_mag_flx(qRT,iu1,iu2,ju1+1,ju2+1,ku1+1,ku2+1, &
        &           qRB,iu1,iu2,ju1+1,ju2+1,ku1  ,ku2  , &
        &           qLT,iu1,iu2,ju1  ,ju2  ,ku1+1,ku2+1, &
        &           qLB,iu1,iu2,ju1  ,ju2  ,ku1  ,ku2  , &
        &               ilo,ihi,jf1  ,jf2  ,kf1  ,kf2  , 3,4,2,7,8,6,emf,ngrid)
+#endif
   ! Save vector in output array
   do k=kf1,kf2
   do j=jf1,jf2
@@ -536,7 +572,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
         emfx(l,i,j,k)=emf(l,i,j,k)*dt/dx
 #if NIMHD==1
         ! modif nimhd
-        emfx(l,i,j,k)=1.d0*emfx(l,i,j,k)+( emfambdiff(l,i,j,k,nxx)+emfohmdiss(l,i,j,k,nxx)+emfhall(l,i,j,k,nxx) )*dt/dx
+        emfx(l,i,j,k)=1.d0*emfx(l,i,j,k)+( emfambdiff(l,i,j,k,nxx)+emfohmdiss(l,i,j,k,nxx))*dt/dx
         ! fin modif nimhd
 #endif
      end do
@@ -1155,7 +1191,11 @@ END SUBROUTINE trace2d
 ! SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid,jcentersquare)
 ! ! fin modif nimhd
 ! #else
+#if HALL==1
+SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid,bpred,rppred)
+#else
 SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
+#endif
 ! #endif
   USE amr_parameters
   USE hydro_parameters
@@ -1178,13 +1218,17 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qRB
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qLT
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:3)::qLB
-! #if NIMHD==1
+#if NIMHD==1
+#if HALL==1
+  REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,3,3)::bpred
+  REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,2)::rppred
+#endif
 !   ! modif nimhd
 !   REAL(dp)::etaohmdiss,bcell,tcell,barotrop1D
 !   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::jcentersquare
 !   integer::ht
 !   ! fin modif nimhd
-! #endif
+#endif
 
   ! Declare local variables
   REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::Ex
@@ -1216,6 +1260,8 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
   integer::n
 #endif
   
+
+
   dtdx = dt/dx
   dtdy = dt/dy
   dtdz = dt/dz
@@ -1419,6 +1465,14 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               do irad=1,nener
                  e(irad)=e(irad)+se0(irad)
               end do
+#endif
+
+#if HALL==1
+              ! Storage of predicted density and pressure for Hall effect
+              rppred(l,i,j,k,1)=r
+              rppred(l,i,j,k,2)=p
+              qp(l,i,j,k,:,:)=1d0
+              qm(l,i,j,k,:,:)=2d0
 #endif
 
               ! Face averaged right state at left interface
@@ -1779,12 +1833,37 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
   END DO
 #endif
 
+
+#if HALL==1
+! bpred(l,i,j,k,1,2) is the predicted state By at i-1/2,j,k
+  if(nhall==1) then
+    DO k = klo, khi
+       DO j = jlo, jhi
+          DO i = ilo, ihi
+             DO l = 1, ngrid
+               bpred(l,i,j,k,1,1)=0.5*(qp(l,i,j,k,iA,1)+qm(l,i-1,j,k,iA,1))
+               bpred(l,i,j,k,1,2)=0.5*(qp(l,i,j,k,iB,1)+qm(l,i-1,j,k,iB,1))
+               bpred(l,i,j,k,1,3)=0.5*(qp(l,i,j,k,iC,1)+qm(l,i-1,j,k,iC,1))
+               bpred(l,i,j,k,2,1)=0.5*(qp(l,i,j,k,iA,2)+qm(l,i,j-1,k,iA,2))
+               bpred(l,i,j,k,2,2)=0.5*(qp(l,i,j,k,iB,2)+qm(l,i,j-1,k,iB,2))
+               bpred(l,i,j,k,2,3)=0.5*(qp(l,i,j,k,iC,2)+qm(l,i,j-1,k,iC,2))
+               bpred(l,i,j,k,3,1)=0.5*(qp(l,i,j,k,iA,3)+qm(l,i,j,k-1,iA,3))
+               bpred(l,i,j,k,3,2)=0.5*(qp(l,i,j,k,iB,3)+qm(l,i,j,k-1,iB,3))
+               bpred(l,i,j,k,3,3)=0.5*(qp(l,i,j,k,iC,3)+qm(l,i,j,k-1,iC,3))
+             END DO
+          END DO
+       END DO
+    END DO
+  end if
+#endif
+
+
 END SUBROUTINE trace3d
 #endif
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine cmpflxm(qm,im1,im2,jm1,jm2,km1,km2, &
      &             qp,ip1,ip2,jp1,jp2,kp1,kp2, &
      &                ilo,ihi,jlo,jhi,klo,khi, &
@@ -1924,12 +2003,22 @@ end subroutine cmpflxm
 !###########################################################
 !###########################################################
 !###########################################################
+
+#if HALL==1
+SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
+       &               qRB,irb1,irb2,jrb1,jrb2,krb1,krb2, &
+       &               qLT,ilt1,ilt2,jlt1,jlt2,klt1,klt2, &
+       &               qLB,ilb1,ilb2,jlb1,jlb2,klb1,klb2, &
+       &                   ilo ,ihi ,jlo ,jhi ,klo ,khi , &
+       &                   lp1 ,lp2 ,lor ,bp1 ,bp2 ,bor ,emf,ngrid,dx,vhall)
+#else
 SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
        &               qRB,irb1,irb2,jrb1,jrb2,krb1,krb2, &
        &               qLT,ilt1,ilt2,jlt1,jlt2,klt1,klt2, &
        &               qLB,ilb1,ilb2,jlb1,jlb2,klb1,klb2, &
        &                   ilo ,ihi ,jlo ,jhi ,klo ,khi , &
        &                   lp1 ,lp2 ,lor ,bp1 ,bp2 ,bor ,emf,ngrid)
+#endif
   ! 2D Riemann solver to compute EMF at cell edges
   USE amr_parameters
   USE hydro_parameters
@@ -1970,6 +2059,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
   REAL(dp) :: rstarLL,rstarLR,rstarRL,rstarRR,AstarLL,AstarLR,AstarRL,AstarRR,BstarLL,BstarLR,BstarRL,BstarRR
   REAL(dp) :: EstarLLx,EstarLRx,EstarRLx,EstarRRx,EstarLLy,EstarLRy,EstarRLy,EstarRRy,EstarLL,EstarLR,EstarRL,EstarRR
   REAL(dp) :: AstarT,AstarB,BstarR,BstarL
+#if HALL==1
+  REAL(dp),DIMENSION(1:nvector,ilb1:ilb2,jlb1:jlb2,klb1:klb2,1:4,1:3)::vhall
+  REAL(dp) :: qLL3tmp,qLR3tmp,qRL3tmp,qRR3tmp,qLL4tmp,qLR4tmp,qRL4tmp,qRR4tmp
+  real(dp) :: dx
+#endif
 
 #if NENER>0
   integer::irad
@@ -2060,11 +2154,28 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
            ! Compute final fluxes
             DO l = 1, ngrid 
 
+#if HALL==1
+               qLL3tmp=qLL (l,3) - vhall(l,i,j,k,xdim,lp1-1)
+               qRL3tmp=qRL (l,3) - vhall(l,i,j,k,xdim,lp1-1)
+               qLR3tmp=qLR (l,3) - vhall(l,i,j,k,xdim,lp1-1)
+               qRR3tmp=qRR (l,3) - vhall(l,i,j,k,xdim,lp1-1)
+
+               qLL4tmp=qLL (l,4) - vhall(l,i,j,k,xdim,lp2-1)
+               qRL4tmp=qRL (l,4) - vhall(l,i,j,k,xdim,lp2-1)
+               qLR4tmp=qLR (l,4) - vhall(l,i,j,k,xdim,lp2-1)
+               qRR4tmp=qRR (l,4) - vhall(l,i,j,k,xdim,lp2-1)
+
                ! vx*by - vy*bx at the four edge centers
+               ELL = qLL3tmp*qLL(l,7) - qLL4tmp*qLL(l,6)
+               ERL = qRL3tmp*qRL(l,7) - qRL4tmp*qRL(l,6)
+               ELR = qLR3tmp*qLR(l,7) - qLR4tmp*qLR(l,6)  
+               ERR = qRR3tmp*qRR(l,7) - qRR4tmp*qRR(l,6) 
+#else
                ELL = qLL(l,3)*qLL(l,7) - qLL(l,4)*qLL(l,6)
                ERL = qRL(l,3)*qRL(l,7) - qRL(l,4)*qRL(l,6)
                ELR = qLR(l,3)*qLR(l,7) - qLR(l,4)*qLR(l,6)  
                ERR = qRR(l,3)*qRR(l,7) - qRR(l,4)*qRR(l,6) 
+#endif
 
                if(iriemann2d==5)then
 
@@ -2257,7 +2368,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qLL(l,8+irad)
                   end do
 #endif
+#if HALL==1
+                  vLLx=qtmp(3); call find_speed_fast(qtmp,cLLx,dx)
+#else
                   vLLx=qtmp(3); call find_speed_fast(qtmp,cLLx)
+#endif
                   qtmp(1)=qLR(l,1); qtmp(2)=qLR(l,2); qtmp(7)=qLR(l,5); qtmp(8)=qLR(l,8)
                   qtmp(3)=qLR(l,3); qtmp(4)=qLR(l,6); qtmp(5)=qLR(l,4); qtmp(6)=qLR(l,7)
 #if NENER>0
@@ -2265,7 +2380,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qLR(l,8+irad)
                   end do
 #endif
+#if HALL==1
+                  vLRx=qtmp(3); call find_speed_fast(qtmp,cLRx,dx)
+#else
                   vLRx=qtmp(3); call find_speed_fast(qtmp,cLRx)
+#endif
                   qtmp(1)=qRL(l,1); qtmp(2)=qRL(l,2); qtmp(7)=qRL(l,5); qtmp(8)=qRL(l,8)
                   qtmp(3)=qRL(l,3); qtmp(4)=qRL(l,6); qtmp(5)=qRL(l,4); qtmp(6)=qRL(l,7)
 #if NENER>0
@@ -2273,7 +2392,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qRL(l,8+irad)
                   end do
 #endif
+#if HALL==1
+                  vRLx=qtmp(3); call find_speed_fast(qtmp,cRLx,dx)
+#else
                   vRLx=qtmp(3); call find_speed_fast(qtmp,cRLx)
+#endif
                   qtmp(1)=qRR(l,1); qtmp(2)=qRR(l,2); qtmp(7)=qRR(l,5); qtmp(8)=qRR(l,8)
                   qtmp(3)=qRR(l,3); qtmp(4)=qRR(l,6); qtmp(5)=qRR(l,4); qtmp(6)=qRR(l,7)
 #if NENER>0
@@ -2281,7 +2404,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qRR(l,8+irad)
                   end do
 #endif
+#if HALL==1
+                  vRRx=qtmp(3); call find_speed_fast(qtmp,cRRx,dx)
+#else
                   vRRx=qtmp(3); call find_speed_fast(qtmp,cRRx)
+#endif
 
                   ! Compute 4 fast magnetosonic velocity relative to y direction
                   qtmp(1)=qLL(l,1); qtmp(2)=qLL(l,2); qtmp(7)=qLL(l,5); qtmp(8)=qLL(l,8)
@@ -2291,7 +2418,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qLL(l,8+irad)
                   end do
 #endif
+#if HALL==1
+                  vLLy=qtmp(3); call find_speed_fast(qtmp,cLLy,dx)
+#else
                   vLLy=qtmp(3); call find_speed_fast(qtmp,cLLy)
+#endif
                   qtmp(1)=qLR(l,1); qtmp(2)=qLR(l,2); qtmp(7)=qLR(l,5); qtmp(8)=qLR(l,8)
                   qtmp(3)=qLR(l,4); qtmp(4)=qLR(l,7); qtmp(5)=qLR(l,3); qtmp(6)=qLR(l,6)
 #if NENER>0
@@ -2299,7 +2430,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qLR(l,8+irad)
                   end do
 #endif
+#if HALL==1
+                  vLRy=qtmp(3); call find_speed_fast(qtmp,cLRy,dx)
+#else
                   vLRy=qtmp(3); call find_speed_fast(qtmp,cLRy)
+#endif
                   qtmp(1)=qRL(l,1); qtmp(2)=qRL(l,2); qtmp(7)=qRL(l,5); qtmp(8)=qRL(l,8)
                   qtmp(3)=qRL(l,4); qtmp(4)=qRL(l,7); qtmp(5)=qRL(l,3); qtmp(6)=qRL(l,6)
 #if NENER>0
@@ -2307,7 +2442,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qRL(l,8+irad)
                   end do
 #endif
+#if HALL==1
+                  vRLy=qtmp(3); call find_speed_fast(qtmp,cRLy,dx)
+#else
                   vRLy=qtmp(3); call find_speed_fast(qtmp,cRLy)
+#endif
                   qtmp(1)=qRR(l,1); qtmp(2)=qRR(l,2); qtmp(7)=qRR(l,5); qtmp(8)=qRR(l,8)
                   qtmp(3)=qRR(l,4); qtmp(4)=qRR(l,7); qtmp(5)=qRR(l,3); qtmp(6)=qRR(l,6)
 #if NENER>0
@@ -2315,7 +2454,11 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qtmp(8+irad) = qRR(l,8+irad)
                   end do
 #endif
+#if HALL==1
+                  vRRy=qtmp(3); call find_speed_fast(qtmp,cRRy,dx)
+#else
                   vRRy=qtmp(3); call find_speed_fast(qtmp,cRRy)
+#endif
 
                   SL=min(min(vLLx,vLRx,VRLx,vRRx)-max(cLLx,cLRx,cRLx,cRRx),zero)
                   SR=max(max(vLLx,vLRx,VRLx,vRRx)+max(cLLx,cLRx,cRLx,cRRx),zero)
@@ -5707,116 +5850,177 @@ jcenter=0.0d0
   end do
 
 end SUBROUTINE computambip
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
-SUBROUTINE  computehall(u,q,ngrid,dx,dy,dz,florentzx,florentzy,florentzz,fluxh,emfhall,fluxhall)
-
-
+!########################################################################################
+!########################################################################################
+!########################################################################################
+!########################################################################################
+#if HALL==1
+subroutine computvhall(q,dx,dy,dz,ngrid,bpred,rppred,vhall)
   USE amr_parameters
   use hydro_commons
   USE const
-  IMPLICIT NONE
-  
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
+  implicit none
+  integer :: l,i,j,k,kk,m
+  integer :: imm1,jmm1,kmm1
+  integer :: ngrid, ht
+  REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,3,3)::bpred
+  REAL(dp),DIMENSION(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,2)::rppred
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q 
-  
-  INTEGER ::ngrid
-  REAL(dp)::dx,dy,dz
-  
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::florentzx,florentzy,florentzz,fluxh
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::emfhall,fluxhall
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:4,1:3)::vhall
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bijbis
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jx,jy,jz
+  real(dp) :: dx,dy,dz
+  real(dp) :: rhoedge,nrjedge,tedge,Bedge,bedge2
+  real(dp) :: eta,ionisrate
+  real(dp) :: eta_hall_chimie
 
-! declare local variables
-  INTEGER ::i, j, k, l
-  real(dp)::rhox,rhoy,rhoz,rhofx,rhofy,rhofz,pfx,pfy,pfz
-  real(dp)::crossprodx,crossprody,crossprodz,reshall
-  real(dp)::computdivbisx,computdivbisy,computdivbisz
-  real(dp)::v1x,v1y,v1z,v2x,v2y,v2z
 
-! EMF x
-  
-  do k=min(1,ku1+1),max(1,ku2-1)
-     do j=min(1,ju1+1),max(1,ju2-1)
-        do i=min(1,iu1+1),max(1,iu2-1)
+!!!!!!!!!!!!!!!!!!
+!
+! bijbis(l,i,j,k,n) is the value of the magnetic field component
+! Bn at i-1/2,j-1/2,k-1/2
+!
+!!!!!!!!!!!!!!!!!!
+
+do k=min(1,ku1+1),ku2
+     do j=min(1,ju1+1),ju2
+        do i=iu1,iu2
            
-           do l = 1, ngrid            
-
-              emfhall(l,i,j,k,1)=florentzx(l,i,j,k,1)
-
-              rhox=0.25d0*(u(l,i,j,k,1)+u(l,i,j-1,k,1)+u(l,i,j,k-1,1)+u(l,i,j-1,k-1,1))
-
-              emfhall(l,i,j,k,1)=-reshall(rhox)*emfhall(l,i,j,k,1)
-                    
-           end do
-        end do
-     end do
-  end do
-
-! EMF y
-  
-  do k=min(1,ku1+1),max(1,ku2-1)
-     do j=min(1,ju1+1),max(1,ju2-1)
-        do i=min(1,iu1+1),max(1,iu2-1)
-           
-           do l = 1, ngrid
-              
-              emfhall(l,i,j,k,2)=florentzy(l,i,j,k,2)
-
-              rhoy=0.25d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1)+u(l,i,j,k-1,1)+u(l,i-1,j,k-1,1))
-
-              emfhall(l,i,j,k,2)=-reshall(rhoy)*emfhall(l,i,j,k,2)
-                    
-           end do
-        end do
-     end do
-  end do
-
-! EMF z
-  
-  do k=min(1,ku1+1),max(1,ku2-1)
-     do j=min(1,ju1+1),max(1,ju2-1)
-        do i=min(1,iu1+1),max(1,iu2-1)
-           
-           do l = 1, ngrid
-
-              emfhall(l,i,j,k,3)=florentzz(l,i,j,k,3)
-
-              rhoz=0.25d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1)+u(l,i,j-1,k,1)+u(l,i-1,j-1,k,1))
-
-              emfhall(l,i,j,k,3)=-reshall(rhoz)*emfhall(l,i,j,k,3)
-                    
-           end do
-        end do
-     end do
-  end do
-
-! energy flux on faces
-
-  do k=min(1,ku1+1),max(1,ku2-1)
-     do j=min(1,ju1+1),max(1,ju2-1) 
-        do i=min(1,iu1+1),max(1,iu2-1) 
            do l=1,ngrid
-              
-              rhofx=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1))
-!              pf=0.5d0*(q(l,i,j,k,5)+q(l,i-1,j,k,5))
-              fluxhall(l,i,j,k,1)=reshall(rhofx)*fluxh(l,i,j,k,1)
-              
-              rhofy=0.5d0*(u(l,i,j,k,1)+u(l,i,j-1,k,1))
-!              pfy=0.5d0*(q(l,i,j,k,5)+q(l,i,j-1,k,5))
-              fluxhall(l,i,j,k,2)=reshall(rhofy)*fluxh(l,i,j,k,2)
 
-               rhofz=0.5d0*(u(l,i,j,k,1)+u(l,i,j,k-1,1))
-!              pfz=0.5d0*(q(l,i,j,k,5)+q(l,i,j,k-1,5))
-               fluxhall(l,i,j,k,3)=reshall(rhofz)*fluxh(l,i,j,k,3)
+              bijbis(l,i,j,k,1)=0.25d0*(bpred(l,i,j,k,1,1)+bpred(l,i,j-1,k,1,1)+bpred(l,i,j,k-1,1,1)+bpred(l,i,j-1,k-1,1,1))
 
            end do
         end do
      end do
   end do
 
-end SUBROUTINE computehall
+! case By for Lorentz force EMF 
+
+  do k=min(1,ku1+1),ku2
+     do j=ju1,ju2
+        do i=min(1,iu1+1),iu2
+           
+           do l=1,ngrid
+
+              bijbis(l,i,j,k,2)=0.25d0*(bpred(l,i,j,k,2,2)+bpred(l,i-1,j,k,2,2)+bpred(l,i,j,k-1,2,2)+bpred(l,i-1,j,k-1,2,2))
+  
+           end do
+        end do
+     end do
+  end do
+ 
+! case Bz for Lorentz force EMF 
+
+  do k=ku1,ku2
+     do j=min(1,ju1+1),ju2
+        do i=min(1,iu1+1),iu2
+           
+           do l=1,ngrid
+
+              bijbis(l,i,j,k,3)=0.25d0*(bpred(l,i,j,k,3,3)+bpred(l,i,j-1,k,3,3)+bpred(l,i-1,j,k,3,3)+bpred(l,i-1,j-1,k,3,3))
+ 
+           end do
+        end do
+     end do
+  end do
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+! computation of the component of j where EMFs are located
+! jemfx(l,i,j,k,n) is the component Jn at i,j-1/2,k-1/2
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+do k=min(1,ku1+1),max(1,ku2-1)
+     do j=min(1,ju1+1),max(1,ju2-1)
+        do i=min(1,iu1+1),max(1,iu2-1)
+           
+           do l=1,ngrid
+
+              jx(l,i,j,k,1)=(bpred(l,i,j,k,3,3)-bpred(l,i,j-1,k,3,3))/dy-(bpred(l,i,j,k,2,2)-bpred(l,i,j,k-1,2,2))/dz 
+              jx(l,i,j,k,2)=(bpred(l,i,j,k,2,1)-bpred(l,i,j,k-1,2,1))/dz- (bijbis(l,i+1,j,k,3)-bijbis(l,i,j,k,3))/dx
+              jx(l,i,j,k,3)=(bijbis(l,i+1,j,k,2) -bijbis(l,i,j,k,2))/dx- (bpred(l,i,j,k,3,1)-bpred(l,i,j-1,k,3,1))/dy
+
+              jy(l,i,j,k,1)=(bijbis(l,i,j+1,k,3)-bijbis(l,i,j,k,3))/dy-(bpred(l,i,j,k,1,2) - bpred(l,i,j,k-1,1,2) )/dz
+              jy(l,i,j,k,2)=(bpred(l,i,j,k,1,1)-bpred(l,i,j,k-1,1,1))/dz-(bpred(l,i,j,k,3,3)-bpred(l,i-1,j,k,3,3))/dx
+              jy(l,i,j,k,3)=(bpred(l,i,j,k,3,2)-bpred(l,i-1,j,k,3,2))/dx-(bijbis(l,i,j+1,k,1)-bijbis(l,i,j,k,1))/dy
+
+              jz(l,i,j,k,1)=(bpred(l,i,j,k,1,3) -bpred(l,i,j-1,k,1,3))/dy-(bijbis(l,i,j,k+1,2)-bijbis(l,i,j,k,2))/dz
+              jz(l,i,j,k,2)=( bijbis(l,i,j,k+1,1)-bijbis(l,i,j,k,1))/dz-(bpred(l,i,j,k,2,3)-bpred(l,i-1,j,k,2,3))/dx
+              jz(l,i,j,k,3)=(bpred(l,i,j,k,2,2)-bpred(l,i-1,j,k,2,2))/dx-(bpred(l,i,j,k,1,1)-bpred(l,i,j-1,k,1,1))/dy
+
+        end do
+     end do
+  end do
+end do
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+! vhall(l,i,j,k,1,n) is nth componement of vhall at i,j-1/2,k-1/2
+do k=min(1,ku1+1),max(1,ku2-1)
+  do j=min(1,ju1+1),max(1,ju2-1)
+    do i=min(1,iu1+1),max(1,iu2-1)
+        
+      do l=1,ngrid
+        if(nhall==1) then
+          do kk=1,3
+            if(kk==1) then
+              imm1=0
+              jmm1=1
+              kmm1=1
+              bedge=dsqrt(sum((0.25*(bpred(l,i,j,k,2,1:3)+bpred(l,i,j,k,3,1:3)+bpred(l,i,j-1,k,3,1:3)+bpred(l,i,j,k-1,2,1:3)))**2d0))
+            else if (kk==2) then
+              imm1=1
+              jmm1=0
+              kmm1=1
+              bedge=dsqrt(sum((0.25*(bpred(l,i,j,k,1,1:3)+bpred(l,i,j,k,3,1:3)+bpred(l,i-1,j,k,3,1:3)+bpred(l,i,j,k-1,1,1:3)))**2d0))
+            else
+              imm1=1
+              jmm1=1
+              kmm1=0
+              bedge=dsqrt(sum((0.25*(bpred(l,i,j,k,2,1:3)+bpred(l,i,j,k,1,1:3)+bpred(l,i,j-1,k,1,1:3)+bpred(l,i-1,j,k,2,1:3)))**2d0))
+            end if
+
+            ! rppred (l,i,j,k,1) is the density in the cell, and rppred(l,i,j,k,2) its pressure
+            rhoedge=0.25*(rppred(l,i,j,k,1)+rppred(l,i-imm1,j-jmm1,k,1)+rppred(l,i-imm1,j,k-kmm1,1)+rppred(l,i,j-jmm1,k-kmm1,1))
+            nrjedge=0.25*(rppred(l,i,j,k,2)+rppred(l,i-imm1,j-jmm1,k,2)+rppred(l,i-imm1,j,k-kmm1,2)+rppred(l,i,j-jmm1,k-kmm1,2))
+
+            ! We take non-updated ionisation rate !!
+!#if NEXTINCT > 0
+            !ionisrate=0.25*(q(l,i,j,k,8+nrad+nextinct)+q(l,i-imm1,j-jmm1,k,8+nrad+nextinct)+q(l,i-imm1,j,k-kmm1,8+nrad+nextinct)+q(l,i,j-jmm1,k-kmm1,8+nrad+nextinct))
+!#else
+            !ionisrate=default_ionisrate
+!#endif
+            ionisrate=1d-17
+            bedge2=bedge*bedge
+            call temperature_eos(rhoedge,nrjedge/(gamma-1),tedge,ht)
+            eta=eta_hall_chimie(rhoedge,tedge,ionisrate,bedge2)/bedge
+
+            if (kk==1)  vhall(l,i,j,k,1,1:3)=jx(l,i,j,k,1:3)*eta
+            if (kk==2)  vhall(l,i,j,k,2,1:3)=jy(l,i,j,k,1:3)*eta
+            if (kk==3)  vhall(l,i,j,k,3,1:3)=jz(l,i,j,k,1:3)*eta
+            vhall(l,i,j,k,4,kk)=ionisrate
+           end do
+         else
+           vhall(l,i,j,k,:,:)=0d0
+         end if
+
+       end do
+     end do
+  end do
+end do
+
+
+end subroutine computvhall
+#endif
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
 !###########################################################
 !###########################################################
 !###########################################################
@@ -6249,6 +6453,60 @@ endif
 
 end function eta_ohm_chimie
 
+#if HALL==1
+double precision function eta_hall_chimie(rhon,temper,ionisrate,BBcell)
+use hydro_commons
+use units_commons
+use cooling_module, only : clight
+use variables_x,ONLY:dtchimie,dnchimie,nminchimie,tminchimie,ximinchimie,&
+                    &dbchimie,bminchimie,pi,nchimie,tchimie,xichimie,dxichimie,&
+                    &bchimie
+implicit none
+
+real(dp) :: inp,ll,ii,lb,rhon,BBcell
+real(dp) :: temper,sigO,sigH,sigP,BBcgs
+real(dp) :: j_dp,ionisrate,xx
+integer  :: j,i,ib,k
+
+if(ntestDADM==1) then
+  eta_hall_chimie=rhall
+else
+  if(use_x2d==1)then
+     inp=rhon
+     ll=(1.d0+(log10(inp)-log10(nminchimie))/dnchimie)
+     j=floor(ll)
+     inp=temper
+     ii=(1.d0+(log10(inp)-log10(tminchimie))/dtchimie)
+     ii=max(ii,1.0d0)
+     i=floor(ii)
+     BBcgs=sqrt(BBcell*(4.d0*pi*scale_d*(scale_v)**2))
+     inp=BBcgs
+     lb=(1.d0+(log10(inp)-log10(bminchimie))/dbchimie)
+     ib=floor(lb)
+     call sig_x2d(ll,ii,j,i,lb,ib,sigO,sigH,sigP,BBcgs)
+     eta_hall_chimie=sigH/(sigO**2+sigH**2) 
+     eta_hall_chimie=eta_hall_chimie * clight * clight / (4.0_dp*pi)
+     eta_hall_chimie=eta_hall_chimie*scale_t/(scale_l*scale_l)
+  else if(use_x3d==1)then
+     ll=(1.d0+(log10(rhon)-log10(nminchimie))/dnchimie)
+     j=floor(ll)
+     ii=(1.d0+(log10(temper)-log10(tminchimie))/dtchimie)
+     i=floor(ii)   
+     xx=(1.d0+(log10(ionisrate)-log10(ximinchimie))/dxichimie)
+     k=floor(xx)
+     BBcgs=sqrt(BBcell*(4.d0*pi*scale_d*(scale_v)**2))
+     lb=(1.d0+(log10(BBcgs)-log10(bminchimie))/dbchimie)
+     ib=floor(lb)
+     call sig_x3d(ll,ii,xx,j,i,k,lb,ib,sigO,sigH,sigP,BBcgs)
+     eta_hall_chimie=sigH/(sigO**2+sigH**2) 
+     eta_hall_chimie=eta_hall_chimie * clight * clight / (4.0_dp*pi)
+     eta_hall_chimie=eta_hall_chimie*scale_t/(scale_l*scale_l)
+  endif
+endif
+end function eta_hall_chimie
+
+
+#endif
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 double precision function densionbis(rhon)
@@ -6577,49 +6835,6 @@ crossprodz=v1x*v2y-v2x*v1y
 
 end function crossprodz
 
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-double precision function reshall(rhon)
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  use hydro_parameters
-  use units_commons
-
-  implicit none 
-  real(dp) ::rhon
-  real(dp)::rhocgs,ni
-  real(dp)::densionbis
-
-! function which computes the coefficient Rh which
-! appears in ohmic dissipation dB/dt=-curl(-1/Rh*J*B)+...
-! Rh=1/(Zen_i) n_i in cm-3
-
-! ions density in g/cm3
- ni=densionbis(rhon)
-! convert to CGS
-ni=ni*scale_d
-
-! convert to cm-3
-ni=ni/xmion
-
-! electric elementary charge in cgs : e=4.803d-10
-! ions with one elementary charge Rh=1/(Z*e*ni)
-resHall=1.d0/(4.803d-10*ni)
-
-! convert to user units : Rh in cm/sqrt(g/cm3)
-resHall=resHall*sqrt(scale_d)/scale_l
-
-  if(ntestDADM.eq.1) then
-
-     resHall=rHall
-     
-  endif
-
- 
-end function reshall
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

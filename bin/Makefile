@@ -9,6 +9,7 @@ NPRE = 8
 NDIM = 1
 SOLVER = mhd
 NIMHD=0
+HALL=0
 
 NCR = 0
 NENT =0+$(NCR)
@@ -42,6 +43,7 @@ ifeq ($(NIMHD),1)
    NPSCAL := $(NPSCAL)+$(NIONS)+$(NDUST)+4 # for internal energy + current
 else
    NPSCAL := $(NPSCAL)+$(NIONS)+$(NDUST)+1 # for internal energy
+   HALL=0
 endif
 NVAR=8+$(NENER)+$(NEXTINCT)+$(NPSCAL)
 ifeq ($(USE_M_1),1)
@@ -80,7 +82,7 @@ GITHASH = $(shell git log --pretty=format:'%H' -n 1)
 GITREPO = $(shell git config --get remote.origin.url)
 BUILDDATE = $(shell date +"%D-%T")
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNVAR=$(NVAR) -DNENER=$(NENER) \
-          -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL) -DNIMHD=$(NIMHD) \
+          -DSOLVER$(SOLVER) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL) -DNIMHD=$(NIMHD) -DHALL=$(HALL)\
 	  -DNEXTINCT=$(NEXTINCT) -DNCR=$(NCR) -DUSE_TURB=$(USE_TURB) -DNDUST=$(NDUST) #-DQUADHILBERT=$(QUADHILBERT)
 ifneq ($(NIONS)$(NGROUPS),00)
 DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)

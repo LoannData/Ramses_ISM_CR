@@ -128,8 +128,13 @@ endif
 #if NDUST>0
   do idust=1,ndust
      write(ilun,'("variable #",I2,":v_dust_x_",I1)')ivar+idust,idust
-     write(ilun,'("variable #",I2,":v_dust_y_",I1)')ivar+idust+1,idust
-     write(ilun,'("variable #",I2,":v_dust_z_",I1)')ivar+idust+2,idust
+#if NDIM>1
+       write(ilun,'("variable #",I2,":v_dust_y_",I1)')ivar+idust+1,idust
+
+#endif
+#if NDIM>2
+      write(ilun,'("variable #",I2,":v_dust_z_",I1)')ivar+idust+2,idust
+#endif          
      ivar = ivar +(ndim-1)
   end do
 #endif   

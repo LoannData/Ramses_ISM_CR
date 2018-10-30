@@ -36,7 +36,7 @@ subroutine write_screen
 #endif
 #endif
 #if NDUST>0
-  real(kind=8),dimension(:,:),allocatable::eps_dust_all,eps_dust
+  real(kind=8),dimension(:,:),allocatable::eps_dust_all,eps_dust, vdust, vdust_all
 #endif
 
   integer,dimension(1:ncpu)::iskip,ncell_loc,ncell_all
@@ -127,8 +127,8 @@ subroutine write_screen
 #endif
 #endif
 #if NDUST>0
-  allocate(eps_dust_all(1:ncell,1:ndust),eps_dust(1:ncell,1:ndust))
-  eps_dust_all=0.0d0;eps_dust=0.0d0
+  allocate(eps_dust_all(1:ncell,1:ndust),eps_dust(1:ncell,1:ndust),vdust(1:ncell,1:ndust),vdust_all(1:ncell,1:ndust))
+  eps_dust_all=0.0d0;eps_dust=0.0d0;vdust=0.0d0;vdust_all=0.0d0
 #endif
 
   icell=iskip(myid)
@@ -203,6 +203,7 @@ subroutine write_screen
 #if NDUST>0
                     do j=1,ndust
                        eps_dust(icell,j)=uold(ind_cell(i),firstindex_ndust+j)
+                       vdust(icell,j)=v_dust(ind_cell(i),j,1)
                     end do
 #endif
                  end if
@@ -270,7 +271,11 @@ subroutine write_screen
 #endif
 #if NDUST>0
   call MPI_ALLREDUCE(eps_dust,eps_dust_all,ndust*ncell,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(vdust,vdust_all,ndust*ncell,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+
   eps_dust=eps_dust_all
+  vdust=vdust_all
+  
 #endif
 
 #endif
@@ -300,7 +305,7 @@ subroutine write_screen
 #endif
 #if NDUST>0
      write(*,116)'===================================================================================================================================='
-     write(*,116)'lev       x            d          u          v          w          P          A          B          C      d_dust(idust)'
+     write(*,116)'lev       x            d          u          v          w          P          A          B          C      d_dust(idust) vdust'
 #endif
      ! Sort radius
      allocate(ind_sort(1:ncell))
@@ -337,7 +342,8 @@ subroutine write_screen
 #if USE_FLD==0 && USE_M_1==0
 #if NDUST>0
              & CC(ind_sort(i)), &
-             & (eps_dust(ind_sort(i),j),j=1,ndust) 
+             & (eps_dust(ind_sort(i),j),j=1,ndust) , &
+             & (vdust(ind_sort(i),j),j=1,ndust)
 #else
              & CC(ind_sort(i))
 #endif
@@ -377,7 +383,7 @@ subroutine write_screen
 #endif
 #endif
 #if NGRP>0
-  deallocate(eps_dust,eps_dust_all)
+  deallocate(eps_dust,eps_dust_all,vdust,vdust_all)
 #endif
   end if
  

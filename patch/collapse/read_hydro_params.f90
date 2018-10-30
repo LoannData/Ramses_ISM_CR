@@ -102,7 +102,7 @@ subroutine read_hydro_params(nml_ok)
        & ,external_radiation_field,stellar_photon
   ! modif nimhd
   namelist/nonidealmhd_params/nambipolar,gammaAD &
-       & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
+       & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM,coefhall &
        & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm &
        & ,rho_threshold,use_x1d,use_x2d,use_x3d,use_res,default_ionisrate
   namelist/pseudovisco_params/nvisco,visco
