@@ -300,10 +300,10 @@ SUBROUTINE read_rt_groups()
   if (ngrp==1) then
      kappaAbs = planck_ana(1.0d0, Tstar, Tstar ,1) !M1 abs opacity at Tstar
      if(isoscat) kappaSc  = planck_ana_scat(1.0d0, Tstar, Tstar, 1) !M1 scat opacity
-     if(myid==1) write(*,*) "kappaAbs = kappa planck(abs) at star temperature"
-     if(myid==1) write(*,*) "kappaSc = kappa planck(scat) at star temperature"
+     if(myid==1) write(*,*) "M1 absorption is Planck's mean opacity at the star temperature"
+     if(myid==1 .and. isoscat) write(*,*) "M1 scattering is Planck's mean opacity at the star temperature"
   else
-     if(myid==1) write(*,*) "ngrp>1 so kappaAbs and kappaSc is taken from the namelist"
+     if(myid==1) write(*,*) "ngrp>1 so M1 absorption and scattering opacities are taken from the namelist"
   endif  
 
 

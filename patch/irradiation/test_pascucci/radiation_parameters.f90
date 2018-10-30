@@ -137,6 +137,7 @@ module mod_opacities
   real(dp), dimension(:,:    ), allocatable :: kappa_pascucci_r    !< Rosseland opacities from Draine & Lee
   real(dp), dimension(:,:    ), allocatable :: kappaext_pascucci_p !< Planck extinction opa from Draine & Lee
   real(dp), dimension(:,:    ), allocatable :: kappaext_pascucci_r !< Rosseland extinction opa from Draine & Lee
+  real(dp), dimension(:,:    ), allocatable :: kappasca_pascucci_p !< Planck scattering opa from Draine & Lee
   real(dp), dimension(:      ), allocatable :: t_pascucci          !< Temperature of points for Draine & Lee
   real(dp), dimension(:      ), allocatable :: logt_dustgas        !< Temperature of points for Dust+Gas data
   real(dp), dimension(:      ), allocatable :: logd_dustgas        !< Density of points for Dust+Gas data
@@ -863,6 +864,7 @@ end function planck_ana
 !<                              
 real(dp) function planck_ana_scat(dens,Tp,Tr,igroup)
 
+  use amr_commons, only : myid
   use radiation_parameters
   use mod_opacities
 
@@ -883,7 +885,7 @@ real(dp) function planck_ana_scat(dens,Tp,Tr,igroup)
   if(i1 >= pascucci_n_tab)then
 
 !!$     do ig = 1,ngr                                                   
-        planck_ana_scat = dens*10.0d0**(kappaext_pascucci_p(igroup,pascucci_n_tab)-kappa_pascucci_p(igroup,pascucci_n_tab))
+        planck_ana_scat = dens*10.0d0**kappasca_pascucci_p(igroup,pascucci_n_tab)
         ! scattering = extinction - absorption
 !!$     enddo                                                       
 
@@ -896,10 +898,10 @@ real(dp) function planck_ana_scat(dens,Tp,Tr,igroup)
 
      if (isoscat) then !add condition on rtprotostarm1 to be sure?
         !isotropic scattering => kp(kabs+ksca) pour M1 flux, kp(kabs) for M1 energy, kp(kabs) pour fld from planck_ana
-        y1 = kappaext_pascucci_p(igroup,i1) - kappa_pascucci_p(igroup,i1)
-        y2 = kappaext_pascucci_p(igroup,i2) - kappa_pascucci_p(igroup,i2)
+        y1 = kappasca_pascucci_p(igroup,i1)
+        y2 = kappasca_pascucci_p(igroup,i2)
      else
-     !   if(myid == 1) write(*,*) "Trying to add scattering without isoscat on"
+        if(myid == 1) write(*,*) "Trying to add scattering without isoscat on"
         y1 = 0
         y2 = 0
      endif
@@ -1268,7 +1270,7 @@ subroutine init_opacities_pascucci
   grain_mass = 4.0d0/3.0d0 * 3.1415 * grain_size**3 * rho_grain
 
   allocate(kappa_pascucci_p(ngrp,pascucci_n_tab),kappa_pascucci_r(ngrp,pascucci_n_tab))
-  if (isoscat) allocate(kappaext_pascucci_p(ngrp,pascucci_n_tab),kappaext_pascucci_r(ngrp,pascucci_n_tab))
+  if (isoscat) allocate(kappaext_pascucci_p(ngrp,pascucci_n_tab),kappaext_pascucci_r(ngrp,pascucci_n_tab),kappasca_pascucci_p(ngrp,pascucci_n_tab))
   allocate(t_pascucci(pascucci_n_tab))
   allocate(opnu(nopmax),opknu(nopmax))
   if (isoscat) allocate(opknuext(nopmax))
@@ -1486,11 +1488,17 @@ subroutine init_opacities_pascucci
   enddo
   
 !  if(myid==1) write(*,*) kappa_pascucci_p, kappa_pascucci_r, kappaext_pascucci_p, kappaext_pascucci_r
+  if (isoscat) kappasca_pascucci_p = kappaext_pascucci_p - kappa_pascucci_p
   kappa_pascucci_p = log10(kappa_pascucci_p)
   kappa_pascucci_r = log10(kappa_pascucci_r)
+  !if(myid==1) write(*,*) "kp abs = ", kappa_pascucci_p
+  !if(myid==1) write(*,*) "kr abs = ", kappa_pascucci_r
   if (isoscat) then
      kappaext_pascucci_p = log10(kappaext_pascucci_p)
      kappaext_pascucci_r = log10(kappaext_pascucci_r)
+     kappasca_pascucci_p = log10(kappasca_pascucci_p)
+     !if(myid==1) write(*,*) "kp ext = ", kappaext_pascucci_p
+     !if(myid==1) write(*,*) "kr ext = ", kappaext_pascucci_r
   endif
 
   if(myid==1) write(*,*) '#########################################################'
