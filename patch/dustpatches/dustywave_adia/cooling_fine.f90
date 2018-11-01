@@ -83,7 +83,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   use amr_commons
   use hydro_commons
   use cooling_module
-  use radiation_parameters, ONLY: mu_gas
+  use radiation_parameters
 #ifdef grackle
   use grackle_parameters
 #endif
@@ -142,8 +142,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   real(dp)                                   :: x0, y0, z0,coeff_chi,cst2, coef
   double precision                           :: v_extinction
   integer::uleidx,uleidy,uleidz,uleidh,igrid,ii,indc2,iskip2,ind_ll
-  real(dp) ::sum_dust
-  integer:: idust
+
 
   !-------------- SPHERICAL DIRECTIONS ------------------------------------------------!
 !  real(dp),dimension(1:nvector,1:ndir)                 :: col_dens                     !
@@ -158,7 +157,8 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   integer, dimension(1:NdirExt_n)                      :: deltan1, deltan2
   integer                                              :: deltam
   !-----   simple_chem   --------------------------------------------------------------!
-
+  real(dp) :: sum_dust
+  integer  :: idust
   !Valeska
 !  vcol_dens(:) = 0.
   column_dens(:,:,:) = 0.
@@ -254,11 +254,9 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      ! Compute rho
      do i=1,nleaf
         sum_dust=0.0d0
-#if NDUST>0
-        do idust= 1,ndust
-           sum_dust= sum_dust + uold(ind_leaf(i),firstindex_ndust+idust)
+        do idust=1,ndust
+           sum_dust=sum_dust+uold(ind_leaf(i),firstindex_ndust+idust)
         end do
-#endif           
         nH(i)=MAX(uold(ind_leaf(i),1)-sum_dust,smallr)
      end do
 
@@ -386,7 +384,6 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 
      ! Compute nH in H/cc
      do i=1,nleaf
-        
         nH(i)=nH(i)*scale_nH
      end do
 
@@ -417,7 +414,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         end do
      else
         do i=1,nleaf
-           T2min(i) = mu_gas*mH/kB!/gamma!T2_star*(nH(i)/nISM)**(g_star-1.0)
+           T2min(i) = mu_gas*mH/gamma/kb!0. !T2_star*(nH(i)/nISM)**(g_star-1.0)
         end do
      endif
      !==========================================
@@ -820,7 +817,8 @@ subroutine pressure_eos(rho_temp,Enint_temp,Peos)
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Peos
 
-  Peos = rho_temp!(gamma-1.d0)*Enint_temp
+  Peos = (gamma-1.d0)*Enint_temp
+
   return
 
 end subroutine pressure_eos
@@ -828,7 +826,7 @@ end subroutine pressure_eos
 !===========================================================================================
 !===========================================================================================
 !===========================================================================================
-subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht,sd)
+subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   use amr_parameters      ,only:dp
   use hydro_commons       ,only:gamma
   use cooling_module      ,only:kB,mH
@@ -839,7 +837,7 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht,sd)
   ! This routine computes the temperature from the density and 
   ! internal volumic energy. Inputs/output are in code units.
   !--------------------------------------------------------------
-  real(dp), intent(in) :: Enint_temp,rho_temp,sd
+  real(dp), intent(in) :: Enint_temp,rho_temp
   integer , intent(out):: ht 
   real(dp), intent(out):: Teos
   real(dp)::rho,Enint
@@ -847,7 +845,7 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht,sd)
   rho   = rho_temp*scale_d
   Enint = Enint_temp*scale_d*scale_v**2 
 
-  Teos = mu_gas*mH/kB
+  Teos = Enint/(rho*kB/(mu_gas*mH*(gamma-1.0d0)))
 
   ht=1
 
@@ -876,10 +874,9 @@ subroutine enerint_eos(rho_temp,temp_temp,Eeos)
   rho  = rho_temp * scale_d
   temp = temp_temp
 
-  Eeos =  rho*kB/(mu_gas*mH*(gamma-1.0))*temp
+  Eeos = rho*kB/(mu_gas*mH*(gamma-1.0))*temp/(scale_d*scale_v**2)
 
   return
-  
 
 end subroutine enerint_eos
 !==================================================================================
@@ -897,10 +894,9 @@ subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Cseos
 
-  Cseos = Enint_temp/rho_temp/(gamma-1.0d0)
-  return
+  Cseos = sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
 
- 
+  return
 
 end subroutine soundspeed_eos
 !==================================================================================
@@ -921,7 +917,7 @@ function cmp_Cv_eos(rho,Enint)
   real(dp)   :: rho,Enint
   real(dp)   :: cmp_Cv_eos
 
-  cmp_Cv_eos = rho*kB/(mu_gas*mH*(gamma-1.0d0))
+  cmp_Cv_eos = rho*kB/(mu_gas*mH*(gamma-1.0d0))/scale_v**2
 
 end function cmp_Cv_eos
 !==================================================================================

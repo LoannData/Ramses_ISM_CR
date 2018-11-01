@@ -257,8 +257,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
   integer ,dimension(1:nvector,0:twondim         ),save::ibuffer_father
   integer ,dimension(1:nvector,0:twondim         ),save::ind1
   integer ,dimension(1:nvector                   ),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
-  real(dp),dimension(1:twotondim,1:3),save::xc
-  real(dp),dimension(1:twotondim),save::rc
 
   integer::idust,ht
   integer::i,j,ivar,idim,irad,ind_son,ind_father,iskip,nbuffer,ibuffer
@@ -410,7 +408,6 @@ subroutine dustdifffine1(ind_grid,ncache,ilevel,d_cycle_ok,ncycle,icycle)
                  do idust=1,ndust
                     uloc(ind_exist(i),i3,j3,k3,ndust+ndim*(idust-1)+idim)= v_dust(ind_cell(i),idust,idim)
                  end do
-                 !print*, v_dust(ind_cell(i),idust,idim), ndust+ndim*(idust-1)+idim, idim
                end do
             end do
             do i=1,nbuffer

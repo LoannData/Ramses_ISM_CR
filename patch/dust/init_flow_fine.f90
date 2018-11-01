@@ -4,12 +4,11 @@
 !################################################################
 subroutine init_flow  
   use amr_commons
-#if NDUST==O
+#if NDUST==0
     use hydro_commons, ONLY: nvar, uold
-
 #endif
 #if NDUST>0  
-  use hydro_commons, ONLY: nvar, uold, ndim,ndust, v_dust, v_dust_0
+  use hydro_commons, ONLY: nvar, uold, ndim,ndust, v_dust
 #endif
   
   implicit none
@@ -25,18 +24,20 @@ subroutine init_flow
      end do
      if(simple_boundary)call make_boundary_hydro(ilevel)
   end do
-#if NDUST>0
-    do ilevel=nlevelmax,1,-1
-     if(ilevel>=levelmin)call init_vdust(ilevel)
-  do idim =1,ndim
-     do idust=1,ndust
-        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-        call make_virtual_fine_dp(v_dust_0(1,idust,idim),ilevel)
+
+#if NDUST>0    
+  if(verbose)write(*,*)'Entering init_flow'
+  do ilevel=nlevelmax,1,-1
+     if(ilevel>=levelmin)call set_vdust(ilevel)
+     call upload_fine(ilevel)
+     do idim =1,ndim
+        do idust=1,ndust
+           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+        end do
      end do
+     if(simple_boundary)call make_boundary_hydro(ilevel)
   end do
-  end do
-  if(verbose)write(*,*)'Complete init_flow'
-#endif
+#endif  
 end subroutine init_flow
 !################################################################
 !################################################################

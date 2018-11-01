@@ -89,8 +89,6 @@ recursive subroutine amr_step(ilevel,icount)
               do idim =1,ndim
                  do idust=1,ndust
                     call make_virtual_fine_dp(v_dust(1,idust,idim),i)
-                    call make_virtual_fine_dp(v_dust_0(1,idust,idim),i)
-
                  end do
               end do
 #endif              
@@ -353,9 +351,16 @@ recursive subroutine amr_step(ilevel,icount)
      call calc_turb_forcing(ilevel)
   end if
 #endif
-  
 
-
+     ! Set uold equal to unew
+#if NDUST>0
+  call set_vdust(ilevel)
+  do idim =1,ndim
+     do idust=1,ndust
+        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+     end do
+  end do
+#endif
   
     !----------------------
   ! Compute new time step
@@ -506,18 +511,17 @@ recursive subroutine amr_step(ilevel,icount)
         call make_virtual_reverse_dp(enew(1),ilevel)
         call make_virtual_reverse_dp(divu(1),ilevel)
      endif
+
+     ! Set uold equal to unew
 #if NDUST>0
-  !call set_vdust_decay(ilevel)
   call set_vdust(ilevel)
   do idim =1,ndim
      do idust=1,ndust
         call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-      !  call make_virtual_fine_dp(v_dust_0(1,idust,idim),ilevel)
      end do
   end do
 #endif
-     ! Set uold equal to unew
-                               call timer('hydro - set uold','start')
+     call timer('hydro - set uold','start')
      call set_uold(ilevel)
 
 

@@ -24,12 +24,11 @@ subroutine courant_fine(ilevel)
   real(dp)::dt_lev,dx,vol,scale
   real(kind=8)::mass_loc,ekin_loc,eint_loc,emag_loc,dt_loc
   real(kind=8)::mass_all,ekin_all,eint_all,emag_all,dt_all
-  real(dp),dimension(1:nvector,1:nvar+3+ndust),save::uu
+  real(dp),dimension(1:nvector,1:nvar+3),save::uu
   real(dp),dimension(1:nvector,1:ndim),save::gg
 #if NDUST>0
-  real(dp)::dt_dust,vdust
+  real(dp)::dt_dust
   integer::idust
-  !real(dp),dimension(1:nvector)::vdu
 #endif
 #if NIMHD==1
   ! modif nimhd
@@ -43,11 +42,11 @@ subroutine courant_fine(ilevel)
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
+
   mass_all=0.0d0; mass_loc=0.0d0
   ekin_all=0.0d0; ekin_loc=0.0d0
   emag_all=0.0d0; emag_loc=0.0d0
   eint_all=0.0d0; eint_loc=0.0d0
-  
   dt_all=dtnew(ilevel); dt_loc=dt_all
 #if NIMHD==1
   ! modif nimhd
@@ -103,22 +102,18 @@ subroutine courant_fine(ilevel)
            end do
         end do
 #if NDUST>0
+        dt_dust= dt_loc
         do i=1,nleaf
         !do idim=1,ndim
            do idust=1,ndust
-#if NDIM==1              
-              uu(i,nvar+3+idust)=  abs(v_dust(ind_leaf(i),idust,1))
-#endif
-#if NDIM==2              
-              uu(i,nvar+3+idust)= abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))
-#endif
-#if NDIM==3              
-              uu(i,nvar+3+idust)= abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))
-#endif
+              if (NDIM.eq.1)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))))
+              if (NDIM.eq.2)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))))
+  
+              if (NDIM.eq.3)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))))
            end do
         !end do
         end do
-#endif
+#endif        
         ! Gather gravitational acceleration
         gg=0.0d0
         if(poisson)then
@@ -189,7 +184,6 @@ subroutine courant_fine(ilevel)
 
 #if NIMHD==1
            ! modif nimhd
-
            call cmpdt(uu,gg,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
            dt_loc=min(dt_loc,dt_lev)
            dtambdiff_loc=min(dtambdiff_loc,dtambdiff_lev)
@@ -201,6 +195,11 @@ subroutine courant_fine(ilevel)
            call cmpdt(uu,gg,dx,dt_lev,nleaf)
            dt_loc=min(dt_loc,dt_lev)
 #endif
+#if NDUST>0           
+           dt_loc=min(dt_loc,dt_dust)
+           !dt_loc=courant_factor*dx/(abs(speedx))
+           !print *, speedx,courant_factor, dx,dt_loc
+#endif           
         end if
 
      end do
@@ -320,7 +319,7 @@ subroutine courant_fine(ilevel)
   ! fin modif nimhd
 #endif
 
-  if(dt_control)dtnew(ilevel)=dtdiff_params(1)*dtdiff_params(2)**nstep_coarse
+  if(dt_control)dtnew(ilevel)=dtdiff_params(1)
 
 111 format('   Entering courant_fine for level ',I2)
 

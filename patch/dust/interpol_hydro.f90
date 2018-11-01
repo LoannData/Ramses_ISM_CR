@@ -294,16 +294,24 @@ do idust=1,ndust
         end do
         do i=1,ncell
            getxdust(i,1)=getxdust(i,1)+v_dust(ind_cell_son(i),idust,1)
-           if (ndim>1)getxdust(i,2)=getxdust(i,2)+v_dust(ind_cell_son(i),idust,2)
-           if (ndim>2)getxdust(i,3)=getxdust(i,3)+v_dust(ind_cell_son(i),idust,3)
+#if NDIM>1           
+           getxdust(i,2)=getxdust(i,2)+v_dust(ind_cell_son(i),idust,2)
+#endif
+#if NDIM>2                    
+           getxdust(i,3)=getxdust(i,3)+v_dust(ind_cell_son(i),idust,3)
+#endif
+           
         end do
      end do
-
      ! Scatter result to cells
      do i=1,ncell
         v_dust(ind_cell(i),idust,1) =getxdust(i,1)/dble(twotondim)
-        if (ndim>1)v_dust(ind_cell(i),idust,2) =getxdust(i,2)/dble(twotondim)
-        if (ndim>2)v_dust(ind_cell(i),idust,3) =getxdust(i,3)/dble(twotondim)
+#if NDIM>1                   
+        v_dust(ind_cell(i),idust,2) =getxdust(i,2)/dble(twotondim)
+#endif
+#if NDIM>2          
+        v_dust(ind_cell(i),idust,3) =getxdust(i,3)/dble(twotondim)
+#endif        
      end do
   end do
   ! End loop over cell centered variables

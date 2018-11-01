@@ -5,8 +5,7 @@
 #if NIMHD==1
 ! modif nimhd
 subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
-! fin modif nimhd
-#else
+#else  
 subroutine cmpdt(uu,gg,dx,dt,ncell)
 #endif
   use amr_parameters
@@ -14,7 +13,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   use const
 #if NIMHD==1
   use hydro_commons,ONLY:default_ionisrate
-#endif 
+#endif
   implicit none
   integer::ncell,ht
   real(dp)::dx,dt
@@ -29,7 +28,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   integer :: ntest
   ! fin modif nimhd
 #endif
-  real(dp),dimension(1:nvector,1:nvar+3)::uu
+  real(dp),dimension(1:nvector,1:nvar+3+ndust)::uu
   real(dp),dimension(1:nvector,1:ndim)::gg
   real(dp),dimension(1:nvector),save::a2,B2,rho,ctot
   real(dp)::dtcell,smallp,cf,cc,bc,bn
@@ -37,6 +36,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   real(dp)::sum_dust,dt_dust 
 #if NDUST>0
   integer::idust
+  real(dp),dimension(1:nvector),save::udust
 #endif
 #if NENER>0
   integer::irad
@@ -44,24 +44,21 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
 #if NIMHD==1
   real(dp),dimension(1:nvector),save::tcell,ionisrate
 #endif
-
   smallp = smallr*smallc**2/gamma
-
   ! Convert to primitive variables
   do k = 1,ncell
      uu(k,1)=max(uu(k,1),smallr)
      rho(k)=uu(k,1)
-     
 #if NIMHD==1
      ! modif nimhd
      rhoad(k)=rho(k)
-       sum_dust= 0.0d0
+     sum_dust= 0.0d0
 #if NDUST>0
      do idust=1,ndust
         sum_dust= sum_dust+ uu(k,firstindex_ndust+idust)/rho(k)
      enddo
 
-#endif     
+#endif
      call temperature_eos((1.0_dp-sum_dust)*rho(k),uu(k,nvar),tcell(k),ht,sum_dust)
      ionisrate(k) = default_ionisrate
      ! fin modif nimhd
@@ -92,14 +89,16 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
 #endif
 
   ! Compute thermal sound speed
-     do k = 1, ncell
+  do k = 1, ncell
      sum_dust= 0.0d0
 #if NDUST>0
      do idust=1,ndust
-     sum_dust= sum_dust + uu(k,firstindex_ndust+idust)/rho(k)
+        sum_dust= sum_dust + uu(k,firstindex_ndust+idust)/rho(k)
      enddo
 #endif
+
      uu(k,5) = max((gamma-one)*uu(k,5),smallp)
+
      a2(k)=gamma*uu(k,5)/uu(k,1)/(1.0d0-sum_dust)
   end do
 #if NENER>0
@@ -109,7 +108,15 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      end do
   end do
 #endif
-
+  ! Compute maximum dust related speed
+  udust(k)=0.0d0
+#if NDUST>0 
+  do k = 1, ncell
+     do idust=1,ndust
+        udust(k)=max(udust(k),uu(k,nvar+3+idust))
+     end do   
+  end do
+#endif
   ! Compute maximum wave speed (fast magnetosonic)
   do k = 1, ncell
      ctot(k)=zero
@@ -117,7 +124,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   if(ischeme.eq.1)then
      do idim = 1,ndim   ! WARNING: ndim instead of 3
         do k = 1, ncell
-           ctot(k)=ctot(k)+abs(uu(k,idim+1))  
+           ctot(k)=ctot(k)+abs(uu(k,idim+1))+udust(k)      
         end do
      end do
   else
@@ -127,7 +134,11 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
            BN=half*(uu(k,5+idim)+uu(k,nvar+idim))
            cf=sqrt(cc+sqrt(cc**2-a2(k)*BN**2/rho(k)))
            ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf
-            
+#if NDUST>0
+           do idust=1,ndust
+              ctot(k)=ctot(k)+uu(k,nvar+idust)+udust(k)
+           end do   
+#endif            
         end do
      end do
   endif
@@ -149,9 +160,8 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   ! Compute maximum time step for each authorized cell
   dt = courant_factor*dx/smallc
   do k = 1,ncell
-   
            dtcell=dx/ctot(k)*(sqrt(one+two*courant_factor*rho(k))-one)/rho(k)
-           dt = min(dt,dtcell)
+           dt = min(dt,dtcell)           
   end do
 
 #if NIMHD==1

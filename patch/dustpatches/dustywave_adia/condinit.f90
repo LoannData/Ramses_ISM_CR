@@ -4,7 +4,6 @@
 !================================================================
 subroutine condinit(x,u,dx,nn)
   use amr_parameters
-  use units_commons
   use hydro_parameters
   use poisson_parameters
   use cooling_module      , only : kb,mh
@@ -30,48 +29,44 @@ subroutine condinit(x,u,dx,nn)
   !================================================================
   integer::ivar, idust, i
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp)::x0,sum_dust,ee,H_disc,rho_sim,cs,r_disk,xx,yy,zz
-  real(dp),dimension(1:ndust):: dustMRN
-  real(dp):: epsilon_0
-  rho_sim = 1.0d-3
-  r_disk=5.0
-  H_disc =0.25d0
-  cs = 0.05/sqrt(r_disk)
-  epsilon_0 = dust_ratio(1)
-  q(1:nn,2)=0.0d0
-  q(1:nn,3)=0.0d0
-  q(1:nn,4)=0.0d0
-  q(1:nn,5)=0.0d0
-  q(1:nn,6)=0.0d0
-  q(1:nn,7)=0.0d0
-  q(1:nn,8)=0.0d0
-  q(1:nn,nvar+1)=0.0d0
-  q(1:nn,nvar+2)=0.0d0
-  q(1:nn,nvar+3)=0.0d0
-  do ivar=9,nvar
-     q(1:nn,ivar)=0.0d0
-  end do
-  do i=1,nn
-     xx=x(i,1)
-     yy=x(i,2)-boxlen/2.0
-     sum_dust=0.0d0
-#if NDUST>0
-     do idust =1,ndust
-        dustMRN(idust) = dust_ratio(idust)/(1.0+dust_ratio(idust))
-     end do
-     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
-     do idust =1,ndust
-        sum_dust = sum_dust + dustMRN(idust)
-        q(i,firstindex_ndust+idust) = dustMRN(idust)
-     end do
-#endif
-     q(i,1)=rho_sim*exp(-abs(yy**2.0/(2.0*H_disc**2.0)))!+1d-22/scale_d
-     q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs**2.0
-     q(i,2)= 0.0d0
-     q(i,3)= 0.0d0
-     q(i,4)= 0.0d0
-  end do
+  real(dp)::xn,x0,sum_dust, t_stop, rho_0, epsilon_0, delta_rho0,v0, pi,P_0,rho_gas, dusttogas
+       pi =3.14159265358979323846_dp
+
+      dusttogas = 1.0d0!0.10
+      rho_gas =1.0_dp
+      rho_0 = rho_gas + dusttogas*rho_gas
+      epsilon_0 = dusttogas*rho_gas/rho_0
+      delta_rho0= 1.0e-2_dp
+      v0  = delta_rho0
+      q(1:nn,2)=0.0d0
+      q(1:nn,3)=0.0d0
+      q(1:nn,4)=0.0d0
+      q(1:nn,5)=0.0d0
+      q(1:nn,6)=0.0d0
+      q(1:nn,7)=0.0d0
+      q(1:nn,8)=0.0d0
+      q(1:nn,nvar+1)=0.0d0
+      q(1:nn,nvar+2)=0.0d0
+      q(1:nn,nvar+3)=0.0d0
   
+      do ivar=9,nvar
+         q(1:nn,ivar)=0.0d0
+      end do
+   
+      do i=1, nn
+         ! Compute position in normalized coordinates
+         xn=abs(x(i,1))
+        
+         sum_dust =0.0d0
+         do idust = 1, Ndust
+            q(i,1)=rho_0*(1.0_dp+delta_rho0*sin(2.0_dp*pi*xn))
+            q(i,2)=v0*sin(2.0_dp*pi*xn)
+            q(i,firstindex_ndust+idust) = epsilon_0!*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
+            sum_dust= sum_dust + q(i,firstindex_ndust+idust)
+         end do
+         q(i,5)=(1.0d0-epsilon_0)*q(i,1)!*sqrt(gamma)
+      end do
+      
      ! Convert primitive to conservative variables
      ! density -> density
      u(1:nn,1)=q(1:nn,1)

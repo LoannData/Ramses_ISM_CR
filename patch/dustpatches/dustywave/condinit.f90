@@ -58,7 +58,7 @@ subroutine condinit(x,u,dx,nn)
         
          sum_dust =0.0d0
          do idust = 1, Ndust
-            q(i,1)=rho_0*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
+            q(i,1)=rho_0*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn/boxlen))
             q(i,2)=v0*sin(2.0_dp*pi*xn)
             q(i,firstindex_ndust+idust) = epsilon_0!*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
             sum_dust= sum_dust + q(i,firstindex_ndust+idust)

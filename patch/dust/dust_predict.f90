@@ -709,14 +709,14 @@ SUBROUTINE hlldust(vleft,vright,uleft,uright,fgdnv)
   REAL(dp):: vleft,vright,SL,SR,fmean, udiff
 
 
-  SL=min(abs(vleft),abs(vright))
-  SR=max(abs(vleft),abs(vright))
+  SL=min(min(vleft,vright)-max((vleft),(vright)),zero)
+  SR=max(max(vleft,vright)+max((vleft),(vright)),zero)
   fleft= uleft*vleft
   fright= uright*vright
- 
+  fgdnv=0.0d0
    !the HLL flux
-  if (SR-SL.ne.0.0d0)fgdnv = (SR*fleft-SL*fright+SR*SL*(uright-uleft))/(SR-SL)
-  !fmean =  half * ( fright + fleft )
+  fgdnv = (SR*fleft-SL*fright+SR*SL*(uright-uleft))/(SR-SL)
+  fmean =  half * ( fright + fleft )
   !udiff  = half * ( uright - uleft )
   !fgdnv = fmean - MAX(abs(vleft),abs(vright)) * udiff
 
@@ -734,15 +734,15 @@ SUBROUTINE upwind_dust(vleft,vright,qleft,qright,fgdnv)
   REAL(dp)::fleft,fright,fmean
   REAL(dp)::udiff
 
-  !fleft= qleft*vleft
-  !fright= qright*vright
+  fleft= qleft*vleft
+  fright= qright*vright
   ! find the mean normal velocity 
   ! find the mean flux
-  !fmean =  half * ( fright + fleft )
+  fmean =  half * ( fright + fleft )
   ! difference between the 2 states
-  !udiff = half * ( qright - qleft )
+  udiff = half * ( qright - qleft )
   ! the Upwind flux
-  !fgdnv =  fmean - ABS(vleft) * udiff
+  fgdnv =  fmean - ABS(vleft) * udiff
    ! find the mean normal velocity
   vd = half * (vleft+vright )
   ! the Upwind flux
@@ -773,7 +773,7 @@ subroutine trace1d_dust(q,dq,qm,qp,dx,dt,ngrid)
   integer ::idust
   real(dp)::dtdx
   real(dp)::rhod,ud
-  real(dp):: drhox,dux
+  real(dp):: drhox,dux,dux1,dux2
   real(dp)::srho0, su0
   integer :: Ndvar
   Ndvar = 2*ndust*ndim
@@ -793,14 +793,20 @@ subroutine trace1d_dust(q,dq,qm,qp,dx,dt,ngrid)
               ud   =  q(l,i,j,k,ndust+ndim*(idust-1)+1)
               ! TVD slopes in all 3 directions
               drhox = dq(l,i,j,k,idust,1)
-              dux = dq(l,i,j,k,ndust+ndim*(idust-1)+1,1)
+              !print *, drhox
+              !dux = q(l,i+1,j,k,ndust+ndim*(idust-1)+1)-q(l,i-1,j,k,ndust+ndim*(idust-1)+1)
+              !drhox = q(l,i+1,j,k,idust)-q(l,i-1,j,k,idust)
+              !print *, drhox
+              !print *, 'ne'
+!a corriger, quelque chose ne va pas
+              dux= dq(l,i,j,k,ndust+ndim*(idust-1)+1,1)
               ! Source terms (including transverse derivatives)
-              srho0 = -ud*drhox - dux*rhod
-              qp(l,i,j,k,idust,1) = rhod      + srho0*dtdx*half  - half*drhox
-              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud   - half*dux   
+              srho0 =  -ud*drhox - dux*rhod
+              qp(l,i,j,k,idust,1) = rhod      + half*srho0*dtdx - half* drhox
+              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud  !- half* dux 
               ! Left state at left interface
-              qm(l,i,j,k,idust,1) = rhod        + srho0*dtdx*half + half*drhox
-              qm(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud  + half*dux
+              qm(l,i,j,k,idust,1) = rhod        + half*srho0*dtdx+ half*drhox
+              qm(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud  !+ half*dux
               !print *, ud, rhod, drhox, dux
               end do
            end do
@@ -968,7 +974,7 @@ subroutine trace3d_dust(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               !sw0 = -ud*dwx-vd*dwy-wd*dwz 
               ! Right state at left interface
               qp(l,i,j,k,idust,1) = rhod       - half*drhox + srho0*dtdx*half
-              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud   - half*dux   !+ su0*dtdx*half
+              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud - half*dux   !+ su0*dtdx*half
               qp(l,i,j,k,ndust+ndim*(idust-1)+2,1) = vd - half*dvx  ! + sv0*dtdx*half
               qp(l,i,j,k,ndust+ndim*(idust-1)+3,1) = wd - half*dwx   !+ sw0*dtdx*half
               ! Left state at left interface
