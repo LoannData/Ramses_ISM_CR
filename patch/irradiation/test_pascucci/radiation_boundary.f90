@@ -226,7 +226,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
   integer,dimension(1:nvector),save::ind_cell,ind_cell_ref
 
   real(dp)::dx,dx_loc,scale
-  real(dp)::rosseland_ana,planck_ana
+  real(dp)::rosseland_ana
   real(dp),dimension(1:3)::skip_loc
   real(dp),dimension(1:twotondim,1:3)::xc
   real(dp),dimension(1:nvector,1:ndim),save::xx

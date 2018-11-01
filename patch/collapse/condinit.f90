@@ -236,7 +236,11 @@ subroutine condinit(x,u,dx,nn)
            q(i,nvar+2) = q(i,7)
 
            !Bz component
+!#if HALL==1
+           !q(i,8     ) = B0
+!#else
            q(i,8     ) = B0 /(contrast**(2./3.))
+!#endif
            q(i,nvar+3) = q(i,8)
         END IF
 

@@ -796,7 +796,7 @@ subroutine rt_step(ilevel)
   integer  :: i_substep, ivar
 
   dt_hydro = dtnew(ilevel)                   ! Store hydro timestep length
-  t_left = dt_hydro
+  t_left = dt_hydro  
   ! We shift the time backwards one hydro-dt, to get evolution of stellar
   ! ages within the hydro timestep, in the case of rt subcycling:
   t_save=t ; t=t-t_left
@@ -815,7 +815,7 @@ subroutine rt_step(ilevel)
      if(rt_star) call star_RT_feedback(ilevel,dtnew(ilevel))
      if(rt_sink) call sink_RT_feedback(ilevel,dtnew(ilevel))
      if(rt_protostar_m1 .and. sink) call radiative_feedback_sink(ilevel)
-     
+
      ! Hyperbolic solver
      if(rt_advect) call rt_godunov_fine(ilevel,dtnew(ilevel))
 

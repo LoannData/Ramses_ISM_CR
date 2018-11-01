@@ -235,14 +235,28 @@ SUBROUTINE read_rt_groups()
   use rt_parameters
   use rt_cooling_module
   use SED_module
-  use radiation_parameters !raph for kappaAbs=kplanck(Tstar)
+  use radiation_parameters !raph for kappaAbs=kplanck(Tstar) and kappaSc
   use hydro_parameters, only: ngrp
   implicit none
-  integer::i, igrp !igrp for kappaAbs=kplanck(Tstar)
-  real(dp)::planck_ana !raph for kappaAbs=kplanck(Tstar)
+  integer::i, igrp !igrp for kappaAbs=kplanck(Tstar) and kappaSc
+!  real(dp)::planck_ana, planck_ana_scat !raph for kappaAbs=kplanck(Tstar)
 !-------------------------------------------------------------------------
   namelist/rt_groups/group_csn, group_cse, group_egy, spec2group         &
        & , groupL0, groupL1, kappaAbs, kappaSc
+  interface 
+    real(dp) function planck_ana(a,b,c,d)
+    import :: dp
+    real(dp), intent(in)  :: a,b,c
+    integer, intent(in)   :: d
+    end function planck_ana
+
+    real(dp) function planck_ana_scat(a,b,c,d)
+    import :: dp
+    real(dp), intent(in)  :: a,b,c
+    integer, intent(in)   :: d
+    end function planck_ana_scat
+  end interface
+
   if(myid==1) then
      write(*,'(" Working with ",I2," photon groups and  "                &
           & ,I2, " ion species")') nGroups, nIons
@@ -284,10 +298,12 @@ SUBROUTINE read_rt_groups()
   read(1,NML=rt_groups,END=101)
 
   if (ngrp==1) then
-     kappaAbs = planck_ana(1.0d0, Tstar, Tstar ,1) !M1 opacity at stellar Temp
-     if(myid==1) write(*,*) "kappaAbs = kappa planck at star temperature"
+     kappaAbs = planck_ana(1.0d0, Tstar, Tstar ,1) !M1 abs opacity at Tstar
+     if(isoscat) kappaSc  = planck_ana_scat(1.0d0, Tstar, Tstar, 1) !M1 scat opacity
+     if(myid==1) write(*,*) "M1 absorption is Planck's mean opacity at the star temperature"
+     if(myid==1 .and. isoscat) write(*,*) "M1 scattering is Planck's mean opacity at the star temperature"
   else
-     if(myid==1) write(*,*) "ngrp>1 so kappaAbs is taken from the namelist"
+     if(myid==1) write(*,*) "ngrp>1 so M1 absorption and scattering opacities are taken from the namelist"
   endif  
 
 

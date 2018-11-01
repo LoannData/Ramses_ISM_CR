@@ -253,7 +253,11 @@ subroutine courant_fine(ilevel)
      if (nminitimestep.eq.1) then
         ! alfven time alone maybe not correct
         ! comparison with global time step
+#if HALL==1
+        tmag1=max(dtambdiff(ilevel),min(dtwad(ilevel),dthall(ilevel))*coefalfven)
+#else
         tmag1=max(dtambdiff(ilevel),dtwad(ilevel)*coefalfven)
+#endif
 !         if(myid==1) write(*,*) 'tmag,dtambdiff(ilevel),dtnew(ilevel)*coefalfven,dtnew(ilevel)',tmag1,dtambdiff(ilevel),dtnew(ilevel)*coefalfven,dtnew(ilevel)
      else
         tmag1=dtambdiff(ilevel)
@@ -267,7 +271,11 @@ subroutine courant_fine(ilevel)
      if (nminitimestep.eq.1) then
         ! alfven time alone maybe not correct
         ! comparison with global time step
+#if HALL==1
+        tmag2=max(dtmagdiff(ilevel),min(dtwad(ilevel),dthall(ilevel))*coefdtohm)
+#else
         tmag2=max(dtmagdiff(ilevel),dtwad(ilevel)*coefdtohm)
+#endif
 !         if(myid==1) write(*,*) 'tmag,dtmagdiff(ilevel),dtnew(ilevel)*coefdtohm,dtnew(ilevel)',tmag2,dtmagdiff(ilevel),dtnew(ilevel)*coefdtohm,dtnew(ilevel)
      else
         tmag2=dtmagdiff(ilevel)

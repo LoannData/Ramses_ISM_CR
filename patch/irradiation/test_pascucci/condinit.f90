@@ -69,6 +69,9 @@ subroutine condinit(x,u,dx,nn)
      rd  = 100.* au ! boxlen/8=100AU
      zd  = 10.* au ! boxlen/80=10AU
      rin = 0.1 * au
+     if (Tstar >14999.0d0) then
+        rin = 1.0 * au ! for T(disk)<T(sublimation)
+     endif
   endif
 
 
