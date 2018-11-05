@@ -36,8 +36,8 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   real(dp)::sum_dust,dt_dust 
 #if NDUST>0
   integer::idust
-  real(dp),dimension(1:nvector),save::udust
 #endif
+  real(dp),dimension(1:nvector),save::udust
 #if NENER>0
   integer::irad
 #endif

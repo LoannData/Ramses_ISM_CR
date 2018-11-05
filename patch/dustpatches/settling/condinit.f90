@@ -65,7 +65,7 @@ subroutine condinit(x,u,dx,nn)
         q(i,firstindex_ndust+idust) = dustMRN(idust)
      end do
 #endif
-     q(i,1)=rho_sim*exp(-abs(yy**2.0/(2.0*H_disc**2.0)))!+1d-22/scale_d
+     q(i,1)=(1.0d0+sum_dust)*rho_sim*exp(-abs(yy**2.0/(2.0*H_disc**2.0)))!+1d-20/scale_d
      q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs**2.0
      q(i,2)= 0.0d0
      q(i,3)= 0.0d0
