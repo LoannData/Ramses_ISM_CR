@@ -485,6 +485,7 @@ recursive subroutine amr_step(ilevel,icount)
   !-----------
   ! Hydro step
   !-----------
+  !if(.not. dust_diffusion)call relaxation(ilevel)
   if((hydro).and.(.not.static_gas))then
 
      ! Hyperbolic solver

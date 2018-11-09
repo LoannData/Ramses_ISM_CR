@@ -73,6 +73,8 @@ module amr_parameters
   logical::dust_lin=.false.   ! Activate to have linear dust equation
   logical::static_stars=.false.! Static mode for stars only activated
   logical::tracer  =.false.   ! Tracer particles activated
+  logical::MC_tracer = .false. ! Tracer using Monte Carlo
+
   logical::lightcone=.false.  ! Enable lightcone generation
   logical::clumpfind=.false.  ! Enable clump finder
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer

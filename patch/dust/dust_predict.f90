@@ -746,7 +746,7 @@ SUBROUTINE upwind_dust(vleft,vright,qleft,qright,fgdnv)
    ! find the mean normal velocity
   vd = half * (vleft+vright )
   ! the Upwind flux
-  fgdnv = max(vd*qleft,0.0d0)+min(vd*qright,0.0d0)
+  fgdnv = max(vleft*qleft,0.0d0)+min(vright*qright,0.0d0)
   
 END SUBROUTINE upwind_dust
 !###########################################################
@@ -793,21 +793,16 @@ subroutine trace1d_dust(q,dq,qm,qp,dx,dt,ngrid)
               ud   =  q(l,i,j,k,ndust+ndim*(idust-1)+1)
               ! TVD slopes in all 3 directions
               drhox = dq(l,i,j,k,idust,1)
-              !print *, drhox
-              !dux = q(l,i+1,j,k,ndust+ndim*(idust-1)+1)-q(l,i-1,j,k,ndust+ndim*(idust-1)+1)
-              !drhox = q(l,i+1,j,k,idust)-q(l,i-1,j,k,idust)
-              !print *, drhox
-              !print *, 'ne'
-!a corriger, quelque chose ne va pas
               dux= dq(l,i,j,k,ndust+ndim*(idust-1)+1,1)
+              if(.not.veloc_pred) dux =0.0d0
               ! Source terms (including transverse derivatives)
               srho0 =  -ud*drhox - dux*rhod
+              if(.not.source_pred) srho0=0.0d0
               qp(l,i,j,k,idust,1) = rhod      + half*srho0*dtdx - half* drhox
-              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud  !- half* dux 
+              qp(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud  - half* dux 
               ! Left state at left interface
               qm(l,i,j,k,idust,1) = rhod        + half*srho0*dtdx+ half*drhox
-              qm(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud  !+ half*dux
-              !print *, ud, rhod, drhox, dux
+              qm(l,i,j,k,ndust+ndim*(idust-1)+1,1) = ud + half*dux
               end do
            end do
         end do

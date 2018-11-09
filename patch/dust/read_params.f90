@@ -57,8 +57,11 @@ subroutine read_params
        & ,theta_camera,phi_camera,dtheta_camera,dphi_camera,focal_camera,dist_camera,ddist_camera &
        & ,perspective_camera,smooth_frame,shader_frame,tstart_theta_camera,tstart_phi_camera &
        & ,tend_theta_camera,tend_phi_camera,method_frame,varmin_frame,varmax_frame
-
+#if MCT>0
+  namelist/tracer_params/ MC_tracer, tracer, tracer_feed, tracer_feed_fmt, tracer_mass, &
+       tracer_first_balance_part_per_cell, tracer_first_balance_levelmin
   ! MPI initialization
+#endif
 #ifndef WITHOUTMPI
   call MPI_INIT(ierr)
   call MPI_COMM_RANK(MPI_COMM_WORLD,myid,ierr)
@@ -171,6 +174,10 @@ subroutine read_params
   rewind(1)
   read(1,NML=amr_params)
   rewind(1)
+#if MCT>0  
+  read(1,NML=tracer_params,END=84)
+84 continue
+#endif
   read(1,NML=lightcone_params,END=83)
 83 continue
   rewind(1)
@@ -334,7 +341,19 @@ subroutine read_params
      write(*,*) 'Error: nregion>MAXREGION'
      call clean_stop
   end if
+  !-----------------
+  ! MC tracer
+  !-----------------
+  if(MC_tracer .and. (.not. tracer))then
+     write(*,*)'You have activate the MC tracer but not the tracers.'
+     call clean_stop
+  end if
 
+  if(MC_tracer .and. (.not. pic)) then
+     write(*,*)'You have activate the MC tracer PIC is false.'
+     call clean_stop
+  end if
+  
   !-----------------------------------
   ! Rearrange level dependent arrays
   !-----------------------------------

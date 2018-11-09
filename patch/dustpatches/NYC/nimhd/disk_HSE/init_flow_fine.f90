@@ -83,7 +83,7 @@ subroutine init_flow_fine(ilevel)
 
   integer,parameter::tag=1107
   logical,save :: first_lmax=.true.   
-
+real(kind=8),dimension(n_zint)::comm_buffin,comm_buffout
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 

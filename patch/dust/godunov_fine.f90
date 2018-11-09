@@ -28,8 +28,8 @@ subroutine godunov_fine(ilevel)
         ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
      end do
      call godfine1(ind_grid,ngrid,ilevel)
+     
   end do
-
 111 format('   Entering godunov_fine for level ',i2)
 
 end subroutine godunov_fine
@@ -759,7 +759,7 @@ subroutine add_pdv_source_terms(ilevel)
            end do
 #endif
 
-           d     = uold(ind_cell(i),1)
+           d     = max(uold(ind_cell(i),1),smallr)
            ekin  = d*usquare/2.0
            ! Compute gas pressure in cgs
            eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
@@ -770,7 +770,7 @@ subroutine add_pdv_source_terms(ilevel)
                  sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
               end do
 #endif              
-           call pressure_eos((1.0_dp-sum_dust)*d,eps,pp_eos)
+              call pressure_eos((1.0_dp-sum_dust)*d,eps,pp_eos)
            do idim=1,ndim
               unew(ind_cell(i),nvar) = unew(ind_cell(i),nvar) &
                    & - pp_eos*divu_loc(i,idim,idim)*dtnew(ilevel)

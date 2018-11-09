@@ -48,7 +48,7 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #if NDUST>0       
        &,grain_size, grain_dens, K_dust, K_drag,decay_dust,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index, &
-       & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust&
+       & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust,source_pred,veloc_pred&
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
   namelist/refine_params/x_refine,y_refine,z_refine,r_refine &
@@ -138,7 +138,9 @@ subroutine read_hydro_params(nml_ok)
   rewind(1)
   read(1,NML=physics_params,END=105)
 105 continue
-
+  rewind(1)
+  read(1,NML=pseudovisco_params,END=106)
+106 continue
   ! Conversion factor from user units to cgs units (to be done after read physics_params with units_density...)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
@@ -202,8 +204,8 @@ subroutine read_hydro_params(nml_ok)
 #if NIMHD==1
   ! modif nimhd
   rewind(1)
-  read(1,NML=nonidealmhd_params,END=106)
-106 continue
+  read(1,NML=nonidealmhd_params,END=107)
+107 continue
   if((nambipolar.ne.0).and.(nambipolar.ne.1)) then
      write(*,*)'Wrong choice for nambipolar'
      call clean_stop
@@ -291,9 +293,7 @@ subroutine read_hydro_params(nml_ok)
     !endif
   endif
 
-  rewind(1)
-  read(1,NML=pseudovisco_params,END=107)
-107 continue
+
   if((nvisco.ne.0).and.(nvisco.ne.1)) then
      write(*,*)'Wrong choice for nvisco'
      call clean_stop
@@ -598,10 +598,10 @@ subroutine read_hydro_params(nml_ok)
         sum_dust = sum_dust + dust_bound(i,j)
      end do
      do j=1,ndust
-        boundary_var(i,firstindex_ndust+j)=(d_bound(i)+sum_dust*d_bound(i))*dust_bound(i,j)
+        boundary_var(i,firstindex_ndust+j)=(1.0d0+sum_dust)*dust_bound(i,j)*max(d_bound(i)*d_bound(i),smallr)
      end do
 #endif
-     boundary_var(i,1) =d_bound(i)+sum_dust*d_bound(i)
+     boundary_var(i,1) =(1.0d0+sum_dust)*max(d_bound(i)*d_bound(i),smallr)
      boundary_var(i,2)=(d_bound(i)+sum_dust*d_bound(i))*u_bound(i)
      boundary_var(i,3)=(d_bound(i)+sum_dust*d_bound(i))*v_bound(i)
      boundary_var(i,4)=(d_bound(i)+sum_dust*d_bound(i))*w_bound(i)

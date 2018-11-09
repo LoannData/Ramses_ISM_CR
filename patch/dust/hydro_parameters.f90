@@ -196,8 +196,9 @@ module hydro_parameters
   real(dp),dimension(1:nener)::gamma_rad=1.33333333334d0
   real(dp)::courant_factor=0.5d0
   real(dp)::difmag=0.0d0
-  real(dp)::smallc=1.d-10
-  real(dp)::smallr=1.d-10
+  real(dp)::smallc=1.d-5
+  real(dp)::smallr=1.d-20
+  
   real(dp)::smallcr=1.d-10
   real(dp)::eta_mag=0.0d0
   character(LEN=10)::scheme='muscl'
@@ -259,8 +260,12 @@ module hydro_parameters
   real(dp) :: size_min  = 5.0d-7
   real(dp) :: size_max  = 2.5d-5
   real(dp) :: mrn_index = 3.5d0
-  integer :: slope_dust = 3 ! 1 for upwind, 2 for minmod, 3 for vanleer
+  integer  :: slope_dust = 7 ! 1 for upwind, 2 for minmod, 7 for vanleer
   real(dp) :: eta_dust =1.0
+  logical  :: source_pred=.true.
+  logical  :: veloc_pred=.true.
+  
+  
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2

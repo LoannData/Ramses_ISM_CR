@@ -87,6 +87,8 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:2   ),save::tx
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)       ,save::emf
 
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3),save:: fvisco
+
 #if NIMHD==1
   ! modif nimhd
   ! WARNING following quantities defined with three components even
@@ -101,7 +103,6 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::emfambdiff,fluxambdiff
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::emfohmdiss,fluxohm 
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::emfhall,fluxhall
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3),save:: fvisco
   integer:: ntest
   !real(dp) :: gammaadbis,densionbis
   !real(dp) :: dttemp, rhotemp,btemp
@@ -139,9 +140,9 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   
   jcell=0.0d0
  
-  fvisco=0.d0
   ! fin modif nimhd
 #endif
+  fvisco=0.d0
 
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
@@ -194,8 +195,12 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   if(nvisco.eq.1) then
      call computevisco(qin,ngrid,dx,dy,dz,dt,fvisco)
   endif
+
   ! fin modif cmm
 #endif
+  if(nvisco.eq.1) then
+     call visco_hydro(qin,ngrid,dx,dy,dz,dt,fvisco)
+  endif
 
   ! Compute 3D traced-states in all three directions
 #if NDIM==1
@@ -271,6 +276,9 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   ! fin modif nimhd
 
   ! modif cmm
+
+  ! fin modif cmm
+#endif
   ! momentum flux from pseudo-viscosity
   if(nvisco.eq.1) then
   
@@ -289,9 +297,6 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
       end do
       
   endif
-  ! fin modif cmm
-#endif
-
   ! Solve for 1D flux in Y direction
 #if NDIM>1
   call cmpflxm(qm,iu1  ,iu2  ,ju1+1,ju2+1,ku1  ,ku2  , &
@@ -339,7 +344,10 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 
   ! modif cmm
   ! momentum flux from pseudo-viscosity
-  if(nvisco.eq.1) then
+
+  ! fin modif cmm
+#endif
+    if(nvisco.eq.1) then
   
       do ivar=2,4
         do k=klo,khi
@@ -356,8 +364,6 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
       end do
   
   endif
-  ! fin modif cmm
-#endif
 #endif
 
   ! Solve for 1D flux in Z direction
@@ -405,7 +411,10 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   endif
   ! fin modif nimhd
 
-  ! modif cmm
+
+  ! fin modif cmm
+#endif
+    ! modif cmm
   ! momentum flux from pseudo-viscosity
   if(nvisco.eq.1) then
   
@@ -424,8 +433,6 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
       end do
       
   endif
-  ! fin modif cmm
-#endif
 #endif
 
 #if NIMHD==1
@@ -764,8 +771,7 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
 
 END SUBROUTINE trace1d
 #endif
-!###########################################################
-!###########################################################
+!###########################################################!###########################################################
 !###########################################################
 !###########################################################
 #if NDIM==2
@@ -1991,19 +1997,19 @@ subroutine cmpflxm(qm,im1,im2,jm1,jm2,km1,km2, &
               ENDIF
            
               ! Output fluxes
-              flx(l,i,j,k,1  ) = fgdnv(1)  ! Mass density
-              flx(l,i,j,k,5  ) = fgdnv(2)  ! Total energy
-              flx(l,i,j,k,ln ) = fgdnv(3)  ! Normal momentum
-              flx(l,i,j,k,bn ) = fgdnv(4)  ! Normal magnetic field
-              flx(l,i,j,k,lt1) = fgdnv(5)  ! Transverse momentum 1
-              flx(l,i,j,k,bt1) = fgdnv(6)  ! Transverse magnetic field 1
-              flx(l,i,j,k,lt2) = fgdnv(7)  ! Transverse momentum 2
-              flx(l,i,j,k,bt2) = fgdnv(8)  ! Transverse magnetic field 2
+              flx(l,i,j,k,1  ) = fgdnv(1)/visco  ! Mass density
+              flx(l,i,j,k,5  ) = fgdnv(2)/visco  ! Total energy
+              flx(l,i,j,k,ln ) = fgdnv(3)/visco  ! Normal momentum
+              flx(l,i,j,k,bn ) = fgdnv(4)/visco  ! Normal magnetic field
+              flx(l,i,j,k,lt1) = fgdnv(5)/visco  ! Transverse momentum 1
+              flx(l,i,j,k,bt1) = fgdnv(6)/visco  ! Transverse magnetic field 1
+              flx(l,i,j,k,lt2) = fgdnv(7)/visco  ! Transverse momentum 2
+              flx(l,i,j,k,bt2) = fgdnv(8)/visco  ! Transverse magnetic field 2
 
               ! Other advected quantities
 #if NVAR>8
               do n = 9, nvar
-                 flx(l,i,j,k,n) = fgdnv(n)
+                 flx(l,i,j,k,n) = fgdnv(n)/visco
               end do
 #endif  
               ! Normal velocity estimate
@@ -2843,7 +2849,6 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
            do l = 1, ngrid
               q(l,i,j,k,1) = max(uin(l,i,j,k,1),smallr)
            end do
-
            ! Debug
            if(debug)then
               do l = 1, ngrid
@@ -3602,6 +3607,55 @@ end subroutine uslope
 
 
 
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+subroutine visco_hydro(q,ngrid,dx,dy,dz,dt,fvisco)
+
+  USE amr_parameters
+  use hydro_commons
+  USE const
+  IMPLICIT NONE
+
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q 
+  INTEGER ::ngrid
+  REAL(dp)::dx,dy,dz,dt
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3) :: fvisco
+
+
+! declare local variables
+  INTEGER :: i, j, k, l
+
+
+ do k=min(1,ku1+1),ku2
+     do j=min(1,ju1+1),ju2       
+        do i=min(1,iu1+1),iu2
+           
+           do l=1,ngrid
+
+    
+
+! WARNING Flux F defined as dU/dt+dF/dx=0 
+            !  fvisco(l,i,j,k,1,1)=-visco*(q(l,i,j,k,2)-q(l,i-1,j,k,2))/dx
+            !  fvisco(l,i,j,k,1,2)=-visco*(q(l,i,j,k,2)-q(l,i,j-1,k,2))/dy
+            !  fvisco(l,i,j,k,1,3)=-visco*(q(l,i,j,k,2)-q(l,i,j,k-1,2))/dz
+              
+            !  fvisco(l,i,j,k,2,1)=-visco*(q(l,i,j,k,3)-q(l,i-1,j,k,3))/dx
+            !  fvisco(l,i,j,k,2,2)=-visco*(q(l,i,j,k,3)-q(l,i,j-1,k,3))/dy
+            !  fvisco(l,i,j,k,2,3)=-visco*(q(l,i,j,k,3)-q(l,i,j,k-1,3))/dz
+              
+             ! fvisco(l,i,j,k,3,1)=-visco*(q(l,i,j,k,4)-q(l,i-1,j,k,4))/dx
+             ! fvisco(l,i,j,k,3,2)=-visco*(q(l,i,j,k,4)-q(l,i,j-1,k,4))/dy
+             ! fvisco(l,i,j,k,3,3)=-visco*(q(l,i,j,k,4)-q(l,i,j,k-1,4))/dz
+
+           end do
+        end do
+     end do
+  end do
+
+  
+end subroutine visco_hydro
 
 #if NIMHD==1
 !###########################################################

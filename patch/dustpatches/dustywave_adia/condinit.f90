@@ -36,7 +36,7 @@ subroutine condinit(x,u,dx,nn)
       rho_gas =1.0_dp
       rho_0 = rho_gas + dusttogas*rho_gas
       epsilon_0 = dusttogas*rho_gas/rho_0
-      delta_rho0= 1.0e-2_dp
+      delta_rho0= 1.0e-4_dp
       v0  = delta_rho0
       q(1:nn,2)=0.0d0
       q(1:nn,3)=0.0d0

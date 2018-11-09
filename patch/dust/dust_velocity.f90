@@ -293,7 +293,7 @@ subroutine set_vdust(ilevel)
               if (NDIM.eq.2)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2)))
 
               if (NDIM.eq.3)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2))+abs(v_dust(ind_cell(i),idust,3)))  
-              if(d .le. dens_floor .and. reduce_wdust .eqv. .true.) then   
+              if(d .le. dens_floor .and. reduce_wdust .eqv. .true..or..not.dust_diffusion) then   
 	      if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
  	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
 	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
