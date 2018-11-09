@@ -1997,19 +1997,19 @@ subroutine cmpflxm(qm,im1,im2,jm1,jm2,km1,km2, &
               ENDIF
            
               ! Output fluxes
-              flx(l,i,j,k,1  ) = fgdnv(1)/visco  ! Mass density
-              flx(l,i,j,k,5  ) = fgdnv(2)/visco  ! Total energy
-              flx(l,i,j,k,ln ) = fgdnv(3)/visco  ! Normal momentum
-              flx(l,i,j,k,bn ) = fgdnv(4)/visco  ! Normal magnetic field
-              flx(l,i,j,k,lt1) = fgdnv(5)/visco  ! Transverse momentum 1
-              flx(l,i,j,k,bt1) = fgdnv(6)/visco  ! Transverse magnetic field 1
-              flx(l,i,j,k,lt2) = fgdnv(7)/visco  ! Transverse momentum 2
-              flx(l,i,j,k,bt2) = fgdnv(8)/visco  ! Transverse magnetic field 2
+              flx(l,i,j,k,1  ) = fgdnv(1)!/visco  ! Mass density
+              flx(l,i,j,k,5  ) = fgdnv(2)!/visco  ! Total energy
+              flx(l,i,j,k,ln ) = fgdnv(3)!/visco  ! Normal momentum
+              flx(l,i,j,k,bn ) = fgdnv(4)!/visco  ! Normal magnetic field
+              flx(l,i,j,k,lt1) = fgdnv(5)!/visco  ! Transverse momentum 1
+              flx(l,i,j,k,bt1) = fgdnv(6)!/visco  ! Transverse magnetic field 1
+              flx(l,i,j,k,lt2) = fgdnv(7)!/visco  ! Transverse momentum 2
+              flx(l,i,j,k,bt2) = fgdnv(8)!/visco  ! Transverse magnetic field 2
 
               ! Other advected quantities
 #if NVAR>8
               do n = 9, nvar
-                 flx(l,i,j,k,n) = fgdnv(n)/visco
+                 flx(l,i,j,k,n) = fgdnv(n)!/visco
               end do
 #endif  
               ! Normal velocity estimate
