@@ -746,7 +746,7 @@ SUBROUTINE upwind_dust(vleft,vright,qleft,qright,fgdnv)
    ! find the mean normal velocity
   vd = half * (vleft+vright )
   ! the Upwind flux
-  fgdnv = max(vleft*qleft,0.0d0)+min(vright*qright,0.0d0)
+  fgdnv = max(vd*qleft,0.0d0)+min(vd*qright,0.0d0)
   
 END SUBROUTINE upwind_dust
 !###########################################################

@@ -106,7 +106,7 @@ subroutine set_uold_dust(ilevel)
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
      do i=1,active(ilevel)%ngrid
-           d = uold(active(ilevel)%igrid(i)+iskip,1)
+           d = max(uold(active(ilevel)%igrid(i)+iskip,1),smallr)
            sum_dust_old=0.0_dp
            do idust=1,ndust
                !We compute the old dust density

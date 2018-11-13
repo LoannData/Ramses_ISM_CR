@@ -197,7 +197,7 @@ subroutine set_vdust(ilevel)
               end do
               call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))
            else
-              dx_d(i,idim)=dx_loc*1.5
+              dx_d(i,idim)=dx_loc*1.5d0
               if(energy_fix)then
               eold=uold(ind_right(i,idim),nvar)
               else
@@ -281,18 +281,9 @@ subroutine set_vdust(ilevel)
             do idust = 1,ndust
                t_stop(idust) = t_stop(idust)+tstop_tot
                do idim=1,ndim
-                  !if(decay_dust) v_dust_0(ind_cell(i),idust,idim)=v_dust_0(ind_cell(i),idust,idim)*(1.0d0-exp(-dtnew(ilevel)/t_stop(idust)))
                   v_dust(ind_cell(i),idust,idim)= t_stop(idust)*(gradP(i,idim))/d
-                  !print *,  v_dust(ind_cell(i),idust,idim)
-                  !if(decay_dust)v_dust(ind_cell(i),idust,idim)=v_dust(ind_cell(i),idust,idim)+v_dust_0(ind_cell(i),idust,idim)
-
 		end do	  
-             
-	      if (NDIM.eq.1)  dt_dust= courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1)))
-
-              if (NDIM.eq.2)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2)))
-
-              if (NDIM.eq.3)  dt_dust  = courant_factor*dx_loc/(abs(v_dust(ind_cell(i),idust,1))+abs(v_dust(ind_cell(i),idust,2))+abs(v_dust(ind_cell(i),idust,3)))  
+            
               if(d .le. dens_floor .and. reduce_wdust .eqv. .true..or..not.dust_diffusion) then   
 	      if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
  	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)

@@ -291,7 +291,14 @@ module amr_parameters
   integer,dimension(0:NVAR+3)::movie_vars=0
   character(len=5),dimension(0:NVAR+3)::movie_vars_txt=''
 #endif
+#if MC>0
+  real(dp)::X_floor=1.0d-2    ! radio/quasar floor
+  logical ::use_initial_mass=.false. ! read/write initial mass of particles
+  logical::write_stellar_densities=.false.
+  integer::nlevelsheld=0      ! Intermediate level at which to cut refinement
 
+
+#endif
   ! Refinement parameters for each level
   real(dp),dimension(1:MAXLEVEL)::m_refine =-1.0 ! Lagrangian threshold
   real(dp),dimension(1:MAXLEVEL)::r_refine =-1.0 ! Radius of refinement region

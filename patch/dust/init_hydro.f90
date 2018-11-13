@@ -39,6 +39,12 @@ subroutine init_hydro
      allocate(frad(1:ncell,1:ndim))
      rad_flux=0.0d0; urad=0.0d0; frad=0.0d0
   endif
+#if MC>0
+    if(MC_tracer) then
+     allocate(fluxes(1:ncell,1:twondim))
+     fluxes(1:ncell,1:twondim)=0.0d0
+  end if
+#endif  
   if(momentum_feedback)then
      allocate(pstarold(1:ncell))
      allocate(pstarnew(1:ncell))

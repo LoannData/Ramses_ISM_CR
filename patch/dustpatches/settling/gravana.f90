@@ -39,12 +39,11 @@ subroutine gravana(x,f,dx,ncell)
         rx=0.0d0; ry=0.0d0; rz=0.0d0
         rx=x(i,1)
 #if NDIM>1
-        ry=x(i,2)-boxlen/2.0
+        ry=x(i,2)-boxlen/2.0d0
 #endif
-
-        rr=sqrt(ry**2+emass**2)
+        rr=sqrt(ry**2.0+emass**2.0)
         f(i,1)=0.0d0
-        f(i,2)=-gmass*ry/rr**3
+        f(i,2)=-gmass*ry/rr**3.0
      end do
   end if
 

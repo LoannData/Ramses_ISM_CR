@@ -598,13 +598,13 @@ subroutine read_hydro_params(nml_ok)
         sum_dust = sum_dust + dust_bound(i,j)
      end do
      do j=1,ndust
-        boundary_var(i,firstindex_ndust+j)=(1.0d0+sum_dust)*dust_bound(i,j)*max(d_bound(i)*d_bound(i),smallr)
+        boundary_var(i,firstindex_ndust+j)=dust_bound(i,j)*max(d_bound(i),smallr)
      end do
 #endif
-     boundary_var(i,1) =(1.0d0+sum_dust)*max(d_bound(i)*d_bound(i),smallr)
-     boundary_var(i,2)=(d_bound(i)+sum_dust*d_bound(i))*u_bound(i)
-     boundary_var(i,3)=(d_bound(i)+sum_dust*d_bound(i))*v_bound(i)
-     boundary_var(i,4)=(d_bound(i)+sum_dust*d_bound(i))*w_bound(i)
+     boundary_var(i,1) =max(d_bound(i),smallr)
+     boundary_var(i,2)=max(d_bound(i),smallr)*u_bound(i)
+     boundary_var(i,3)=max(d_bound(i),smallr)*v_bound(i)
+     boundary_var(i,4)=max(d_bound(i),smallr)*w_bound(i)
      boundary_var(i,6)=A_bound(i)
      boundary_var(i,7)=B_bound(i)
      boundary_var(i,8)=C_bound(i)
@@ -621,7 +621,7 @@ subroutine read_hydro_params(nml_ok)
 #if USE_FLD==1 || USE_M_1==1
      !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
 
-     call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)+sum_dust*d_bound(i)),P_bound(i)/(gamma-1.0d0),T_bound(i),ht,sum_dust)
+     call temperature_eos(max((1.0_dp-sum_dust)*d_bound(i),smallr),P_bound(i)/(gamma-1.0d0),T_bound(i),ht,sum_dust)
      if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht,sum_dust)
 
      do j=1,ngrp
@@ -636,7 +636,7 @@ subroutine read_hydro_params(nml_ok)
      end do
 #endif
 
-     ek_bound=0.5d0*(d_bound(i)+sum_dust*d_bound(i))*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
+     ek_bound=0.5d0*max(d_bound(i),smallr)*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
      em_bound=0.5d0*(A_bound(i)**2+B_bound(i)**2+C_bound(i)**2)
      boundary_var(i,5)=ek_bound+em_bound+er_bound+P_bound(i)/(gamma-1.0d0)
      

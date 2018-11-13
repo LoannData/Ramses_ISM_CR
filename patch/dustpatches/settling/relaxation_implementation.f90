@@ -66,7 +66,7 @@ subroutine relaxation(ilevel)
          ind_cell(i)=ind_grid(i)+iskip
       end do
       do i=1,ngrid
-         uold(ind_cell(i),3)=uold(ind_cell(i),3)/relax
+         uold(ind_cell(i),3)=uold(ind_cell(i),3)*(1.0d0-visco)
       enddo
 
    enddo

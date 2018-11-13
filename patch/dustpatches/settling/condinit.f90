@@ -32,14 +32,18 @@ subroutine condinit(x,u,dx,nn)
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
   real(dp)::x0,sum_dust,ee,H_disc,rho_sim,cs,r_disk,xx,yy,zz,vk,omega
   real(dp),dimension(1:ndust):: dustMRN
-  real(dp):: epsilon_0
+  real(dp):: epsilon_0,au, Msol
   rho_sim = 1.0d-3
-  r_disk=5.0
-  H_disc =r_disk*0.05
   
-  vk=sqrt(1/r_disk)
+
+  au = 10.0d0*1.5d13
+  Msol =2.0d33
+  r_disk=5.0d0*au
+  H_disc =r_disk*0.05d0
+  vk=sqrt(Grav*Msol/r_disk)
   omega= vk/r_disk
-  cs = H_disc*omega
+  cs = H_disc*omega/scale_v
+  H_disc=H_disc/scale_l
   epsilon_0 = dust_ratio(1)
   q(1:nn,2)=0.0d0
   q(1:nn,3)=0.0d0
@@ -56,7 +60,7 @@ subroutine condinit(x,u,dx,nn)
   end do
   do i=1,nn
      xx=x(i,1)
-     yy=x(i,2)-boxlen/2.0
+     yy=x(i,2)-boxlen/2.0d0
      sum_dust=0.0d0
 #if NDUST>0
      do idust =1,ndust
@@ -68,8 +72,8 @@ subroutine condinit(x,u,dx,nn)
         q(i,firstindex_ndust+idust) = dustMRN(idust)
      end do
 #endif
-     q(i,1)=max(rho_sim*exp(-abs(yy**2.0/(2.0*H_disc**2.0)))/(1.0d0-sum_dust),smallr)+1.d-20/scale_d
-     q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs**2.0
+     q(i,1)=max(rho_sim*exp(-abs(yy**2.0/(2.0d0*H_disc**2.0)))/(1.0d0-sum_dust),smallr)+1.d-20/scale_d
+     q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs**2.0!/gamma
      q(i,2)= 0.0d0
      q(i,3)= 0.0d0
      q(i,4)= 0.0d0

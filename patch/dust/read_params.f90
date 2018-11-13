@@ -57,7 +57,7 @@ subroutine read_params
        & ,theta_camera,phi_camera,dtheta_camera,dphi_camera,focal_camera,dist_camera,ddist_camera &
        & ,perspective_camera,smooth_frame,shader_frame,tstart_theta_camera,tstart_phi_camera &
        & ,tend_theta_camera,tend_phi_camera,method_frame,varmin_frame,varmax_frame
-#if MCT>0
+#if MC>0
   namelist/tracer_params/ MC_tracer, tracer, tracer_feed, tracer_feed_fmt, tracer_mass, &
        tracer_first_balance_part_per_cell, tracer_first_balance_levelmin
   ! MPI initialization

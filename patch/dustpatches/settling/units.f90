@@ -16,7 +16,7 @@ subroutine units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   !-----------------------------------------------------------------------
 
   !code units are: G=1, rho cm^-3, x pc
-  au = 10.0*1.5d13
+  au = 10.0d0*1.5d13
   Msol =2.0d33
   pi=  3.14159256358
   scale_l = au

@@ -1009,41 +1009,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   !  call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache)
 
   call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache,ind_grid,jcell)
-#if MC>0
-    !--------------------------------------
-  ! Store the fluxes for later use
-  !--------------------------------------
-  if (MC_tracer) then
-     do idim=1,ndim
-        i0=0; j0=0; k0=0
-        if(idim==1)i0=1
-        if(idim==2)j0=1
-        if(idim==3)k0=1
-        do k2=k2min,k2max
-           do j2=j2min,j2max
-              do i2=i2min,i2max
-                 ind_son=1+i2+2*j2+4*k2
-                 iskip=ncoarse+(ind_son-1)*ngridmax
-                 do i=1,ncache
-                    ind_cell(i)=iskip+ind_grid(i)
-                 end do
-                 i3=1+i2
-                 j3=1+j2
-                 k3=1+k2
-                 do i=1,ncache
-                    ! Copy left flux
-                    fluxes(ind_cell(i),(idim-1)*2+1)= flux(i,i3   ,j3   ,k3,   1,idim)&
-                         / uold(ind_cell(i), 1)
-                    ! Copy right flux
-                    fluxes(ind_cell(i),(idim-1)*2+2)=-flux(i,i3+i0,j3+j0,k3+k0,1,idim)&
-                         / uold(ind_cell(i), 1)
-                 end do
-              end do
-           end do
-        end do
-     end do
-  end if
-#endif
+  if (visco .eq.1) flux=flux*(1.0d0-visco)
   ! fin modif nimhd
   if(ischeme.eq.1)then
   !---------------------------------

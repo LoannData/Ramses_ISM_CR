@@ -18,7 +18,9 @@ recursive subroutine amr_step(ilevel,icount)
 #if USE_TURB==1
   use turb_commons
 #endif
-!  use sink_particle_tracer, only : MC_tracer_to_jet
+#if MC>0
+  use sink_particle_tracer, only : MC_tracer_to_jet
+#endif  
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -505,16 +507,17 @@ recursive subroutine amr_step(ilevel,icount)
 #else
      end do
 #endif
+#if MC>0     
           ! MC Tracer
      ! Communicate fluxes accross boundaries
      if(MC_tracer)then
                                 call timer('tracer','start')
         do ivar=1,twondim
-          ! call make_virtual_reverse_dp(fluxes(1,ivar),ilevel-1)
-          ! call make_virtual_fine_dp(fluxes(1,ivar),ilevel-1)
+           call make_virtual_reverse_dp(fluxes(1,ivar),ilevel-1)
+           call make_virtual_fine_dp(fluxes(1,ivar),ilevel-1)
         end do
      end if
-
+#endif
      if(momentum_feedback)then
         call make_virtual_reverse_dp(pstarnew(1),ilevel)
      endif
@@ -532,7 +535,7 @@ recursive subroutine amr_step(ilevel,icount)
      end do
   end do
   if(.not.dust_diffusion) v_dust=0.0d0
-    if(.not.dust_diffusion) print *,'dust_diffusion deactivated'
+  if(.not.dust_diffusion) print *,'dust_diffusion deactivated'
 
 #endif
 
@@ -616,12 +619,13 @@ recursive subroutine amr_step(ilevel,icount)
         call move_fine(ilevel) ! Only remaining particles
      end if
   end if
+#if MC>0  
     ! Move tracer particles in the jet.
-  !if (sink_AGN .and. MC_tracer) then
-  !                              call timer('tracer','start')
-  !   call MC_tracer_to_jet(ilevel)
-  !end if
-
+  if (sink_AGN .and. MC_tracer) then
+                                call timer('tracer','start')
+     call MC_tracer_to_jet(ilevel)
+  end if
+#endif
   !----------------------------------
   ! Star formation in leaf cells only
   !----------------------------------
@@ -782,19 +786,20 @@ recursive subroutine amr_step(ilevel,icount)
      call rad_step(dtnew(ilevel))
   endif
 #endif
-
+#if MC>0
   if(sink)then
                                call timer('sinks','start')
      !-------------------------------
      ! Update coarser level sink velocity
      !-------------------------------
      if(ilevel>levelmin)then
-      !  vsold(1:nsink,1:ndim,ilevel-1)=vsnew(1:nsink,1:ndim,ilevel-1)
-      !  if(nsubcycle(ilevel-1)==1)vsnew(1:nsink,1:ndim,ilevel-1)=vsnew(1:nsink,1:ndim,ilevel)
-      !  if(icount==2)vsnew(1:nsink,1:ndim,ilevel-1)= &
-      !       (vsold(1:nsink,1:ndim,ilevel)*dtold(ilevel)+vsnew(1:nsink,1:ndim,ilevel)*dtnew(ilevel))/ &
-      !       (dtold(ilevel)+dtnew(ilevel))
+        vsold(1:nsink,1:ndim,ilevel-1)=vsnew(1:nsink,1:ndim,ilevel-1)
+        if(nsubcycle(ilevel-1)==1)vsnew(1:nsink,1:ndim,ilevel-1)=vsnew(1:nsink,1:ndim,ilevel)
+        if(icount==2)vsnew(1:nsink,1:ndim,ilevel-1)= &
+            (vsold(1:nsink,1:ndim,ilevel)*dtold(ilevel)+vsnew(1:nsink,1:ndim,ilevel)*dtnew(ilevel))/ &
+             (dtold(ilevel)+dtnew(ilevel))
      end if
+#endif     
      !---------------
      ! Sink production
      !---------------
@@ -833,13 +838,14 @@ recursive subroutine amr_step(ilevel,icount)
      ! fin modif nimhd
 #endif
   end if
+#if MC>0  
   ! Reset move flag flag
   if(MC_tracer) then
                                 call timer('tracer','start')
      ! Decrease the move flag by 1
-   !  call reset_tracer_move_flag(ilevel)
+    call reset_tracer_move_flag(ilevel)
   end if
-
+#endif
 999 format(' Entering amr_step',i1,' for level',i2)
 
 end subroutine amr_step

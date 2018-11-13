@@ -196,8 +196,8 @@ module hydro_parameters
   real(dp),dimension(1:nener)::gamma_rad=1.33333333334d0
   real(dp)::courant_factor=0.5d0
   real(dp)::difmag=0.0d0
-  real(dp)::smallc=1.d-5
-  real(dp)::smallr=1.d-20
+  real(dp)::smallc=1.d-10
+  real(dp)::smallr=1.d-10
   
   real(dp)::smallcr=1.d-10
   real(dp)::eta_mag=0.0d0

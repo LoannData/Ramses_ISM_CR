@@ -83,7 +83,6 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   use amr_commons
   use hydro_commons
   use cooling_module
-  use radiation_parameters, ONLY: mu_gas
 #ifdef grackle
   use grackle_parameters
 #endif
@@ -142,8 +141,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   real(dp)                                   :: x0, y0, z0,coeff_chi,cst2, coef
   double precision                           :: v_extinction
   integer::uleidx,uleidy,uleidz,uleidh,igrid,ii,indc2,iskip2,ind_ll
-  real(dp) ::sum_dust
-  integer:: idust
+
 
   !-------------- SPHERICAL DIRECTIONS ------------------------------------------------!
 !  real(dp),dimension(1:nvector,1:ndir)                 :: col_dens                     !
@@ -159,14 +157,6 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   integer                                              :: deltam
   !-----   simple_chem   --------------------------------------------------------------!
 
-  real(dp)::H_disc,cs,r_disk,omega,vk
-
-  r_disk=5.0
-  H_disc =r_disk*0.05
-  
-  vk=sqrt(1/r_disk)
-  omega= vk/r_disk
-  cs = H_disc*omega*scale_v
   !Valeska
 !  vcol_dens(:) = 0.
   column_dens(:,:,:) = 0.
@@ -261,13 +251,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 
      ! Compute rho
      do i=1,nleaf
-        sum_dust=0.0d0
-#if NDUST>0
-        do idust= 1,ndust
-           sum_dust= sum_dust + uold(ind_leaf(i),firstindex_ndust+idust)
-        end do
-#endif           
-        nH(i)=MAX(uold(ind_leaf(i),1)-sum_dust,smallr)
+        nH(i)=MAX(uold(ind_leaf(i),1),smallr)
      end do
 
      ! Compute metallicity in solar units
@@ -394,7 +378,6 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 
      ! Compute nH in H/cc
      do i=1,nleaf
-        
         nH(i)=nH(i)*scale_nH
      end do
 
@@ -425,7 +408,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         end do
      else
         do i=1,nleaf
-           T2min(i) = cs**2.0*scale_v**2.0*mu_gas*mH/gamma/kb
+           T2min(i) = 0. !T2_star*(nH(i)/nISM)**(g_star-1.0)
         end do
      endif
      !==========================================
@@ -819,8 +802,9 @@ end subroutine cmp_Eddington_tensor
 !=====================================================================================================
 subroutine pressure_eos(rho_temp,Enint_temp,Peos)
   use amr_parameters      ,only:dp
-  use hydro_commons       ,only:gamma
-  use hydro_parameters,only: smallr,smallc
+  use hydro_commons
+    use units_commons
+
   implicit none
   !--------------------------------------------------------------
   ! This routine computes the pressure from the density and 
@@ -828,7 +812,17 @@ subroutine pressure_eos(rho_temp,Enint_temp,Peos)
   !--------------------------------------------------------------
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Peos
-  Peos = max((gamma-1.d0)*Enint_temp,smallr*smallc**2)
+  real(dp)::H_disc,rho_sim,cs,r_disk,vk,omega,au,msol
+
+
+  au = 10.0d0*1.5d13
+  Msol =2.0d33
+  r_disk=5.0d0*au
+  H_disc =r_disk*0.05d0
+  vk=sqrt(Grav*Msol/r_disk)
+  omega= vk/r_disk
+  cs = H_disc*omega
+  Peos = cs**2.0*rho_temp/scale_v**2.0
 
   return
 
@@ -839,11 +833,9 @@ end subroutine pressure_eos
 !===========================================================================================
 subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   use amr_parameters      ,only:dp
-  use hydro_commons       ,only:gamma
+  use hydro_commons      
   use cooling_module      ,only:kB,mH
   use radiation_parameters,only:mu_gas
-  use hydro_parameters,only: smallr,smallc
-
   use units_commons
   implicit none
   !--------------------------------------------------------------
@@ -854,11 +846,18 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   integer , intent(out):: ht 
   real(dp), intent(out):: Teos
   real(dp)::rho,Enint
+  real(dp)::H_disc,rho_sim,cs,r_disk,vk,omega,au,msol
 
-  rho   = rho_temp*scale_d
-  Enint = Enint_temp*scale_d*scale_v**2 
 
-  Teos = max(Enint/(gamma-1.0d0),smallr*smallc**2/(gamma-1.0d0))/(rho*kB/(mu_gas*mH))
+  au = 10.0d0*1.5d13
+  Msol =2.0d33
+  r_disk=5.0d0*au
+  H_disc =r_disk*0.05d0
+  vk=sqrt(Grav*Msol/r_disk)
+  omega= vk/r_disk
+  cs = H_disc*omega
+  
+  Teos = cs**2.0*mu_gas*mh/kb
 
   ht=1
 
@@ -898,7 +897,9 @@ end subroutine enerint_eos
 !==================================================================================
 subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   use amr_parameters      ,only:dp
-  use hydro_commons       ,only:gamma
+  use hydro_commons
+    use units_commons
+
   implicit none
   !--------------------------------------------------------------
   ! This routine computes the sound speed from the internal volumic energy 
@@ -906,8 +907,18 @@ subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   !--------------------------------------------------------------
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Cseos
+  real(dp)::rho,Enint
+  real(dp)::H_disc,rho_sim,cs,r_disk,vk,omega,au,msol
 
-  Cseos = sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
+
+  au = 10.0d0*1.5d13
+  Msol =2.0d33
+  r_disk=5.0d0*au
+  H_disc =r_disk*0.05d0
+  vk=sqrt(Grav*Msol/r_disk)
+  omega= vk/r_disk
+  cs = H_disc*omega
+  Cseos = cs/scale_v
 
   return
 
