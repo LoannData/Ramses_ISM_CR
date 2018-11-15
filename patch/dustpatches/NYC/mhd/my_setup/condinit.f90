@@ -32,7 +32,7 @@ subroutine condinit(x,u,dx,nn)
   integer::ivar, idust, i
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
   real(dp)::xn,x0,sum_dust, qdisk,pdisk,cs0,cs2, RR, rin, rout, etadisk,cs,Hgdisk,sigmagdisk, vkep,Mstar, Msol,pi,yn,zn, r0, radius, rho0
-  real(dp):: T0, v_quasikep, alpha_disk
+  real(dp):: T0, v_quasikep, alpha_disk,H
 #if NDUST>0
   real(dp),dimension(1:ndust):: dustMRN
 #endif
@@ -45,14 +45,15 @@ subroutine condinit(x,u,dx,nn)
          q(1:nn,ivar)=0.0d0
       end do
 
-      r0=5.0
+      r0=5.0d0
       rin= 0.5d0
       rout= 5.5d0
       rho0 = 2.3434e-11/scale_d
-      T0= 108d0
-      cs0= sqrt(gamma*kb*T0/mu_gas/mH)/scale_v
+      H=0.05*r0
       Mstar = 1.0d0
-      x0 = boxlen/2.0_dp
+
+      cs0 =  (H*sqrt(Mstar/r0**3.0))**2.0
+      x0 = boxlen/2.0d0
       pi= 3.141592563585d0
       qdisk= -1.0
       pdisk=-3.0/2.0
@@ -65,30 +66,23 @@ subroutine condinit(x,u,dx,nn)
          RR = sqrt(xn**2.0+yn**2.0)
          !spherical radius
          radius = sqrt(xn**2.0+yn**2.0+zn**2.0)
-         if (RR.le. rout.and. RR.ge.rin) then
-         cs2=cs0**2.0*(RR/r0)**qdisk
-         alpha_disk= Mstar/RR/cs2
-         q(i,1)= rho0*(RR/r0)**pdisk*exp(-alpha_disk*(1-RR/radius))
-         q(i,5)= cs2*rho0*(RR/r0)**pdisk*exp(-alpha_disk*(1-RR/radius))
-         v_quasikep = sqrt(Mstar/RR)*sqrt(1.0+qdisk*(1.0-RR/radius)&
-         &+(pdisk+qdisk)/alpha_disk)
+         cs2= cs0*(RR/R0)**(-1.0d0)
+         alpha_disk= Mstar/cs2
+         q(i,1)= rho0*(RR/r0)**(-1.5d0)*exp(alpha_disk*(1/radius-1/RR))+1d-18/scale_d
+         q(i,5)= q(i,1)*cs2
+         v_quasikep = sqrt(Mstar/RR)*sqrt(rr/radius-5.0d0/2.0*0.05**2.0)
          q(i,2)= - v_quasikep*yn/RR
          q(i,3)=  v_quasikep*xn/RR
-         else if  (RR>rout) then
-         cs2=cs0**2.0*(rout/r0)**qdisk
-         q(i,1)= rho0*(rout/r0)**pdisk*exp(-alpha_disk*(1-rout/radius))/10.0d0
-         q(i,5)= cs2*rho0*(rout/r0)**pdisk*exp(-alpha_disk*(1-rout/radius))/10.0d0
-         v_quasikep = sqrt(Mstar/RR)
-         q(i,2)= - v_quasikep*yn/RR
-         q(i,3)=  v_quasikep*xn/RR
-         else if  (RR<rin) then
-         cs2=cs0**2.0*(rin/r0)**qdisk
-         q(i,1)= rho0*(rin/r0)**pdisk*exp(-alpha_disk*(1-rin/radius))/10.0d0
-         q(i,5)= cs2*rho0*(rin/r0)**pdisk*exp(-alpha_disk*(1-rin/radius))/10.0d0
-         v_quasikep = sqrt(Mstar/RR)
-         q(i,2)= - v_quasikep*yn/RR
-         q(i,3)=  v_quasikep*xn/RR
-         endif
+         q(i,4)=0.0d0
+!!$         if (RR<rin) then
+!!$         cs2= cs0*(rin/R0)**(-1.0d0)
+!!$         alpha_disk= Mstar/cs2
+!!$         q(i,1)= 1d-18/scale_d
+!!$         q(i,5)= q(i,1)*cs2
+!!$         q(i,4)= 0.0d0
+!!$         q(i,2)= 0.d0
+!!$         q(i,3)= 0.0d0   
+!!$         end if 
       end do
 
      ! Convert primitive to conservative variables

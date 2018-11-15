@@ -29,20 +29,20 @@ subroutine gravana(x,f,dx,ncell)
 
   ! Point mass
   if(gravity_type==2)then
-     gmass=1.0 ! GM
-     emass=2.0*dx
+     gmass=1.0d0 ! GM
+     emass=2.0d0*dx
      emass=gravity_params(2) ! Softening length
      xmass=gravity_params(3) ! Point mass coordinates
      ymass=gravity_params(4)
      zmass=gravity_params(5)
      do i=1,ncell
         rx=0.0d0; ry=0.0d0; rz=0.0d0
-        rx=x(i,1)-boxlen/2.0
+        rx=x(i,1)-boxlen/2.0d0
 #if NDIM>1
-        ry=x(i,2)-boxlen/2.0
+        ry=x(i,2)-boxlen/2.0d0
 #endif
 #if NDIM>2
-        rz=x(i,3)-boxlen/2.0
+        rz=x(i,3)-boxlen/2.0d0
 #endif
         rr=sqrt(rx**2+ry**2+rz**2+emass**2)
         f(i,1)=-gmass*rx/rr**3

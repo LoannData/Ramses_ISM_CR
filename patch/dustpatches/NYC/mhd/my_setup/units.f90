@@ -18,13 +18,13 @@ subroutine units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   !code units are: G=1, rho cm^-3, x pc
   au = 1.5d13
   Msol =2d33
-  pi=  3.14159256358
+  pi=  3.14159256358d0
   scale_l = au
   scale_m = Msol
-  scale_d = scale_m/(scale_l**3)
-  scale_t = sqrt(scale_l**3.0/grav/scale_m)
+  scale_d = scale_m/(scale_l**3.0d0)
+  scale_t = sqrt(scale_l**3.0d0/grav/scale_m)
   scale_v = scale_l / scale_t
-  scale_T2 = mu_gas**2 * mH**2 * au**2 * Grav / kb
+  scale_T2 = 1.0d0
   scale_nH = 1.0_dp ! X/(mH) * scale_d
   scale_kappa = 1.0_dp/scale_l
 
