@@ -38,7 +38,7 @@ Mach=0.0d0
 foutput=1000000
 fbackup=50
 noutput=2
-tout=0,1.655e-04
+tout=0,1.67e-04
 /
 
 &POISSON_PARAMS 
@@ -76,7 +76,7 @@ rho_threshold=4.0d+07
 /
 
 &REFINE_PARAMS 
-jeans_refine=30*8.
+jeans_refine=30*4.
 iso_jeans=.false.
 interpol_var=0
 interpol_type=1

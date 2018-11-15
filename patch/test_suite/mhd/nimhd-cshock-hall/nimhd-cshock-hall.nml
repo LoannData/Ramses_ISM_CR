@@ -13,8 +13,8 @@ DTU=.false.
 /
 
 &AMR_PARAMS
-levelmin=5
-levelmax=6
+levelmin=3
+levelmax=5
 ngridmax=10000
 nexpand=1
 boxlen=1.0
@@ -49,7 +49,7 @@ C_region(2)=0.0
 
 &OUTPUT_PARAMS
 noutput=2
-tout=0.0,1.0
+tout=0.0,2.0
 /
 
 &HYDRO_PARAMS

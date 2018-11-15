@@ -103,7 +103,7 @@ end do
 if(recentre==1) then
   write(20,'(8(e15.7,2X))') 0d0,rho(1),vx(1),vy(1),vz(1),By(1),Bz(1)
   do i=1,n
-    write(20,'(8(e15.7,2X))') 0.56+dble(i-imax)*h,rho(i),vx(i),vy(i),vz(i),By(i),Bz(i)
+    write(20,'(8(e15.7,2X))') 0.6+dble(i-imax)*h,rho(i),vx(i),vy(i),vz(i),By(i),Bz(i)
   end do
   write(20,'(8(e15.7,2X))') 1d0,rho(n),vx(n),vy(n),vz(n),By(n),Bz(n)
 end if

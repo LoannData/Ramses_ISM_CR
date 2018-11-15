@@ -236,12 +236,20 @@ subroutine condinit(x,u,dx,nn)
            q(i,nvar+2) = q(i,7)
 
            !Bz component
-!#if HALL==1
-           !q(i,8     ) = B0
-!#else
+#if HALL==1
+           q(i,8     ) = B0
+#else
            q(i,8     ) = B0 /(contrast**(2./3.))
-!#endif
+#endif
            q(i,nvar+3) = q(i,8)
+
+#if NIMHD==1
+           ! Electric current
+           do ivar=1,3
+             q(i,firstindex_pscal+ivar)=0d0
+           end do
+#endif
+
         END IF
 
         if(eos)then
