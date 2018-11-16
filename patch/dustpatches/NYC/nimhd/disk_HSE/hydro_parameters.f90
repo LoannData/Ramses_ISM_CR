@@ -128,6 +128,8 @@ module hydro_parameters
 #endif
 
   ! Refinement parameters for hydro
+  integer ::scale_height_refine=0
+  real(dp)::NH_refine=1.0
   real(dp)::err_grad_d=-1.0  ! Density gradient
   real(dp)::err_grad_u=-1.0  ! Velocity gradient
   real(dp)::err_grad_p=-1.0  ! Pressure gradient
@@ -266,7 +268,7 @@ module hydro_parameters
   integer:: nyy=2
   integer:: nzz=3
 
-  
+
   ! disk params
   logical::apply_relaxation=.false.
   logical::relaxation_unew_uold=.false.
@@ -334,9 +336,9 @@ module hydro_parameters
   logical :: disk_ReadTable=.true.
   logical :: disk_smooth_vertRho=.true.
   integer :: disk_TableLevel=-1
-  
 
-  
+
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Artificial pseudo-viscosity ? Yes=1 No=0
   integer :: nvisco = 0
@@ -351,11 +353,11 @@ module hydro_parameters
   integer :: nambipolar = 0
   integer :: nambipolar2 = 0
 
-! Magnetic  diffusion ? Yes=1 No=0 
+! Magnetic  diffusion ? Yes=1 No=0
   integer :: nmagdiffu  = 0                ! magnetic diffusion with multiple time stepping
   integer :: nmagdiffu2 = 0                 ! magnetic diffusion with subcycling
 
-! Hall effect ? Yes=1 No=0 
+! Hall effect ? Yes=1 No=0
   integer :: nhall = 0
 
 ! Magnetic  diffusion alone then magohm=1. (or flux=0.)
@@ -374,7 +376,7 @@ module hydro_parameters
   integer :: use_x2d=0               ! use abundances
   integer :: use_x3d=0               ! use abundance table with rho, T, Xi
   integer :: use_res=0             ! use resistivities
-  
+
 ! magnetic diffusion coefficient see function etaohmdiss in umsucl
   real(dp):: etaMD=1.d0
 
@@ -406,7 +408,7 @@ module hydro_parameters
 ! IF NEW ADDED MODIFY units.f90 TO CONVERT IN USER UNITS
 
   real(dp):: rhoi0=1.d0
-  
+
   logical :: use_nonideal_mhd
   real(dp)::nu_sts=0.001
 ! fin modif nimhd
@@ -414,8 +416,8 @@ module hydro_parameters
  !Cosmic rays related variables
   real(dp)::k_perp=0.01       ! Perpendicular diffusion coefficient (k_perp*kspitzer_para)
   real(dp)::R_length = 1.0d0
-  real(dp)::M0 = 1.0 
-  real(dp)::gamma_ei=1.0       
+  real(dp)::M0 = 1.0
+  real(dp)::gamma_ei=1.0
   real(dp)::Dcr=1.0d29 ! Classical value, in cm^2/s (e.g., Jockipii 1999)
   real(dp)::flinj=1.0d0 ! fraction of boxlen for CR injection
   ! Interpolation parameters for anisotropic diffusion
@@ -424,5 +426,5 @@ module hydro_parameters
   integer ::interpol_mag_type_cond=-1
   real(dp)::frac_pcr=0.1
 
-  
+
 end module hydro_parameters

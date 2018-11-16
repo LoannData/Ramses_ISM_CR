@@ -393,20 +393,6 @@ subroutine userflag_fine(ilevel)
            end if
         end if
 
-        ! Apply purely geometric refine/derefine criteria
-        if (disk_refine) then
-           if (disk_ratio > 0) then
-              ! Compute cell center in code units
-              do idim=1,ndim
-                 do i=1,ngrid
-                    xx(i,idim)=xg(ind_grid(i),idim)+xc(ind,idim)-skip_loc(idim) - 0.5
-                 end do
-              end do
-              ! Aspect ratio cut, no rescaling necessary.
-              call geometry_refine_disk(xx,ok,ngrid,ilevel)
-           endif
-        endif
-
         ! Count newly flagged cells
         nok=0
         do i=1,ngrid
@@ -518,112 +504,37 @@ subroutine geometry_refine(xx,ok,ncell,ilevel)
   ! This routine sets flag1 to 1 if cell statisfy
   ! user-defined physical criterion for refinement.
   !-------------------------------------------------
-  real(dp)::er,xr,yr,zr,rr,xn,yn,zn,r,aa,bb,r2
+  real(dp)::er,xr,yr,zr,rr,xn,yn,zn,r,aa,bb
   integer ::i
 
   ! Authorize refinement if cell lies within region,
   ! otherwise unmark cell (no refinement outside region)
   if(r_refine(ilevel)>-1.0)then
      er=exp_refine(ilevel) ! Exponent defining norm
-     xr=x_refine  (ilevel) ! Region centre
-     yr=y_refine  (ilevel)
-     zr=z_refine  (ilevel)
+     xr=boxlen/2.0d0 ! Region centre
+     yr=boxlen/2.0d0
+     zr=boxlen/2.0d0
      rr=r_refine  (ilevel) ! Region DIAMETER (beware !)
      aa=a_refine  (ilevel) ! Ellipticity (Y/X)
      bb=b_refine  (ilevel) ! Ellipticity (Z/X)
      do i=1,ncell
         xn=0.0d0; yn=0.0d0; zn=0.0d0
         xn=abs(xx(i,1)-xr)
-        if(cosmo .and. xn>0.5) then
-           xn=1.0-xn
-        endif
-        xn=2.0d0*xn/rr
-#if NDIM > 1
+       
         yn=abs(xx(i,2)-yr)
-        if(cosmo .and. yn>0.5) then
-           yn=1.0-yn
-        endif
-        yn=2.0d0*yn/(aa*rr)
-#endif
-#if NDIM >2
+      
         zn=abs(xx(i,3)-zr)
-        if(cosmo .and. zn>0.5) then
-           zn=1.0-zn
-        endif
-        zn=2.0d0*zn/(bb*rr)
-#endif
+
         if(er<10)then
-           r=(xn**er+yn**er+zn**er)**(1.0/er)
+           r=(zn**er)**(1.0/er)/rr
         else
            r=max(xn,yn,zn)
         end if
         ok(i)=ok(i).and.(r < 1.0)
-        if (middle_refine) then
-          r2=xn**2 + (aa*yn)**2 + (bb*zn)**2
-          if (r2 .lt. (0.5*1.8*boxlen/2.d0**ilevel)**2) then
-            ok(i) = .true.
-          endif
-        endif
      end do
   endif
 
 end subroutine geometry_refine
-!#####################################################################
-!#####################################################################
-!#####################################################################
-!#####################################################################
-subroutine geometry_refine_disk(xx,ok,ncell,ilevel)
-  use amr_commons
-  use pm_commons
-  use hydro_commons
-  use poisson_commons
-  use poisson_parameters
-
-  implicit none
-  integer::ncell,ilevel
-  real(dp),dimension(1:nvector,1:ndim)::xx
-  logical ,dimension(1:nvector)::ok
-  !-------------------------------------------------
-  ! This routine sets flag1 to 1 if cell statisfy
-  ! user-defined physical criterion for refinement.
-  !-------------------------------------------------
-  real(dp)::rcyl2,ratio,extra
-  integer ::i
-  logical :: debug_disk=.false.
-
-  ! Authorize refinement if cell lies within region,
-  ! otherwise unmark cell (no refinement outside region)
-  if (debug_disk) then
-    write(6,*) "In flag_utils' refine_disk for ilevel", ilevel
-    write(6,*) "  ijk coarse_min max = ", icoarse_min, jcoarse_min, kcoarse_min, icoarse_max, &
-           jcoarse_max, kcoarse_max
-  endif
-
-  do i=1,ncell
-    extra = 1.1
-    rcyl2 = xx(i,1)**2 + xx(i,2)**2 + (gravity_params(2)/boxlen)**2 + (0.5*1.d0/2.d0**ilevel)**2
-!    if (nstep_coarse .le. 1) then
-!      ratio = (max(abs(xx(i,3)) - 0.25*(1./2.d0**ilevel),0.d0))**2/rcyl2
-!    else
-      ratio = xx(i,3)**2/rcyl2
-!    endif
-    if (rcyl2 < (2.d0*disk_innerR/boxlen)**2) then
-      extra = extra*(2.d0*disk_innerR/boxlen)**2/rcyl2
-    endif
-!    ratio = xx(i,3)**2/rcyl2
-    if (ratio < disk_ratio**2) then
-!    if (ratio < disk_ratio**2 .or. rcyl2 .le. sqrt(2.001d0)/2.d0**(ilevel+1)) then
-      if (rcyl2 < (1.05d0*(disk_outerR+disk_innerR)/boxlen)**2) then
-!      if (rcyl2 < (1.05d0*disk_outerR)**2) then
-        ok(i) = .true.
-        if (debug_disk) then
-          write(6,*) "In flag_utils' refine_disk set to refine for ilevel", ilevel
-        endif
-      endif
-    endif
-  enddo
-
-end subroutine geometry_refine_disk
 !############################################################
 !############################################################
 !############################################################

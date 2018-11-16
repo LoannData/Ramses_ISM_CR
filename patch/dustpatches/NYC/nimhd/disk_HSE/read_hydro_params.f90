@@ -13,7 +13,7 @@ subroutine read_hydro_params(nml_ok)
 #endif
   logical::nml_ok
   !--------------------------------------------------
-  ! Local variables  
+  ! Local variables
   !--------------------------------------------------
   integer::i,j,idim,irad,nboundary_true=0,ht
   integer ,dimension(1:MAXBOUND)::bound_type
@@ -28,7 +28,7 @@ subroutine read_hydro_params(nml_ok)
        & ,x_center,y_center,z_center,aexp_ini &
        & ,length_x,length_y,length_z,exp_region &
        & ,d_region,u_region,v_region,w_region,p_region,frac_Pcr&
-       &,disk_soft,disk_R0 &
+       &,disk_exp_limit, disk_soft,disk_R0 &
        & ,disk_shear_forcing,disk_xc,disk_yc,disk_zc,disk_trans_fact &
        & ,disk_innerR,disk_outerR,disk_innerR0,disk_outerR0,disk_testR,disk_testz,disk_vramp &
        & ,disk_vrms,disk_raiseP_factor,disk_B0,disk_By,disk_Bz,disk_delta_alpha &
@@ -57,23 +57,23 @@ subroutine read_hydro_params(nml_ok)
 #if NENER>0
        & ,gamma_rad &
 #endif
-#if NDUST>0       
+#if NDUST>0
        &,grain_size, grain_dens, K_dust, K_drag,decay_dust,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index, &
        & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust&
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
-  namelist/refine_params/x_refine,y_refine,z_refine,r_refine &
+  namelist/refine_params/scale_height_refine,NH_refine,x_refine,y_refine,z_refine,r_refine &
        & ,a_refine,b_refine,exp_refine,jeans_refine,mass_cut_refine &
        & ,m_refine,mass_sph,err_grad_d,err_grad_p,err_grad_u &
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2,err_grad_E &
        & ,err_grad_dust &
 #if NENER>0
        & ,err_grad_prad &
-#endif       
+#endif
 #if NPSCAL>0
        & ,err_grad_var &
 #endif
-       
+
        & ,floor_d,floor_u,floor_p,floor_dust,ivar_refine,var_cut_refine &
        & ,floor_A,floor_B,floor_C,floor_B2,floor_E &
        & ,interpol_var,interpol_type,sink_refine,interpol_mag_type&
@@ -407,7 +407,7 @@ subroutine read_hydro_params(nml_ok)
 #endif
 
   !--------------------------------------------------
-  ! Make sure virtual boundaries are expanded to 
+  ! Make sure virtual boundaries are expanded to
   ! account for staggered mesh representation
   !--------------------------------------------------
   nexpand_bound=2
@@ -603,7 +603,7 @@ subroutine read_hydro_params(nml_ok)
         boundary_var(i,firstindex_pscal+j)=var_bound(i,j)
      end do
 #endif
-     sum_dust =0.0d0   
+     sum_dust =0.0d0
 #if NDUST>0
      do j=1,ndust
         sum_dust = sum_dust + dust_bound(i,j)
@@ -650,7 +650,7 @@ subroutine read_hydro_params(nml_ok)
      ek_bound=0.5d0*(d_bound(i)+sum_dust*d_bound(i))*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
      em_bound=0.5d0*(A_bound(i)**2+B_bound(i)**2+C_bound(i)**2)
      boundary_var(i,5)=ek_bound+em_bound+er_bound+P_bound(i)/(gamma-1.0d0)
-     
+
 
 #if NDUST>0
     if(dust_barr)then
@@ -709,9 +709,9 @@ subroutine read_hydro_params(nml_ok)
 end subroutine read_hydro_params
 !################################################################
 !################################################################
-!################################################################ 
 !################################################################
-!   Modification of original codes written by David H. Bailey    
+!################################################################
+!   Modification of original codes written by David H. Bailey
 !   This subroutine computes ddb(i) = dda(i)+ddb(i)
 subroutine DDPDD (dda, ddb, len, itype)
 use amr_commons
@@ -735,6 +735,6 @@ use amr_commons
 !!$     ddb(i) = cmplx ( t1 + t2, t2 - ((t1 + t2) - t1) )
      ddb = cmplx ( t1 + t2, t2 - ((t1 + t2) - t1),dp)
   enddo
-  
+
   return
 end subroutine DDPDD

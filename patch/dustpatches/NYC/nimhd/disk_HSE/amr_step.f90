@@ -543,7 +543,7 @@ recursive subroutine amr_step(ilevel,icount)
 
      call timer('hydro - set uold','start')
      call set_uold(ilevel)
-
+     call relaxation_implementation(ilevel)
 
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step
@@ -806,7 +806,7 @@ recursive subroutine amr_step(ilevel,icount)
      if(ilevel==levelmin)call create_sink
 #endif
   end if
-#endif     
+#endif
 
   !-------------------------------
   ! Update coarser level time-step

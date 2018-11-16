@@ -174,7 +174,7 @@ subroutine read_params
   rewind(1)
   read(1,NML=amr_params)
   rewind(1)
-#if MCT>0  
+#if MC>0
   read(1,NML=tracer_params,END=84)
 84 continue
 #endif
@@ -310,10 +310,10 @@ subroutine read_params
 #endif
   if (movie)call set_movie_vars
 
-  ! Cloud and feedback parameter 
+  ! Cloud and feedback parameter
   call read_cloud_params(nml_ok)
   call read_feedback_params(nml_ok)
-  
+
   ! Stellar objects
   if (stellar)call read_stellar_params
 
@@ -341,6 +341,7 @@ subroutine read_params
      write(*,*) 'Error: nregion>MAXREGION'
      call clean_stop
   end if
+#if MC>0
   !-----------------
   ! MC tracer
   !-----------------
@@ -353,7 +354,7 @@ subroutine read_params
      write(*,*)'You have activate the MC tracer PIC is false.'
      call clean_stop
   end if
-  
+#endif
   !-----------------------------------
   ! Rearrange level dependent arrays
   !-----------------------------------
@@ -400,4 +401,3 @@ subroutine read_params
 #endif
 
 end subroutine read_params
-
