@@ -53,6 +53,9 @@ subroutine hydro_flag(ilevel)
        & err_grad_E==-1.0.and.&
        & err_grad_B2==-1.0.and.&
        & err_grad_u==-1.0.and.&
+#if NDUST>0       
+       & err_grad_dust(1)==-1.0.and.&
+#endif       
        & jeans_refine(ilevel)==-1.0 )return
 
   ! Loop over active grids

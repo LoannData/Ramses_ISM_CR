@@ -9,7 +9,7 @@ subroutine file_descriptor_hydro(filename)
   character(LEN=80)::filename
   character(LEN=80)::fileloc
   integer::ivar,ilun,idust
-
+  
   if(verbose)write(*,*)'Entering file_descriptor_hydro'
 
   ilun=11
@@ -113,27 +113,48 @@ endif
   if(write_conservative) then
      ! Passive scalars
      do ivar=1,npscal
-        write(ilun,'("variable #",I2,": passive_scalar_cons_",I1)')firstindex_pscal+3+ivar,ivar
+        write(ilun,'("variable #",I2,": passive_scalar_cons_",I2)')firstindex_pscal+3+ivar,ivar
      end do
   else
-     ! Passive scalars
+#if NDUST>0
+     ! dust ratio is separated from pscal to avoid confusion while reading the files
+     do ivar=firstindex_pscal+1,firstindex_ndust
+        write(ilun,'("variable #",I2,": passive_scalar_",I1)')3+ivar,ivar-firstindex_pscal
+     end do
+     do ivar=firstindex_ndust+1,firstindex_ndust+ndust
+        if(ivar-firstindex_ndust<10) write(ilun,'("variable #",I2,": epsilon_",I1)')3+ivar,ivar-firstindex_ndust
+        if(ivar-firstindex_ndust.ge.10) write(ilun,'("variable #",I2,": epsilon_",I2)')3+ivar,ivar-firstindex_ndust
+
+     end do
+     do ivar=firstindex_ndust+ndust+1,firstindex_pscal+npscal
+        write(ilun,'("variable #",I2,": passive_scalar_",I1)')3+ivar,ivar-firstindex_ndust-ndust
+     end do
+#else
+  ! Passive scalars
      do ivar=1,npscal
         write(ilun,'("variable #",I2,": passive_scalar_",I1)')firstindex_pscal+3+ivar,ivar
      end do
+#endif
   endif
+
 #endif
   ! Temperature
   ivar=firstindex_pscal+3+npscal+1
   write(ilun,'("variable #",I2,": temperature")')ivar
 #if NDUST>0
   do idust=1,ndust
-     write(ilun,'("variable #",I2,":v_dust_x_",I1)')ivar+idust,idust
+     if(idust<10)write(ilun,'("variable #",I2,":vdx_",I1)')ivar+idust,idust
+     if(idust.ge.10)write(ilun,'("variable #",I2,":vdx_",I2)')ivar+idust,idust
+
 #if NDIM>1
-       write(ilun,'("variable #",I2,":v_dust_y_",I1)')ivar+idust+1,idust
+     if(idust<10)write(ilun,'("variable #",I2,":vdy_",I1)')ivar+idust+1,idust
+     if(idust.ge.10)write(ilun,'("variable #",I2,":vdy_",I2)')ivar+idust+1,idust
 
 #endif
 #if NDIM>2
-      write(ilun,'("variable #",I2,":v_dust_z_",I1)')ivar+idust+2,idust
+     if(idust<10) write(ilun,'("variable #",I2,":vdz_",I1)')ivar+idust+2,idust
+     if(idust.ge.10) write(ilun,'("variable #",I2,":vdz_",I2)')ivar+idust+2,idust
+
 #endif          
      ivar = ivar +(ndim-1)
   end do

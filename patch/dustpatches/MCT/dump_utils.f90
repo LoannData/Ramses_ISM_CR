@@ -129,13 +129,13 @@ contains
     integer, intent(in) :: unit_info
     integer, intent(in) :: ivar
 
-    write(unit_info, '(I3,", ", a, ", ", a)') ivar, trim(varname), trim(kind)
+    write(unit_info, '(I3,", ", a, ", ")') ivar, trim(varname)
   end subroutine dump_var_info
 
   subroutine dump_header_info(unit_info)
     integer, intent(in) :: unit_info
-    write(unit_info, '("# version: ", i2)') 1
-    write(unit_info, '("# ", a, ", ", a, ", ", a)') 'ivar', 'variable_name', 'variable_type'
+    write(unit_info,'("variable #",a,":",a)') 'ivar', 'variable_name'
+
   end subroutine dump_header_info
 
 end module dump_utils

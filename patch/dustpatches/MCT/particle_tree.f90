@@ -8,7 +8,7 @@ subroutine init_tree
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
-  integer::info
+  integer::info_MPI
 #endif
   !------------------------------------------------------
   ! This subroutine build the particle linked list at the
@@ -57,7 +57,7 @@ subroutine init_tree
   nextp(tailp_free)=0
 #ifndef WITHOUTMPI
   call MPI_ALLREDUCE(numbp_free,numbp_free_tot,1,MPI_INTEGER,MPI_MIN,&
-       & MPI_COMM_WORLD,info)
+       & MPI_COMM_WORLD,info_MPI)
 #endif
 #ifdef WITHOUTMPI
   numbp_free_tot=numbp_free
@@ -636,7 +636,7 @@ subroutine virtual_tree_fine(ilevel)
 #ifndef WITHOUTMPI
   integer::ip,ipcom,npart1,next_part,ncache,ncache_tot
   integer::icpu,igrid,ipart,jpart
-  integer::info,buf_count,tagf=102,tagu=102
+  integer::info_MPI,buf_count,tagf=102,tagu=102
   integer::countsend,countrecv
   integer,dimension(MPI_STATUS_SIZE,2*ncpu)::statuses
   integer,dimension(2*ncpu)::reqsend,reqrecv
@@ -684,7 +684,7 @@ subroutine virtual_tree_fine(ilevel)
         particle_data_width=twondim+2
      endif
   endif
-  if(tracer)particle_data_width=particle_data_width+7 
+  if(tracer)particle_data_width=particle_data_width+1 
 
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   particle_data_width=particle_data_width+1
@@ -755,7 +755,7 @@ subroutine virtual_tree_fine(ilevel)
   end do
 
   ! Communicate virtual particle number to parent cpu
-  call MPI_ALLTOALL(sendbuf,1,MPI_INTEGER,recvbuf,1,MPI_INTEGER,MPI_COMM_WORLD,info)
+  call MPI_ALLTOALL(sendbuf,1,MPI_INTEGER,recvbuf,1,MPI_INTEGER,MPI_COMM_WORLD,info_MPI)
 
   ! Allocate communication buffer in reception
   do icpu=1,ncpu
@@ -773,22 +773,22 @@ subroutine virtual_tree_fine(ilevel)
   do icpu=1,ncpu
      ncache=emission(icpu,ilevel)%npart
      if(ncache>0)then
-        buf_count=ncache*3
+        buf_count=ncache*particle_data_width_int 
         countrecv=countrecv+1
 #ifndef LONGINT
         call MPI_IRECV(emission(icpu,ilevel)%fp,buf_count, &
              & MPI_INTEGER,icpu-1,&
-             & tagf,MPI_COMM_WORLD,reqrecv(countrecv),info)
+             & tagf,MPI_COMM_WORLD,reqrecv(countrecv),info_MPI)
 #else
         call MPI_IRECV(emission(icpu,ilevel)%fp,buf_count, &
              & MPI_INTEGER8,icpu-1,&
-             & tagf,MPI_COMM_WORLD,reqrecv(countrecv),info)
+             & tagf,MPI_COMM_WORLD,reqrecv(countrecv),info_MPI)
 #endif
         buf_count=ncache*particle_data_width
         countrecv=countrecv+1
         call MPI_IRECV(emission(icpu,ilevel)%up,buf_count, &
              & MPI_DOUBLE_PRECISION,icpu-1,&
-             & tagu,MPI_COMM_WORLD,reqrecv(countrecv),info)
+             & tagu,MPI_COMM_WORLD,reqrecv(countrecv),info_MPI)
      end if
   end do
 
@@ -802,22 +802,22 @@ subroutine virtual_tree_fine(ilevel)
 #ifndef LONGINT
         call MPI_ISEND(reception(icpu,ilevel)%fp,buf_count, &
              & MPI_INTEGER,icpu-1,&
-             & tagf,MPI_COMM_WORLD,reqsend(countsend),info)
+             & tagf,MPI_COMM_WORLD,reqsend(countsend),info_MPI)
 #else
         call MPI_ISEND(reception(icpu,ilevel)%fp,buf_count, &
              & MPI_INTEGER8,icpu-1,&
-             & tagf,MPI_COMM_WORLD,reqsend(countsend),info)
+             & tagf,MPI_COMM_WORLD,reqsend(countsend),info_MPI)
 #endif
         buf_count=ncache*particle_data_width
         countsend=countsend+1
         call MPI_ISEND(reception(icpu,ilevel)%up,buf_count, &
              & MPI_DOUBLE_PRECISION,icpu-1,&
-             & tagu,MPI_COMM_WORLD,reqsend(countsend),info)
+             & tagu,MPI_COMM_WORLD,reqsend(countsend),info_MPI)
      end if
   end do
 
   ! Wait for full completion of receives
-  call MPI_WAITALL(countrecv,reqrecv,statuses,info)
+  call MPI_WAITALL(countrecv,reqrecv,statuses,info_MPI)
 
   ! Compute total number of newly created particles
   ncache_tot=0
@@ -826,10 +826,10 @@ subroutine virtual_tree_fine(ilevel)
   end do
 
   ! Wait for full completion of sends
-  call MPI_WAITALL(countsend,reqsend,statuses,info)
+  call MPI_WAITALL(countsend,reqsend,statuses,info_MPI)
 
   call MPI_ALLREDUCE(numbp_free,numbp_free_tot,1,MPI_INTEGER,MPI_MIN,&
-       & MPI_COMM_WORLD,info)
+       & MPI_COMM_WORLD,info_MPI)
   ok_free=(numbp_free-ncache_tot)>=0
   if(.not. ok_free)then
      write(*,*)'No more free memory for particles'
@@ -839,7 +839,7 @@ subroutine virtual_tree_fine(ilevel)
      write(*,*)emission(1:ncpu,ilevel)%npart
      write(*,*)'============================'
      write(*,*)reception(1:ncpu,ilevel)%npart
-     call MPI_ABORT(MPI_COMM_WORLD,1,info)
+     call MPI_ABORT(MPI_COMM_WORLD,1,info_MPI)
   end if
 
   ! Scatter new particles from communication buffer
@@ -975,7 +975,7 @@ subroutine fill_comm(ind_part,ind_com,ind_list,np,ilevel,icpu)
   end if
 
   ! Gather tracer particles properties ATTENTION PAS DE SINKS OU STARS
-  if(tracer)then
+  if(tracer.and..not.MC_tracer)then
      do i=1,np
         reception(icpu,ilevel)%up(ind_com(i),current_property)=rhop(ind_part(i))
         reception(icpu,ilevel)%up(ind_com(i),current_property+1)=tpgp(ind_part(i))
@@ -986,6 +986,9 @@ subroutine fill_comm(ind_part,ind_com,ind_list,np,ilevel,icpu)
         reception(icpu,ilevel)%up(ind_com(i),current_property+6)=bfieldp(ind_part(i),3)
      end do
      current_property = current_property + 7
+  else if (MC_tracer) then
+     reception(icpu,ilevel)%up(ind_com(i),current_property)=rhop(ind_part(i))
+      current_property = current_property + 1
   end if
 
   ! following line is not strictly necessary, but in case one adds extra data later
@@ -1080,7 +1083,7 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
   end if
 
   ! Scatter tracer particle properties BEWARE NO SINKS OR STARS
-  if(tracer)then
+  if(tracer.and..not.MC_tracer)then
      do i=1,np
         rhop(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
         tpgp(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property+1)
@@ -1091,6 +1094,9 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
         bfieldp(ind_part(i),3)=emission(icpu,ilevel)%up(ind_com(i),current_property+6)
      end do
      current_property = current_property+7
+  else if(MC_tracer) then
+     rhop(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+     current_property = current_property+1
   end if
    ! MC Tracer
   if (MC_tracer) then
@@ -1151,11 +1157,12 @@ end subroutine reset_tracer_move_flag
 subroutine check_star_tracer(ilevel, desc)
   use amr_commons
   use pm_commons
+    implicit none
+
 #ifndef WITHOUTMPI
   include 'mpif.h'
-  integer::info
+  integer::info_MPI
 #endif
-  implicit none
 
   integer, intent(in) :: ilevel
   character(len=*), intent(in) :: desc
@@ -1165,7 +1172,7 @@ subroutine check_star_tracer(ilevel, desc)
 
   if (myid == 1) print*, '---- entering check_star_tracer ', trim(desc), ' for level', ilevel
 #ifndef WITHOUTMPI
-  call MPI_BARRIER(MPI_COMM_WORLD, info)
+  call MPI_BARRIER(MPI_COMM_WORLD, info_MPI)
 #endif
   ok = .true.
 
@@ -1204,11 +1211,12 @@ end subroutine check_star_tracer
 subroutine check_sink_tracer(ilevel, desc)
   use amr_commons
   use pm_commons
+    implicit none
+
 #ifndef WITHOUTMPI
   include 'mpif.h'
-  integer::info
+  integer::info_MPI
 #endif
-  implicit none
 
   integer, intent(in) :: ilevel
   character(len=*), intent(in) :: desc
@@ -1218,7 +1226,7 @@ subroutine check_sink_tracer(ilevel, desc)
 
   if (myid == 1) write(*, *)'---- entering check_sink_tracer ', trim(desc), ' for level', ilevel
 #ifndef WITHOUTMPI
-  call MPI_BARRIER(MPI_COMM_WORLD, info)
+  call MPI_BARRIER(MPI_COMM_WORLD, info_MPI)
 #endif
   ok = .true.
 

@@ -118,7 +118,7 @@ subroutine set_vdust(ilevel)
               else
                  ! Gather left thermal energy
                  d=uold(igridn(i,ig1)+ih1,1)
-                 u=0.0; v=0.0; w=0.0
+                 u=0.0d0; v=0.0d0; w=0.0d0
                  if(ndim>0)u=uold(igridn(i,ig1)+ih1,2)/d
                  if(ndim>1)v=uold(igridn(i,ig1)+ih1,3)/d
                  if(ndim>2)w=uold(igridn(i,ig1)+ih1,4)/d
@@ -203,7 +203,7 @@ subroutine set_vdust(ilevel)
               else
               ! Gather right thermal energy
               d=max(uold(ind_right(i,idim),1),smallr)
-              u=0.0; v=0.0; w=0.0
+              u=0.0d0; v=0.0d0; w=0.0d0
               if(ndim>0)u=uold(ind_right(i,idim),2)/d
               if(ndim>1)v=uold(ind_right(i,idim),3)/d
               if(ndim>2)w=uold(ind_right(i,idim),4)/d
@@ -235,10 +235,12 @@ subroutine set_vdust(ilevel)
               d=uold(ind_cell(i),1)
               enint=uold(ind_cell(i),nvar)
            else
+              u=0.0d0; v=0.0d0; w=0.0d0
+
               d=uold(ind_cell(i),1)
-              u=uold(ind_cell(i),2)/d
-              v=uold(ind_cell(i),3)/d
-              w=uold(ind_cell(i),4)/d
+              if(ndim>0)u=uold(ind_cell(i),2)/d
+              if(ndim>1)v=uold(ind_cell(i),3)/d
+              if(ndim>2)w=uold(ind_cell(i),4)/d
               e_mag= 0.0_dp
 #ifdef SOLVERmhd                           
               A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
@@ -273,7 +275,7 @@ subroutine set_vdust(ilevel)
             tstop_tot=0.0d0
             t_stop=0.0d0
             do idust = 1,ndust
-               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
+               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d-uold(ind_cell(i),firstindex_ndust+idust))
                if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/K_dust(idust)
                if(dust_barr) t_stop (idust)= 0.1_dp
                tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
@@ -289,7 +291,7 @@ subroutine set_vdust(ilevel)
  	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
 	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
               do idim=1,ndim       
-              v_dust(ind_cell(i),idust,idim)= 0.0d0
+              !v_dust(ind_cell(i),idust,idim)= 0.0d0
                end do   
             end if
             end do

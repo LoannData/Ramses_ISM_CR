@@ -24,12 +24,12 @@ subroutine units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
       scale_m = scale_d*scale_l**3
 
 
-    !  scale_d = 1.0_dp
-    !  scale_T2=1.0_dp
-    !  scale_l = 1.0_dp
-    !  scale_t = 1.0_dp
-    !  scale_v = 1.0_dp
-    !  scale_nH =1.0_dp
-    !  scale_kappa = 1.0_dp/scale_l
-    !  scale_m = scale_d*scale_l**3  
+      scale_d = 1.0_dp
+      scale_T2=1.0_dp
+      scale_l = 1.0_dp
+      scale_t = 1.0_dp
+      scale_v = 1.0_dp
+      scale_nH =1.0_dp
+      scale_kappa = 1.0_dp/scale_l
+      scale_m = scale_d*scale_l**3  
 end subroutine units

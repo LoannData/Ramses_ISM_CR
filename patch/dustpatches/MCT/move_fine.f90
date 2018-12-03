@@ -2,9 +2,11 @@ subroutine move_fine(ilevel)
   use amr_commons
   use pm_commons
   implicit none
+
 #ifndef WITHOUTMPI
   include 'mpif.h'
 #endif
+
   integer::ilevel
   !----------------------------------------------------------------------
   ! Update particle position and time-centred velocity at level ilevel.
@@ -53,7 +55,7 @@ subroutine move_fine(ilevel)
                  ip=0
                  ig=0
               end if
-              endif
+           endif
            ipart=next_part  ! Go to next particle
         end do
         ! End loop over particles
@@ -138,11 +140,11 @@ end subroutine move_fine
 subroutine move_fine_static(ilevel)
   use amr_commons
   use pm_commons
+  implicit none
 
 #ifndef WITHOUTMPI
   include 'mpif.h'
 #endif
-  implicit none
   integer::ilevel
   !----------------------------------------------------------------------
   ! Update particle position and time-centred velocity at level ilevel.
@@ -705,7 +707,7 @@ subroutine move_gas_tracer(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   use amr_commons
   use pm_commons
   use poisson_commons
-  use hydro_commons, only: fluxes
+  use hydro_commons, only: fluxes, uold,firstindex_ndust
   use tracer_utils, only: safe_move, relative_level, get_cells_on_face
   implicit none
   integer::ng,np,ilevel
@@ -1084,6 +1086,7 @@ subroutine move_gas_tracer(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! Store the new parent (here a cell) of the particle
   do ipart = 1, np
      partp(ind_part(ipart)) = new_partp(ipart)
+     rhop(ind_part(ipart)) = uold(partp(ind_part(ipart)),firstindex_ndust+1)
   end do
 
 end subroutine move_gas_tracer

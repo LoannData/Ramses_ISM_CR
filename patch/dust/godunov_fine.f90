@@ -282,14 +282,14 @@ subroutine add_gravity_source_terms(ilevel)
      do i=1,active(ilevel)%ngrid
         ind_cell=active(ilevel)%igrid(i)+iskip
         d=max(unew(ind_cell,1),smallr)
-        u=0.0; v=0.0; w=0.0
+        u=0.0d0; v=0.0d0; w=0.0d0
         if(ndim>0)u=unew(ind_cell,2)/d
         if(ndim>1)v=unew(ind_cell,3)/d
         if(ndim>2)w=unew(ind_cell,4)/d
-        e_kin=0.5*d*(u**2+v**2+w**2)
+        e_kin=0.5d0*d*(u**2+v**2+w**2)
         e_prim=unew(ind_cell,5)-e_kin
         d_old=max(uold(ind_cell,1),smallr)
-        fact=d_old/d*0.5*dtnew(ilevel)
+        fact=d_old/d*0.5d0*dtnew(ilevel)
         if(ndim>0)then
            u=u+f(ind_cell,1)*fact
            unew(ind_cell,2)=d*u
@@ -302,7 +302,7 @@ subroutine add_gravity_source_terms(ilevel)
            w=w+f(ind_cell,3)*fact
            unew(ind_cell,4)=d*w
         endif
-        e_kin=0.5*d*(u**2+v**2+w**2)
+        e_kin=0.5d0*d*(u**2+v**2+w**2)
         unew(ind_cell,5)=e_prim+e_kin
      end do
   end do
@@ -741,7 +741,7 @@ subroutine add_pdv_source_terms(ilevel)
         !update internal energy in unew(nvar)
         do i=1,ngrid
 
-           usquare=0.0
+           usquare=0.0d0
            do idim=1,ndim
               usquare=usquare+(uold(ind_cell(i),idim+1)/uold(ind_cell(i),1))**2
            end do
@@ -760,7 +760,7 @@ subroutine add_pdv_source_terms(ilevel)
 #endif
 
            d     = max(uold(ind_cell(i),1),smallr)
-           ekin  = d*usquare/2.0
+           ekin  = d*usquare/2.0d0
            ! Compute gas pressure in cgs
            eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
            if(energy_fix)eps   = uold(ind_cell(i),nvar)
@@ -863,6 +863,15 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:2,1:ndim),save::tmp
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
 
+#if RELAX>0
+  real(dp),dimension(1:nvector,1:ndim),save::xx
+
+  real(dp),dimension(1:twotondim,1:3)::xc
+  integer :: ix,iy,iz
+    real(dp)::xn,yn,rin,rr
+
+#endif
+  
   integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
 
   integer::neul=5
@@ -880,10 +889,13 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   oneontwotondim = 1.d0/dble(twotondim)
 
   ! Mesh spacing in that level
+
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
   dx=0.5D0**ilevel*scale
-
+#if RELAX>0
+  rin= 0.5d0
+#endif
   ! Integer constants
   i1min=0; i1max=0; i2min=0; i2max=0; i3min=1; i3max=1
   j1min=0; j1max=0; j2min=0; j2max=0; j3min=1; j3max=1
@@ -903,6 +915,14 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   !------------------------------------------
   do i=1,ncache
      ind_cell(i)=father(ind_grid(i))
+#if RELAX>0   
+     iz=(i-1)/4
+     iy=(i-1-4*iz)/2
+     ix=(i-1-2*iy-4*iz)
+     if(ndim>0)xc(i,1)=(dble(ix)-0.5D0)*dx
+     if(ndim>1)xc(i,2)=(dble(iy)-0.5D0)*dx
+     if(ndim>2)xc(i,3)=(dble(iz)-0.5D0)*dx
+#endif    
   end do
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncache,ilevel)
 
@@ -1009,8 +1029,9 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   !  call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache)
 
   call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache,ind_grid,jcell)
+  
 #if MC>0
-    !--------------------------------------
+  !--------------------------------------
   ! Store the fluxes for later use
   !--------------------------------------
   if (MC_tracer) then
@@ -1032,11 +1053,11 @@ subroutine godfine1(ind_grid,ncache,ilevel)
                  k3=1+k2
                  do i=1,ncache
                     ! Copy left flux
-                    fluxes(ind_cell(i),(idim-1)*2+1)= flux(i,i3   ,j3   ,k3,   1,idim)&
-                         / uold(ind_cell(i), 1)
+                    fluxes(ind_cell(i),(idim-1)*2+1)= flux(i,i3   ,j3   ,k3,   firstindex_ndust+1,idim)&
+                        & / uold(ind_cell(i), firstindex_ndust+1)
                     ! Copy right flux
-                    fluxes(ind_cell(i),(idim-1)*2+2)=-flux(i,i3+i0,j3+j0,k3+k0,1,idim)&
-                         / uold(ind_cell(i), 1)
+                    fluxes(ind_cell(i),(idim-1)*2+2)=-flux(i,i3+i0,j3+j0,k3+k0,firstindex_ndust+1,idim)&
+                         & / uold(ind_cell(i), firstindex_ndust+1)
                  end do
               end do
            end do
@@ -1044,6 +1065,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
      end do
   end if
 #endif
+
   ! fin modif nimhd
   if(ischeme.eq.1)then
   !---------------------------------

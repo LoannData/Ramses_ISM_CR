@@ -27,23 +27,23 @@ end module hydro_commons
 
 module const
   use amr_parameters
-  real(dp)::bigreal = 1.0e+30_dp
-  real(dp)::zero    =  0.0_dp
-  real(dp)::one     =  1.0_dp
-  real(dp)::two     =  2.0_dp
-  real(dp)::three   =  3.0_dp
-  real(dp)::four    =  4.0_dp
-  real(dp)::five    =  5.0_dp
-  real(dp)::six     =  6.0_dp
-  real(dp)::seven   =  7.0_dp
-  real(dp)::eight   =  8.0_dp
-  real(dp)::nine    =  9.0_dp
-  real(dp)::ten     = 10.0_dp
-  real(dp)::two3rd  = 0.6666666666666667_dp
-  real(dp)::half    = 0.5_dp
-  real(dp)::third   = 0.33333333333333333_dp
-  real(dp)::forth   = 0.25_dp
-  real(dp)::sixth   = 0.16666666666666667_dp
+  real(dp)::bigreal = 1.0e+30
+  real(dp)::zero    =  0.0d0
+  real(dp)::one     =  1.0d0
+  real(dp)::two     =  2.0d0
+  real(dp)::three   =  3.0d0
+  real(dp)::four    =  4.0d0
+  real(dp)::five    =  5.0d0
+  real(dp)::six     =  6.0d0
+  real(dp)::seven   =  7.0d0
+  real(dp)::eight   =  8.0d0
+  real(dp)::nine    =  9.0d0
+  real(dp)::ten     = 10.0d0
+  real(dp)::two3rd  = 0.6666666666666667d0
+  real(dp)::half    = 0.5d0
+  real(dp)::third   = 0.33333333333333333d0
+  real(dp)::forth   = 0.25d0
+  real(dp)::sixth   = 0.16666666666666667d0
 end module const
 
 ! Units

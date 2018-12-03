@@ -8,7 +8,7 @@ subroutine condinit(x,u,dx,nn)
   use hydro_parameters
   use poisson_parameters
   use cooling_module      , only : kb,mh
-  use radiation_parameters,only:mu_gas
+  use radiation_parameters
   implicit none
   integer ::nn                              ! Number of cells
   real(dp)::dx                              ! Cell size
@@ -64,7 +64,8 @@ subroutine condinit(x,u,dx,nn)
      sum_dust=0.0d0
 #if NDUST>0
      do idust =1,ndust
-        dustMRN(idust) = dust_ratio(idust)/(1.0+dust_ratio(idust))
+        dustMRN(idust) = dust_ratio(idust)!/(1.0+dust_ratio(idust))
+        
      end do
      if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
      do idust =1,ndust
@@ -72,8 +73,8 @@ subroutine condinit(x,u,dx,nn)
         q(i,firstindex_ndust+idust) = dustMRN(idust)
      end do
 #endif
-     q(i,1)=max(rho_sim*exp(-abs(yy**2.0/(2.0d0*H_disc**2.0)))/(1.0d0-sum_dust),smallr)+1.d-20/scale_d
-     q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs**2.0!/gamma
+     q(i,1)=max(rho_sim*exp(-abs(yy**2/(2.0d0*H_disc**2)))/(1.0d0-sum_dust),smallr)+1.d-20/scale_d
+     q(i,5)= q(i,1)*(1.0d0-sum_dust)*cs**2
      q(i,2)= 0.0d0
      q(i,3)= 0.0d0
      q(i,4)= 0.0d0
@@ -88,9 +89,9 @@ subroutine condinit(x,u,dx,nn)
      u(1:nn,4)=q(1:nn,1)*q(1:nn,4)
      ! kinetic energy
      u(1:nn,5)=0.0d0
-     u(1:nn,5)=u(1:nn,5)+0.5*q(1:nn,1)*q(1:nn,2)**2
-     u(1:nn,5)=u(1:nn,5)+0.5*q(1:nn,1)*q(1:nn,3)**2
-     u(1:nn,5)=u(1:nn,5)+0.5*q(1:nn,1)*q(1:nn,4)**2
+     u(1:nn,5)=u(1:nn,5)+0.5d0*q(1:nn,1)*q(1:nn,2)**2
+     u(1:nn,5)=u(1:nn,5)+0.5d0*q(1:nn,1)*q(1:nn,3)**2
+     u(1:nn,5)=u(1:nn,5)+0.5d0*q(1:nn,1)*q(1:nn,4)**2
      ! pressure -> total fluid energy
      u(1:nn,5)=u(1:nn,5)+q(1:nn,5)/(gamma-1.0d0)
      ! magnetic energy -> total fluid energy

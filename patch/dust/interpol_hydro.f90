@@ -822,8 +822,8 @@ subroutine compute_limiter_minmod(a,w,nn)
 
   do idim=1,ndim
      do i=1,nn
-        diff_left=0.5*(a(i,2*idim)-a(i,0))
-        diff_right=0.5*(a(i,0)-a(i,2*idim-1))
+        diff_left=0.5d0*(a(i,2*idim)-a(i,0))
+        diff_right=0.5d0*(a(i,0)-a(i,2*idim-1))
         if(diff_left*diff_right<=0.0)then
            minmod=0.0
         else

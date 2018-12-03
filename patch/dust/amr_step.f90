@@ -19,7 +19,7 @@ recursive subroutine amr_step(ilevel,icount)
   use turb_commons
 #endif
 #if MC>0
-  use sink_particle_tracer, only : MC_tracer_to_jet
+  !use sink_particle_tracer, only : MC_tracer_to_jet
 #endif
   implicit none
 #ifndef WITHOUTMPI
@@ -274,7 +274,7 @@ recursive subroutine amr_step(ilevel,icount)
 
      ! Remove gravity source term with half time step and old force
      if(hydro)then
-        call synchro_hydro_fine(ilevel,-0.5*dtnew(ilevel))
+        call synchro_hydro_fine(ilevel,-0.5d0*dtnew(ilevel))
      endif
 
      ! Compute gravitational potential
@@ -307,7 +307,7 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('poisson','start')
 
         ! Add gravity source term with half time step and new force
-        call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel))
+        call synchro_hydro_fine(ilevel,+0.5d0*dtnew(ilevel))
 
         ! Update boundaries
 #ifdef SOLVERmhd
@@ -484,6 +484,17 @@ recursive subroutine amr_step(ilevel,icount)
      call grow_sink(ilevel,.false.)
   end if
 #endif
+#if NDUST>0
+  call set_vdust(ilevel)
+  do idim =1,ndim
+     do idust=1,ndust
+       call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+     end do
+  end do
+!  if(.not.dust_diffusion) v_dust=0.0d0
+  if(.not.dust_diffusion) print *,'dust_diffusion deactivated'
+
+#endif
   !-----------
   ! Hydro step
   !-----------
@@ -526,18 +537,6 @@ recursive subroutine amr_step(ilevel,icount)
         call make_virtual_reverse_dp(divu(1),ilevel)
      endif
 
-     ! Set uold equal to unew
-#if NDUST>0
-  call set_vdust(ilevel)
-  do idim =1,ndim
-     do idust=1,ndust
-        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-     end do
-  end do
-  if(.not.dust_diffusion) v_dust=0.0d0
-  if(.not.dust_diffusion) print *,'dust_diffusion deactivated'
-
-#endif
 
 
 
@@ -548,7 +547,8 @@ recursive subroutine amr_step(ilevel,icount)
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step
                                call timer('poisson','start')
-     if(poisson)call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel))
+     if(poisson)call synchro_hydro_fine(ilevel,+0.5d0*dtnew(ilevel))
+     ! Set uold equal to unew
 
 #if USE_TURB==1
      ! Compute turbulent forcing
@@ -601,6 +601,7 @@ recursive subroutine amr_step(ilevel,icount)
 
 
 
+
 #if NDUST>0
   if(dust_diffusion)then
                      call timer('dust - diffusion','start')
@@ -621,10 +622,10 @@ recursive subroutine amr_step(ilevel,icount)
   end if
 #if MC>0
     ! Move tracer particles in the jet.
-  if (sink_AGN .and. MC_tracer) then
+  !if (sink_AGN .and. MC_tracer) then
                                 call timer('tracer','start')
-     call MC_tracer_to_jet(ilevel)
-  end if
+  !   call MC_tracer_to_jet(ilevel)
+  !end if
 #endif
   !----------------------------------
   ! Star formation in leaf cells only

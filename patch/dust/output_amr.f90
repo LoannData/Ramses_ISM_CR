@@ -596,6 +596,10 @@ subroutine output_header(filename)
      ! Keep track of what particle fields are present
      write(ilun,*)'Particle fields'
      write(ilun,'(a)',advance='no')'pos vel mass iord level '
+#if MC>0
+     write(ilun,'(a)',advance='no')'family '
+     write(ilun,'(a)',advance='no')'tag '
+#endif
 #ifdef OUTPUT_PARTICLE_POTENTIAL
      write(ilun,'(a)',advance='no')'phi '
 #endif
@@ -605,9 +609,11 @@ subroutine output_header(filename)
            write(ilun,'(a)',advance='no')'metal '
         endif
      endif
-#if NDUST>0
-          write(ilun,'(a)',advance='no')'density tgas trad ext bfield epsilon'
-#endif     
+     write(ilun,'(a)',advance='no')'density '
+
+#if MC>0
+      write(ilun,'(a)',advance='no')'loc '
+#endif 
      close(ilun)
 
   endif

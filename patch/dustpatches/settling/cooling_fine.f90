@@ -802,9 +802,7 @@ end subroutine cmp_Eddington_tensor
 !=====================================================================================================
 subroutine pressure_eos(rho_temp,Enint_temp,Peos)
   use amr_parameters      ,only:dp
-  use hydro_commons
-    use units_commons
-
+  use hydro_commons       ,only:gamma
   implicit none
   !--------------------------------------------------------------
   ! This routine computes the pressure from the density and 
@@ -812,17 +810,8 @@ subroutine pressure_eos(rho_temp,Enint_temp,Peos)
   !--------------------------------------------------------------
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Peos
-  real(dp)::H_disc,rho_sim,cs,r_disk,vk,omega,au,msol
 
-
-  au = 10.0d0*1.5d13
-  Msol =2.0d33
-  r_disk=5.0d0*au
-  H_disc =r_disk*0.05d0
-  vk=sqrt(Grav*Msol/r_disk)
-  omega= vk/r_disk
-  cs = H_disc*omega
-  Peos = cs**2.0*rho_temp/scale_v**2.0
+  Peos = (gamma-1.d0)*Enint_temp
 
   return
 
@@ -831,9 +820,9 @@ end subroutine pressure_eos
 !===========================================================================================
 !===========================================================================================
 !===========================================================================================
-subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
+subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht,sd)
   use amr_parameters      ,only:dp
-  use hydro_commons      
+  use hydro_commons       ,only:gamma
   use cooling_module      ,only:kB,mH
   use radiation_parameters,only:mu_gas
   use units_commons
@@ -842,22 +831,15 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   ! This routine computes the temperature from the density and 
   ! internal volumic energy. Inputs/output are in code units.
   !--------------------------------------------------------------
-  real(dp), intent(in) :: Enint_temp,rho_temp
+  real(dp), intent(in) :: Enint_temp,rho_temp,sd
   integer , intent(out):: ht 
   real(dp), intent(out):: Teos
   real(dp)::rho,Enint
-  real(dp)::H_disc,rho_sim,cs,r_disk,vk,omega,au,msol
 
+  rho   = rho_temp*scale_d
+  Enint = Enint_temp*scale_d*scale_v**2 
 
-  au = 10.0d0*1.5d13
-  Msol =2.0d33
-  r_disk=5.0d0*au
-  H_disc =r_disk*0.05d0
-  vk=sqrt(Grav*Msol/r_disk)
-  omega= vk/r_disk
-  cs = H_disc*omega
-  
-  Teos = cs**2.0*mu_gas*mh/kb
+  Teos = Enint/(rho*kB/(mu_gas*mH*(gamma-1.0d0)))
 
   ht=1
 
@@ -896,7 +878,7 @@ end subroutine enerint_eos
 !==================================================================================
 !==================================================================================
 subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
-  use amr_parameters      ,only:dp
+  use amr_parameters      
   use hydro_commons
     use units_commons
 
@@ -907,9 +889,10 @@ subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   !--------------------------------------------------------------
   real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp), intent(out):: Cseos
-  real(dp)::rho,Enint
-  real(dp)::H_disc,rho_sim,cs,r_disk,vk,omega,au,msol
-
+  real(dp)::H_disc,rho_sim,cs,r_disk,vk,omega
+  real(dp)::au, Msol
+  rho_sim = 1.0d-3
+  
 
   au = 10.0d0*1.5d13
   Msol =2.0d33
@@ -917,8 +900,7 @@ subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
   H_disc =r_disk*0.05d0
   vk=sqrt(Grav*Msol/r_disk)
   omega= vk/r_disk
-  cs = H_disc*omega
-  Cseos = cs/scale_v
+  Cseos = omega*H_disc/scale_v! sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
 
   return
 

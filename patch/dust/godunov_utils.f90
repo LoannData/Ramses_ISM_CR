@@ -109,7 +109,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   end do
 #endif
   ! Compute maximum dust related speed
-  udust(k)=0.0d0
+  udust=0.0d0
 #if NDUST>0 
   do k = 1, ncell
      do idust=1,ndust

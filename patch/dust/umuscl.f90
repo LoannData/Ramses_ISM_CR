@@ -850,10 +850,10 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
      DO j = jlo, ju2
         DO i = ilo, iu2
            DO l = 1, ngrid
-              u = 0.25*(q(l,i-1,j-1,k,iu)+q(l,i-1,j,k,iu)+q(l,i,j-1,k,iu)+q(l,i,j,k,iu))
-              v = 0.25*(q(l,i-1,j-1,k,iv)+q(l,i-1,j,k,iv)+q(l,i,j-1,k,iv)+q(l,i,j,k,iv))
-              A = 0.5*(bf(l,i,j-1,k,1)+bf(l,i,j,k,1))
-              B = 0.5*(bf(l,i-1,j,k,2)+bf(l,i,j,k,2))
+              u = 0.25d0*(q(l,i-1,j-1,k,iu)+q(l,i-1,j,k,iu)+q(l,i,j-1,k,iu)+q(l,i,j,k,iu))
+              v = 0.25d0*(q(l,i-1,j-1,k,iv)+q(l,i-1,j,k,iv)+q(l,i,j-1,k,iv)+q(l,i,j,k,iv))
+              A = 0.5d0*(bf(l,i,j-1,k,1)+bf(l,i,j,k,1))
+              B = 0.5d0*(bf(l,i-1,j,k,2)+bf(l,i,j,k,2))
               Ez(l,i,j,k)=u*B-v*A
            END DO
         END DO
@@ -986,8 +986,8 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               w = w + sw0
               p = p + sp0
               C = C + sC0
-              A = 0.5*(AL+AR)
-              B = 0.5*(BL+BR)
+              A = 0.5d0*(AL+AR)
+              B = 0.5d0*(BL+BR)
 #if NENER>0
               do irad=1,nener
                  e(irad)=e(irad)+se0(irad)
@@ -1290,22 +1290,22 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
      DO j = jlo, ju2
         DO i = ilo, iu2
            DO l = 1, ngrid
-              v = 0.25*(q(l,i,j-1,k-1,iv)+q(l,i,j-1,k,iv)+q(l,i,j,k-1,iv)+q(l,i,j,k,iv))
-              w = 0.25*(q(l,i,j-1,k-1,iw)+q(l,i,j-1,k,iw)+q(l,i,j,k-1,iw)+q(l,i,j,k,iw))
-              B = 0.5*(bf(l,i,j,k-1,2)+bf(l,i,j,k,2))
-              C = 0.5*(bf(l,i,j-1,k,3)+bf(l,i,j,k,3))
+              v = 0.25d0*(q(l,i,j-1,k-1,iv)+q(l,i,j-1,k,iv)+q(l,i,j,k-1,iv)+q(l,i,j,k,iv))
+              w = 0.25d0*(q(l,i,j-1,k-1,iw)+q(l,i,j-1,k,iw)+q(l,i,j,k-1,iw)+q(l,i,j,k,iw))
+              B = 0.5d0*(bf(l,i,j,k-1,2)+bf(l,i,j,k,2))
+              C = 0.5d0*(bf(l,i,j-1,k,3)+bf(l,i,j,k,3))
               Ex(l,i,j,k)=v*C-w*B
 
-              u = 0.25*(q(l,i-1,j,k-1,iu)+q(l,i-1,j,k,iu)+q(l,i,j,k-1,iu)+q(l,i,j,k,iu))
-              w = 0.25*(q(l,i-1,j,k-1,iw)+q(l,i-1,j,k,iw)+q(l,i,j,k-1,iw)+q(l,i,j,k,iw))
-              A = 0.5*(bf(l,i,j,k-1,1)+bf(l,i,j,k,1))
-              C = 0.5*(bf(l,i-1,j,k,3)+bf(l,i,j,k,3))
+              u = 0.25d0*(q(l,i-1,j,k-1,iu)+q(l,i-1,j,k,iu)+q(l,i,j,k-1,iu)+q(l,i,j,k,iu))
+              w = 0.25d0*(q(l,i-1,j,k-1,iw)+q(l,i-1,j,k,iw)+q(l,i,j,k-1,iw)+q(l,i,j,k,iw))
+              A = 0.5d0*(bf(l,i,j,k-1,1)+bf(l,i,j,k,1))
+              C = 0.5d0*(bf(l,i-1,j,k,3)+bf(l,i,j,k,3))
               Ey(l,i,j,k)=w*A-u*C
 
-              u = 0.25*(q(l,i-1,j-1,k,iu)+q(l,i-1,j,k,iu)+q(l,i,j-1,k,iu)+q(l,i,j,k,iu))
-              v = 0.25*(q(l,i-1,j-1,k,iv)+q(l,i-1,j,k,iv)+q(l,i,j-1,k,iv)+q(l,i,j,k,iv))
-              A = 0.5*(bf(l,i,j-1,k,1)+bf(l,i,j,k,1))
-              B = 0.5*(bf(l,i-1,j,k,2)+bf(l,i,j,k,2))
+              u = 0.25d0*(q(l,i-1,j-1,k,iu)+q(l,i-1,j,k,iu)+q(l,i,j-1,k,iu)+q(l,i,j,k,iu))
+              v = 0.25d0*(q(l,i-1,j-1,k,iv)+q(l,i-1,j,k,iv)+q(l,i,j-1,k,iv)+q(l,i,j,k,iv))
+              A = 0.5d0*(bf(l,i,j-1,k,1)+bf(l,i,j,k,1))
+              B = 0.5d0*(bf(l,i-1,j,k,2)+bf(l,i,j,k,2))
               Ez(l,i,j,k)=u*B-v*A
            END DO
         END DO
@@ -1477,9 +1477,9 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               v = v + sv0
               w = w + sw0
               p = p + sp0
-              A = 0.5*(AL+AR)
-              B = 0.5*(BL+BR)
-              C = 0.5*(CL+CR)
+              A = 0.5d0*(AL+AR)
+              B = 0.5d0*(BL+BR)
+              C = 0.5d0*(CL+CR)
 #if NENER>0
               do irad=1,nener
                  e(irad)=e(irad)+se0(irad)
@@ -2674,7 +2674,7 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                   end do
 #endif                  
                   
-                  zero_flux = 0.0
+                  zero_flux = 0.0d0
                   SELECT CASE (iriemann2d)
                   CASE (1)
                      CALL athena_roe   (qleft,qright,fmean_x,zero_flux)
@@ -2734,7 +2734,7 @@ SUBROUTINE cmp_mag_flx(qRT,irt1,irt2,jrt1,jrt2,krt1,krt2, &
                      qright(firstindex_ndust+idust) = half*(qRR(l,firstindex_ndust+idust)+qLR(l,firstindex_ndust+idust))
                   end do
 #endif  
-                  zero_flux = 0.
+                  zero_flux = 0.0d0
                   SELECT CASE (iriemann2d)
                   CASE (1)
                      CALL athena_roe   (qleft,qright,fmean_y,zero_flux)

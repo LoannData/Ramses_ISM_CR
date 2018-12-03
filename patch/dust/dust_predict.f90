@@ -221,7 +221,7 @@ subroutine uslope_dust(q,dq,dx,dt,ngrid)
                     do l = 1, ngrid
                        dlft = (q(l,i,j,k,n)-q(l,i-1,j,k,n))
                        drgt = (q(l,i+1,j,k,n)-q(l,i,j,k,n))
-                       slop = 0.5*(dlft+drgt)
+                       slop = 0.5d0*(dlft+drgt)
                        dlim = slop
                        dq(l,i,j,k,n,1) = dlim
                     end do
@@ -237,7 +237,7 @@ subroutine uslope_dust(q,dq,dx,dt,ngrid)
                     if((dlft*drgt)<=zero) then
                        dq(l,i,j,k,n,1)=zero
                     else
-                       dq(l,i,j,k,n,1)=(2.0*dlft*drgt/(dlft+drgt))
+                       dq(l,i,j,k,n,1)=(2.0d0*dlft*drgt/(dlft+drgt))
                     end if
                  end do
               else if(slope_dust==8)then ! generalized moncen/minmod parameterisation (van Leer 1979)

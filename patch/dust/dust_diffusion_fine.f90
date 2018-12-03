@@ -60,6 +60,7 @@ subroutine set_unew_dust(ilevel)
            end do
         end do
      end do
+     
   ! Set unew to 0 for virtual boundary cells
   do icpu=1,ncpu
   do ind=1,twotondim
@@ -127,9 +128,9 @@ subroutine set_uold_dust(ilevel)
            A=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,6)+uold(active(ilevel)%igrid(i)+iskip,nvar+1))
            B=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,7)+uold(active(ilevel)%igrid(i)+iskip,nvar+2))
            C=0.5d0*(uold(active(ilevel)%igrid(i)+iskip,8)+uold(active(ilevel)%igrid(i)+iskip,nvar+3))
-           e_mag=0.5d0*(A**2+B**2+C**2)
+           e_mag=0.5d0*(A**2.0d0+B**2.0d0+C**2.0d0)
 #endif
-           e_kin=0.5d0*d*(u**2+v**2+w**2)
+           e_kin=0.5d0*d*(u**2.0d0+v**2.0d0+w**2.0d0)
 #if NENER>0
            do irad=1,nener
               e_mag=e_mag+uold(active(ilevel)%igrid(i)+iskip,8+irad)
@@ -141,8 +142,9 @@ subroutine set_uold_dust(ilevel)
            call enerint_eos (rho_gas, temp , enint)
            unew(active(ilevel)%igrid(i)+iskip,5) = enint + e_kin +e_mag
            !If we test barenblatt we only update P
-           if(static_gas) unew(active(ilevel)%igrid(i)+iskip,5)=(1.0_dp-sum_dust_new)*uold(active(ilevel)%igrid(i)+iskip,1)/(gamma-1.0_dp)
-           uold(active(ilevel)%igrid(i)+iskip,5) = unew(active(ilevel)%igrid(i)+iskip,5)
+           !if(static_gas) unew(active(ilevel)%igrid(i)+iskip,5)=(1.0_dp-sum_dust_new)*uold(active(ilevel)%igrid(i)+iskip,1)/(gamma-1.0_dp)
+           !
+          uold(active(ilevel)%igrid(i)+iskip,5) = unew(active(ilevel)%igrid(i)+iskip,5)
         end do
      end do
   !Set unew to uold for myid cells
@@ -437,7 +439,42 @@ end do
 
   !call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
   call dustdiff_predict(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
-  
+#if MC>0
+  !--------------------------------------
+  ! Store the fluxes for later use
+  !--------------------------------------
+  if (MC_tracer) then
+     do idim=1,ndim
+        i0=0; j0=0; k0=0
+        if(idim==1)i0=1
+        if(idim==2)j0=1
+        if(idim==3)k0=1
+        do k2=k2min,k2max
+           do j2=j2min,j2max
+              do i2=i2min,i2max
+                 ind_son=1+i2+2*j2+4*k2
+                 iskip=ncoarse+(ind_son-1)*ngridmax
+                 do i=1,ncache
+                    ind_cell(i)=iskip+ind_grid(i)
+                 end do
+                 i3=1+i2
+                 j3=1+j2
+                 k3=1+k2
+                 do i=1,ncache
+                    ! Copy left flux
+                    fluxes(ind_cell(i),(idim-1)*2+1)= fluxes(ind_cell(i),(idim-1)*2+1)+ flux(i,i3   ,j3   ,k3,  1,idim)&
+                        & / uold(ind_cell(i), firstindex_ndust+1)
+                    ! Copy right flux
+                    fluxes(ind_cell(i),(idim-1)*2+2)=fluxes(ind_cell(i),(idim-1)*2+1)-flux(i,i3+i0,j3+j0,k3+k0,1,idim)&
+                         & / uold(ind_cell(i), firstindex_ndust+1)
+                 end do
+              end do
+           end do
+        end do
+     end do
+  end if
+#endif
+
   !Reset fluxes at refined interfaces
   do idim=1,ndim
       i0=0; j0=0; k0=0

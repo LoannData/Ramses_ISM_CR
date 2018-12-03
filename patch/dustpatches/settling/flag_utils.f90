@@ -530,7 +530,7 @@ subroutine geometry_refine(xx,ok,ncell,ilevel)
         else
            r=max(xn,yn,zn)
         end if
-        ok(i)=ok(i).and.(r > 1.0)
+        ok(i)=ok(i).and.(r < 1.0)
      end do
   endif
 

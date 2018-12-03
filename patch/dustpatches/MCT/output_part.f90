@@ -1,4 +1,4 @@
-subroutine backup_part(filename, filename_desc)
+subroutine backup_part(filename)
   use amr_commons
   use pm_commons
   use dump_utils, only : generic_dump, dump_header_info, dim_keys
@@ -16,7 +16,7 @@ subroutine backup_part(filename, filename_desc)
   real(dp), allocatable, dimension(:) :: xdp
   integer(i8b), allocatable, dimension(:) :: ii8
   integer, allocatable, dimension(:) :: ll
-  integer(i8b), allocatable, dimension(:) :: ii1
+  integer, allocatable, dimension(:) :: ii1
 
   integer :: unit_info, ivar
   logical :: dump_info
@@ -25,7 +25,6 @@ subroutine backup_part(filename, filename_desc)
 
   ! Set ivar to 1 for first variable
   ivar = 1
-
   ! Wait for the token
 #ifndef WITHOUTMPI
   if (IOGROUPSIZE > 0) then
@@ -36,19 +35,13 @@ subroutine backup_part(filename, filename_desc)
   end if
 #endif
 
-
-  call title(myid, nchar)
-  fileloc = TRIM(filename) // TRIM(nchar)
-  open(newunit=unit_out, file=TRIM(fileloc), form='unformatted')
-  if (myid == 1) then
-     open(newunit=unit_info, file=trim(filename_desc), form='formatted')
-     call dump_header_info(unit_info)
-     dump_info = .true.
-  else
-     dump_info = .false.
-  end if
-
+  unit_out=2*ncpu+myid+10
+  call title(myid,nchar)
+  fileloc=TRIM(filename)//TRIM(nchar)
+  open(unit=unit_out,file=TRIM(fileloc),form='unformatted')
   rewind(unit_out)
+
+  
   ! Write header
   write(unit_out) ncpu
   write(unit_out) ndim
@@ -72,7 +65,8 @@ subroutine backup_part(filename, filename_desc)
            xdp(ipart) = xp(i, idim)
         end if
      end do
-     call generic_dump("position_"//dim_keys(idim), ivar, xdp, unit_out, dump_info, unit_info)
+     write(unit_out) xdp
+
   end do
   ! Write velocity
   do  idim = 1, ndim
@@ -83,7 +77,8 @@ subroutine backup_part(filename, filename_desc)
            xdp(ipart) = vp(i, idim)
         end if
      end do
-     call generic_dump("velocity_"//dim_keys(idim), ivar, xdp, unit_out, dump_info, unit_info)
+     write(unit_out) xdp
+
   end do
   ! Write mass
   ipart = 0
@@ -97,7 +92,8 @@ subroutine backup_part(filename, filename_desc)
      end if
      end if
   end do
-  call generic_dump("mass", ivar, xdp, unit_out, dump_info, unit_info)
+  write(unit_out) xdp
+
   deallocate(xdp)
   ! Write identity
   allocate(ii8(1:npart))
@@ -108,7 +104,8 @@ subroutine backup_part(filename, filename_desc)
         ii8(ipart) = idp(i)
      end if
   end do
-  call generic_dump("identity", ivar, ii8, unit_out, dump_info, unit_info)
+  write(unit_out)ii8
+
   deallocate(ii8)
 
   ! Write level
@@ -120,7 +117,7 @@ subroutine backup_part(filename, filename_desc)
         ll(ipart) = levelp(i)
      end if
   end do
-  call generic_dump("levelp", ivar, ll, unit_out, dump_info, unit_info)
+  write(unit_out)ll
 
   deallocate(ll)
 
@@ -133,7 +130,7 @@ subroutine backup_part(filename, filename_desc)
         ii1(ipart) = int(typep(i)%family, 1)
      end if
   end do
-  call generic_dump("family", ivar, ii1, unit_out, dump_info, unit_info)
+  write(unit_out) ii1
 
   ! Write tag
   ipart = 0
@@ -143,7 +140,8 @@ subroutine backup_part(filename, filename_desc)
         ii1(ipart) = int(typep(i)%tag, 1)
      end if
   end do
-  call generic_dump("tag", ivar, ii1, unit_out, dump_info, unit_info)
+  write(unit_out) ii1
+
   deallocate(ii1)
 
 #ifdef OUTPUT_PARTICLE_POTENTIAL
@@ -156,7 +154,7 @@ subroutine backup_part(filename, filename_desc)
         xdp(ipart) = ptcl_phi(i)
      end if
   end do
-  call generic_dump("potential", ivar, xdp, unit_out, dump_info, unit_info)
+  write(unit_out) xdp
 
   deallocate(xdp)
 #endif
@@ -171,38 +169,7 @@ subroutine backup_part(filename, filename_desc)
            xdp(ipart) = tp(i)
         end if
      end do
-     call generic_dump("birth_time", ivar, xdp, unit_out, dump_info, unit_info)
-     ! BEGIN SD PATCH----------------------------------------------------!SD
-!!$     if(write_stellar_densities) then
-!!$        ! Write gas density at birth
-!!$        ipart=0
-!!$        do i=1,npartmax
-!!$           if(levelp(i)>0)then
-!!$              ipart=ipart+1
-!!$              xdp(ipart)=st_n_tp(i)
-!!$           end if
-!!$        end do
-!!$        call generic_dump("birth_density", ivar, xdp, unit_out, dump_info, unit_info)
-!!$        ! Write gas density at SN
-!!$        ipart=0
-!!$        do i=1,npartmax
-!!$           if(levelp(i)>0)then
-!!$              ipart=ipart+1
-!!$              xdp(ipart)=st_n_SN(i)
-!!$           end if
-!!$        end do
-!!$        call generic_dump("sn_density", ivar, xdp, unit_out, dump_info, unit_info)
-!!$        ! Write SN energy injected
-!!$        ipart=0
-!!$        do i=1,npartmax
-!!$           if(levelp(i)>0)then
-!!$              ipart=ipart+1
-!!$              xdp(ipart)=st_e_SN(i)
-!!$           end if
-!!$        end do
-!!$        call generic_dump("sn_energy", ivar, xdp, unit_out, dump_info, unit_info)
-!!$     endif
-     ! END SD PATCH------------------------------------------------------!SD
+  write(unit_out) ii1
 
      ! Write metallicity
      if (metal) then
@@ -213,23 +180,23 @@ subroutine backup_part(filename, filename_desc)
               xdp(ipart) = zp(i)
            end if
         end do
-        call generic_dump("metallicity", ivar, xdp, unit_out, dump_info, unit_info)
+          write(unit_out) xdp
      end if
-!!$     ! Write initial mass
-!!$     if(use_initial_mass)then
-!!$        ipart=0
-!!$        do i=1,npartmax
-!!$           if(levelp(i)>0)then
-!!$              ipart=ipart+1
-!!$              xdp(ipart)=mp0(i)
-!!$           end if
-!!$        end do
-!!$        call generic_dump("initial_mass", ivar, xdp, unit_out, dump_info, unit_info)
-!!$     endif
+  deallocate(xdp)
+
+  end if
+       allocate(xdp(1:npart))
+      !gas density
+      ipart = 0
+       do i = 1, npartmax
+          if (levelp(i) > 0) then
+             ipart = ipart+1
+             xdp(ipart) = rhop(i)
+          end if
+       end do
+       write(unit_out) xdp
 
      deallocate(xdp)
-  end if
-
   if (MC_tracer) then
      ! Dump particle pointer
      allocate(ll(1:npart))
@@ -246,8 +213,7 @@ subroutine backup_part(filename, filename_desc)
            end if
         end if
      end do
-
-     call generic_dump("partp", ivar, ll, unit_out, dump_info, unit_info)
+     write(unit_out) ll
      deallocate(ll)
   end if
 
