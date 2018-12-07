@@ -55,7 +55,13 @@ subroutine condinit(x,u,dx,nn,first_lmax)
   real(dp),dimension(20)::func_params
   integer::nR_loop,iR,nZ_loop,iZ,iiz,iter,iter_tot,max_iter,i_table
   real(dp)::C0,C1,C2,C3,Q1,Q2,Q0,pres_zero,pres_minus1,xscl,r_sph_l,r_sph_r
-
+  real(dp) :: sum_dust
+#if NDUST>0
+  integer :: idust
+  real(dp):: epsilon_0
+  real(dp),dimension(1:ndust):: dustMRN
+  epsilon_0 = dust_ratio(1)
+#endif
 
   real(dp)::Mass_of_R,MPrime_of_R,Rho_of_R,RhoPrime_of_R,Pres_of_R,PPrime_of_R,Z_of_R,ZPrime_of_R
   external::Mass_of_R,MPrime_of_R,Rho_of_R,RhoPrime_of_R,Pres_of_R,PPrime_of_R,Z_of_R,ZPrime_of_R
@@ -3235,7 +3241,16 @@ subroutine condinit(x,u,dx,nn,first_lmax)
         q(i,2)= mom_tot(1) + v_turb(1)
         q(i,3)= mom_tot(2) + v_turb(2)
         q(i,4)= v_turb(3)
-        q(i,5)=  pres
+        sum_dust=0.0d0
+#if NDUST>0
+        if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
+        do idust =1,ndust
+           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+        end do   
+#endif
+        q(i,5)=  pres*(1.0d0-sum_dust)
 
         ! Left B fields - Assuming Bz is beta for z, pres is total pressure. P_B = B^2/2
         q(i,6)     = 0.d0
@@ -4168,7 +4183,12 @@ subroutine condinit(x,u,dx,nn,first_lmax)
      u(1:nn,ivar)=q(1:nn,1)*q(1:nn,ivar)
   end do
 #endif
-
+#if NDUST>0
+     ! dust
+     do idust=1,ndust
+        u(1:nn,firstindex_ndust+idust)=q(1:nn,1)*q(1:nn,firstindex_ndust+idust)
+     end do
+#endif 
 end subroutine condinit
 !================================================================
 !================================================================
