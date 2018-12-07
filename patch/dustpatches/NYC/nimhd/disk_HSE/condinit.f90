@@ -60,7 +60,6 @@ subroutine condinit(x,u,dx,nn,first_lmax)
   integer :: idust
   real(dp):: epsilon_0
   real(dp),dimension(1:ndust):: dustMRN
-  epsilon_0 = dust_ratio(1)
 #endif
 
   real(dp)::Mass_of_R,MPrime_of_R,Rho_of_R,RhoPrime_of_R,Pres_of_R,PPrime_of_R,Z_of_R,ZPrime_of_R
@@ -69,6 +68,7 @@ subroutine condinit(x,u,dx,nn,first_lmax)
 
   pi=ACOS(-1.0d0)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  epsilon_0 = dust_ratio(1)
 
   dx_max = boxlen/2.d0**nlevelmax  ! max here means for maximum refinement level
   dR_scale = 1.d0

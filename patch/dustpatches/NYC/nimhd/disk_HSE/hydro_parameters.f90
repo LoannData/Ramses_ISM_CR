@@ -263,6 +263,8 @@ module hydro_parameters
   real(dp) :: mrn_index = 3.5d0
   integer :: slope_dust = 3 ! 1 for upwind, 2 for minmod, 3 for vanleer
   real(dp) :: eta_dust =1.0
+    logical  :: source_pred=.true.
+  logical  :: veloc_pred=.true.
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2
