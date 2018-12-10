@@ -143,17 +143,17 @@ endif
   write(ilun,'("variable #",I2,": temperature")')ivar
 #if NDUST>0
   do idust=1,ndust
-     if(idust<10)write(ilun,'("variable #",I2,":vdx_",I1)')ivar+idust,idust
-     if(idust.ge.10)write(ilun,'("variable #",I2,":vdx_",I2)')ivar+idust,idust
+     if(idust<10)write(ilun,'("variable #",I2,": vdx_",I1)')ivar+idust,idust
+     if(idust.ge.10)write(ilun,'("variable #",I2,": vdx_",I2)')ivar+idust,idust
 
 #if NDIM>1
-     if(idust<10)write(ilun,'("variable #",I2,":vdy_",I1)')ivar+idust+1,idust
-     if(idust.ge.10)write(ilun,'("variable #",I2,":vdy_",I2)')ivar+idust+1,idust
+     if(idust<10)write(ilun,'("variable #",I2,": vdy_",I1)')ivar+idust+1,idust
+     if(idust.ge.10)write(ilun,'("variable #",I2,": vdy_",I2)')ivar+idust+1,idust
 
 #endif
 #if NDIM>2
-     if(idust<10) write(ilun,'("variable #",I2,":vdz_",I1)')ivar+idust+2,idust
-     if(idust.ge.10) write(ilun,'("variable #",I2,":vdz_",I2)')ivar+idust+2,idust
+     if(idust<10) write(ilun,'("variable #",I2,": vdz_",I1)')ivar+idust+2,idust
+     if(idust.ge.10) write(ilun,'("variable #",I2,": vdz_",I2)')ivar+idust+2,idust
 
 #endif          
      ivar = ivar +(ndim-1)

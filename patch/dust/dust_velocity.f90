@@ -56,6 +56,9 @@ subroutine set_vdust(ilevel)
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
   dens_floor=d0
+#if NYC>0
+  dens_floor=1d-17/scale_d
+#endif
   if(mrn.eqv..true.) then
      call size_dust(l_grain)
      do idust=1,ndust
@@ -275,7 +278,7 @@ subroutine set_vdust(ilevel)
             tstop_tot=0.0d0
             t_stop=0.0d0
             do idust = 1,ndust
-               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d-uold(ind_cell(i),firstindex_ndust+idust))
+               t_stop(idust) =  max(d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d-uold(ind_cell(i),firstindex_ndust+idust)),d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/dens_floor)
                if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/K_dust(idust)
                if(dust_barr) t_stop (idust)= 0.1_dp
                tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
@@ -283,17 +286,17 @@ subroutine set_vdust(ilevel)
             do idust = 1,ndust
                t_stop(idust) = t_stop(idust)+tstop_tot
                do idim=1,ndim
-                  v_dust(ind_cell(i),idust,idim)= t_stop(idust)*(gradP(i,idim))/d
+                  v_dust(ind_cell(i),idust,idim)= max(t_stop(idust)*(gradP(i,idim))/d,t_stop(idust)*(gradP(i,idim))/dens_floor)
 		end do	  
-            
-              if(d .le. dens_floor .and. reduce_wdust .eqv. .true..or..not.dust_diffusion) then   
-	      if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
- 	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
-	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
-              do idim=1,ndim       
-              !v_dust(ind_cell(i),idust,idim)= 0.0d0
-               end do   
-            end if
+!!$            
+!!$              if(d .le. dens_floor .and. reduce_wdust .eqv. .true..or..not.dust_diffusion) then   
+!!$	      if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
+!!$ 	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
+!!$	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
+!!$              do idim=1,ndim       
+!!$              !v_dust(ind_cell(i),idust,idim)= 0.0d0
+!!$               end do   
+!!$            end if
             end do
          end do
    end do

@@ -542,8 +542,12 @@ recursive subroutine amr_step(ilevel,icount)
 
      call timer('hydro - set uold','start')
      call set_uold(ilevel)
-
-
+#if RELAX>0
+     !call relaxation_implementation(ilevel)
+#endif
+#if NYC>0
+     call relaxation_implementation(ilevel)
+#endif     
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step
                                call timer('poisson','start')
