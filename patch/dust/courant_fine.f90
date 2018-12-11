@@ -115,6 +115,8 @@ subroutine courant_fine(ilevel)
 #if NDIM==3              
               uu(i,nvar+3+idust)= abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))
 #endif
+              if(.not.dust_diffusion) uu(i,nvar+3+idust)=0.0d0
+
            end do
         !end do
         end do

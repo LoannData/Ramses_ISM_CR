@@ -3245,6 +3245,8 @@ subroutine condinit(x,u,dx,nn,first_lmax)
 #if NDUST>0
         if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
         do idust =1,ndust
+             ! if(q(i,1)<1e-17/scale_d) q(i, firstindex_ndust+idust)=0.0d0
+
            q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
            if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
            sum_dust = sum_dust + q(i, firstindex_ndust+idust)

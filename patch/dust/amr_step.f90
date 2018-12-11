@@ -491,7 +491,7 @@ recursive subroutine amr_step(ilevel,icount)
        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
      end do
   end do
-!  if(.not.dust_diffusion) v_dust=0.0d0
+  if(.not.dust_diffusion) v_dust=0.0d0
   if(.not.dust_diffusion) print *,'dust_diffusion deactivated'
 
 #endif
@@ -543,10 +543,10 @@ recursive subroutine amr_step(ilevel,icount)
      call timer('hydro - set uold','start')
      call set_uold(ilevel)
 #if RELAX>0
-     !call relaxation_implementation(ilevel)
+     call relaxation_implementation(ilevel)
 #endif
 #if NYC>0
-     call relaxation_implementation(ilevel)
+     if(apply_relaxation)call relaxation_implementation(ilevel)
 #endif     
      ! Add gravity source term with half time step and old force
      ! in order to complete the time step
@@ -612,7 +612,9 @@ recursive subroutine amr_step(ilevel,icount)
      call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
   end if
 #endif
-
+#if RELAX>0
+     call relaxation_implementation(ilevel)
+#endif
   !---------------
   ! Move particles
   !---------------

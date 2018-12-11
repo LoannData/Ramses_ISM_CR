@@ -124,23 +124,32 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   if(ischeme.eq.1)then
      do idim = 1,ndim   ! WARNING: ndim instead of 3
         do k = 1, ncell
-           ctot(k)=ctot(k)+abs(uu(k,idim+1))+udust(k)      
+           ctot(k)=ctot(k)+abs(uu(k,idim+1))     
         end do
      end do
-  else
-     do idim = 1,ndim   ! WARNING: ndim instead of 3
-        do k = 1, ncell
-           cc=half*(B2(k)/rho(k)+a2(k))
-           BN=half*(uu(k,5+idim)+uu(k,nvar+idim))
-           cf=sqrt(cc+sqrt(cc**2-a2(k)*BN**2/rho(k)))
-           ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf
+          do k = 1, ncell
 #if NDUST>0
            do idust=1,ndust
               ctot(k)=ctot(k)+uu(k,nvar+idust)+udust(k)
            end do   
 #endif            
         end do
+  else
+     do idim = 1,ndim   ! WARNING: ndim instead of 3
+        do k = 1, ncell
+           cc=half*(B2(k)/rho(k)+a2(k))
+           BN=half*(uu(k,5+idim)+uu(k,nvar+idim))
+           cf=sqrt(cc+sqrt(cc**2-a2(k)*BN**2/rho(k)))
+           ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf          
+        end do
      end do
+     do k = 1, ncell
+#if NDUST>0
+           do idust=1,ndust
+              ctot(k)=ctot(k)+uu(k,nvar+idust)+udust(k)
+           end do   
+#endif            
+        end do
   endif
 
   ! Compute gravity strength ratio

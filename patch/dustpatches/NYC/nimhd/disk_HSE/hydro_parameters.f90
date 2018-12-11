@@ -199,7 +199,7 @@ module hydro_parameters
   real(dp)::courant_factor=0.5d0
   real(dp)::difmag=0.0d0
   real(dp)::smallc=1.d-10
-  real(dp)::smallr=1.d-10
+  real(dp)::smallr=1.d-15
   real(dp)::smallcr=1.d-10
   real(dp)::eta_mag=0.0d0
   character(LEN=10)::scheme='muscl'

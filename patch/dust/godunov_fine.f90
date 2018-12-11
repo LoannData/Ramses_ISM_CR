@@ -863,14 +863,6 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:2,1:ndim),save::tmp
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
 
-#if RELAX>0
-  real(dp),dimension(1:nvector,1:ndim),save::xx
-
-  real(dp),dimension(1:twotondim,1:3)::xc
-  integer :: ix,iy,iz
-    real(dp)::xn,yn,rin,rr
-
-#endif
   
   integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
 
@@ -893,9 +885,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
   dx=0.5D0**ilevel*scale
-#if RELAX>0
-  rin= 0.5d0
-#endif
+
   ! Integer constants
   i1min=0; i1max=0; i2min=0; i2max=0; i3min=1; i3max=1
   j1min=0; j1max=0; j2min=0; j2max=0; j3min=1; j3max=1
@@ -915,14 +905,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   !------------------------------------------
   do i=1,ncache
      ind_cell(i)=father(ind_grid(i))
-#if RELAX>0   
-     iz=(i-1)/4
-     iy=(i-1-4*iz)/2
-     ix=(i-1-2*iy-4*iz)
-     if(ndim>0)xc(i,1)=(dble(ix)-0.5D0)*dx
-     if(ndim>1)xc(i,2)=(dble(iy)-0.5D0)*dx
-     if(ndim>2)xc(i,3)=(dble(iz)-0.5D0)*dx
-#endif    
+    
   end do
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncache,ilevel)
 
