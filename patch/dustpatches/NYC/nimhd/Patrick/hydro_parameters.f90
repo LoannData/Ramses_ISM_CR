@@ -267,9 +267,19 @@ module hydro_parameters
   logical  :: source_pred=.true.
   logical  :: veloc_pred=.true.
   
-
-
-  
+  !Disk parameters
+  real(dp):: HoverR = 0.15
+  real(dp):: Tp0= 108.d0
+  real(dp):: rd_factor=0.25d0
+  real(dp):: rsmooth=0.05
+  real(dp):: Mstar_cen=1.0d0
+  real(dp):: rhocen= 1e-11
+  integer :: nstep_relax=1000
+  real(dp):: trelax=0.1
+  real(dp) :: beta_mag=1e5
+  logical :: iso_smooth=.false.
+  real(dp):: Tpback=10.d0
+  real(dp):: rhoext=1e-17
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2

@@ -497,16 +497,21 @@ subroutine geometry_refine(xx,ok,ncell,ilevel)
   use hydro_commons
   use poisson_commons
   implicit none
-  integer::ncell,ilevel
+  integer::ncell,ilevel,nx_loc
   real(dp),dimension(1:nvector,1:ndim)::xx
   logical ,dimension(1:nvector)::ok
   !-------------------------------------------------
   ! This routine sets flag1 to 1 if cell statisfy
   ! user-defined physical criterion for refinement.
   !-------------------------------------------------
-  real(dp)::er,xr,yr,zr,rr,xn,yn,zn,r,aa,bb
+  real(dp)::er,xr,yr,zr,rr,xn,yn,zn,r,aa,bb,rin,r2
   integer ::i
-
+  real(dp)::d_scale,scale,dx,dx_loc,vol_loc
+  rin =0.2
+  nx_loc=(icoarse_max-icoarse_min+1)
+  scale=boxlen/dble(nx_loc)
+  dx=0.5d0**ilevel
+  dx_loc=dx*scale
   ! Authorize refinement if cell lies within region,
   ! otherwise unmark cell (no refinement outside region)
   if(r_refine(ilevel)>-1.0)then
@@ -515,8 +520,9 @@ subroutine geometry_refine(xx,ok,ncell,ilevel)
      yr=boxlen/2.0d0
      zr=boxlen/2.0d0
      rr=r_refine  (ilevel) ! Region DIAMETER (beware !)
-     aa=a_refine  (ilevel) ! Ellipticity (Y/X)
+     aa=a_refine  (ilevel) ! percentage of box used
      bb=b_refine  (ilevel) ! Ellipticity (Z/X)
+     rin=0.2
      do i=1,ncell
         xn=0.0d0; yn=0.0d0; zn=0.0d0
         xn=abs(xx(i,1)-xr)
@@ -525,12 +531,9 @@ subroutine geometry_refine(xx,ok,ncell,ilevel)
       
         zn=abs(xx(i,3)-zr)
 
-        if(er<10)then
-           r=(zn**er)**(1.0/er)/rr
-        else
-           r=max(xn,yn,zn)
-        end if
-        ok(i)=ok(i).and.(r < 1.0)
+        r=(xn**er+yn**er)**(1.0/er)/rr
+        !print* , abs(r-1.0),aa, ilevel
+        ok(i)=ok(i).and.(abs(r-1.0)<aa)
      end do
   endif
 

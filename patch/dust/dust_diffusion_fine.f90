@@ -137,7 +137,7 @@ subroutine set_uold_dust(ilevel)
            end do
 #endif
            enint=0.0d0
-           call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5)-e_kin -e_mag , temp, ht,sum_dust_new )
+           call temperature_eos(rho_gas, uold(active(ilevel)%igrid(i)+iskip,5)-e_kin -e_mag , temp, ht)
            rho_gas =  uold(active(ilevel)%igrid(i)+iskip,1)-sum_dust_new*d
            call enerint_eos (rho_gas, temp , enint)
            unew(active(ilevel)%igrid(i)+iskip,5) = enint + e_kin +e_mag
@@ -152,7 +152,7 @@ subroutine set_uold_dust(ilevel)
      iskip=ncoarse+(ind-1)*ngridmax
      do i=1,active(ilevel)%ngrid           
            do idust=1,ndust
-              uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
+              uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = max(unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust),1d-18)
            end do
         end do
      end do

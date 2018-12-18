@@ -128,8 +128,6 @@ module hydro_parameters
 #endif
 
   ! Refinement parameters for hydro
-  integer ::scale_height_refine=0
-  real(dp)::NH_refine=1.0
   real(dp)::err_grad_d=-1.0  ! Density gradient
   real(dp)::err_grad_u=-1.0  ! Velocity gradient
   real(dp)::err_grad_p=-1.0  ! Pressure gradient
@@ -199,7 +197,7 @@ module hydro_parameters
   real(dp)::courant_factor=0.5d0
   real(dp)::difmag=0.0d0
   real(dp)::smallc=1.d-10
-  real(dp)::smallr=1.d-15
+  real(dp)::smallr=1.d-20
   
   real(dp)::smallcr=1.d-10
   real(dp)::eta_mag=0.0d0
@@ -267,8 +265,6 @@ module hydro_parameters
   logical  :: source_pred=.true.
   logical  :: veloc_pred=.true.
   
-
-
   
   ! modif nimhd
   integer:: nxx=1
@@ -362,5 +358,14 @@ module hydro_parameters
   integer ::interpol_mag_type_cond=-1
   real(dp)::frac_pcr=0.1
 
-  
+  real(dp)::temper_iso
+  real(dp)::temper_expo=0.
+  real(dp)::dens0=0.01
+  real(dp)::V0,U0
+  real(dp)::shifting=0.
+  real(dp)::coef_rad=10.
+  logical::accret_nonsym=.true.
+  logical::confine=.false.
+  real(dp)::accret_rad=1.
+
 end module hydro_parameters

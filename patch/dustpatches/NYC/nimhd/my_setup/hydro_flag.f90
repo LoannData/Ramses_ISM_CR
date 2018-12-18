@@ -44,7 +44,6 @@ subroutine hydro_flag(ilevel)
      if(ndim>1)xc(ind,2)=(dble(iy)-0.5D0)*dx
      if(ndim>2)xc(ind,3)=(dble(iz)-0.5D0)*dx
   end do
-
   if(    err_grad_d==-1.0.and.&
        & err_grad_p==-1.0.and.&
        & err_grad_A==-1.0.and.&
@@ -143,7 +142,7 @@ subroutine hydro_flag(ilevel)
               end do
            end do
            if(scale_height_refine>0) then
-           call disk_refine(xx,ok,ngrid,ilevel)
+           call disk_refine_H(xx,ok,ngrid,ilevel)
         endif
         
         ! Count newly flagged cells
@@ -288,7 +287,7 @@ subroutine dust_refine()
  
 end subroutine dust_refine
 
-subroutine disk_refine(xx,ok,ncell,ilevel)
+subroutine disk_refine_H(xx,ok,ncell,ilevel)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -311,19 +310,16 @@ subroutine disk_refine(xx,ok,ncell,ilevel)
   integer::i,indi
   real(dp)::dx,H_0, omega,rr,cs0,H,Mstar,r0,cs
   real(dp)::sum_dust
-  real(dp)::er,xr,yr,zr,xn,yn,zn,r,aa,bb
+  real(dp)::er,xr,yr,zr,xn,yn,zn,r,aa,bb,res,rin
 
      xr=boxlen/2.0d0 ! Region centre
      yr=boxlen/2.0d0
      zr=boxlen/2.0d0
      
-     r0=5.0d0
-     H=0.05*r0
-     Mstar = 1.0d0
-     H_0=0.05*r0
-     cs0 =  (H_0*sqrt(Mstar/r0**3.0))
+     rin=0.2d0
+     res=0.1
 
-  dx=0.5D0**ilevel
+     dx=0.5D0**ilevel
      do i=1,ncell
         xn=0.0d0; yn=0.0d0; zn=0.0d0
         xn=abs(xx(i,1)-xr)
@@ -333,10 +329,11 @@ subroutine disk_refine(xx,ok,ncell,ilevel)
         rr =sqrt(xn**2.0+yn**2.0)
         cs= cs0*sqrt((RR/R0)**(-1.0d0))
         omega=sqrt(Mstar/rr**3.0)
-        H= cs*omega
-        !print *, H/NH_refine, dx
-        ok(i)=ok(i).or.((H/dx<NH_refine).or.zn<10*H)
+        H = 0.05*rr
+        !print *, H, rr, H/dx
+        ok(i)=ok(i).or.(H/dx<real(NH_refine,dp).and.rr>rin)
      end do
- 
 
-end subroutine disk_refine
+     
+
+end subroutine disk_refine_H

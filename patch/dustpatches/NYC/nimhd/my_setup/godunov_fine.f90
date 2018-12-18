@@ -545,7 +545,7 @@ subroutine add_pdv_source_terms(ilevel)
            enddo
 
 #endif           
-           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht)
+           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht,sum_dust)
 
            ! Compute radiative pressure in all groups
            do igroup=1,ngrp
@@ -863,6 +863,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:2,1:ndim),save::tmp
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
 
+
   
   integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
 
@@ -905,7 +906,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   !------------------------------------------
   do i=1,ncache
      ind_cell(i)=father(ind_grid(i))
-    
+   
   end do
   call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncache,ilevel)
 
@@ -1987,7 +1988,7 @@ if(fld)then
 
 #endif
            ! Compute gas temperature in cgs
-           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht)
+           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht,sum_dust)
 
            frad(ind_cell(i),1:ndim)=0.0d0
            
@@ -2040,7 +2041,7 @@ if(fld)then
            enddo
 
 #endif           
-           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht)
+           call temperature_eos((1.0_dp-sum_dust)*d,eps,Tp_loc,ht,sum_dust)
 
            frad(ind_cell(i),1:ndim)=zero
 

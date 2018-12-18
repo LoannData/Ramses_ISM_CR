@@ -621,8 +621,8 @@ subroutine read_hydro_params(nml_ok)
 #if USE_FLD==1 || USE_M_1==1
      !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
 
-     call temperature_eos(max((1.0_dp-sum_dust)*d_bound(i),smallr),P_bound(i)/(gamma-1.0d0),T_bound(i),ht,sum_dust)
-     if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht,sum_dust)
+     call temperature_eos(max((1.0_dp-sum_dust)*d_bound(i),smallr),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
+     if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht)
 
      do j=1,ngrp
         boundary_var(i,firstindex_er+j)=radiation_source(T_bound(i),j)/(scale_d*scale_v**2)

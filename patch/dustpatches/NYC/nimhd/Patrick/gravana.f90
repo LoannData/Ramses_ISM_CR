@@ -5,6 +5,7 @@
 subroutine gravana(x,f,dx,ncell)
   use amr_parameters
   use poisson_parameters
+  use hydro_parameters
   implicit none
   integer ::ncell                         ! Size of input arrays
   real(dp)::dx                            ! Cell size
@@ -16,8 +17,9 @@ subroutine gravana(x,f,dx,ncell)
   ! f(i,1:ndim) is the gravitational acceleration in user units.
   !================================================================
   integer::idim,i
-  real(dp)::gmass,emass,xmass,ymass,zmass,rr,rx,ry,rz,rcyl,rin,radiusin,HoverR,H1
-  rin= 0.2d0
+  real(dp)::gmass,emass,xmass,ymass,zmass,RRR,rr,rx,ry,rz,rcyl,rin,radiusin,H1,sfive,hsmooth
+  rin =rd_factor
+
   HoverR=0.05
   ! Constant vector
   if(gravity_type==1)then
@@ -30,12 +32,14 @@ subroutine gravana(x,f,dx,ncell)
 
   ! Point mass
   if(gravity_type==2)then
-     gmass=1.0d0 ! GM
-     emass=2.0d0*dx
+     gmass=Mstar_cen! GM
+     emass=2.0*dx
+
      emass=gravity_params(2) ! Softening length
      xmass=gravity_params(3) ! Point mass coordinates
      ymass=gravity_params(4)
      zmass=gravity_params(5)
+     
      do i=1,ncell
         rx=0.0d0; ry=0.0d0; rz=0.0d0
         
@@ -46,24 +50,25 @@ subroutine gravana(x,f,dx,ncell)
 #if NDIM>2
         rz=x(i,3)-boxlen/2.0d0
 #endif
-        rr=sqrt(rx**2+ry**2+rz**2)
+        rr=sqrt(rx**2+ry**2+rz**2+rsmooth**2.0)
 
+        RRR = sqrt(rx**2.0+ry**2.0+rz**2.0)
         radiusin=sqrt(rin**2.0+rz**2)
+        Hsmooth=5.*hoverr*rrr
         
         rcyl=sqrt(rx**2+ry**2)
         H1=Hoverr*rcyl
 
-        f(i,1)=-gmass*rx/rr**3
-        if (rcyl<rin) f(i,1)=0.0d0!-gmass*rx/rr/radiusin**2.0
-
+        f(i,1)=-gmass*rx/rrr/rr**2.0*sfive(rrr/rsmooth)
+        !if(rcyl<rin)  f(i,1)=-gmass*rx/rr/rin**2.0
 #if NDIM>1
-        f(i,2)=-gmass*ry/rr**3
-        if (rcyl<rin) f(i,2)=0.0d0!-gmass*rx/rr/radiusin**2.0
+        f(i,2)=-gmass*ry/rrr/rr**2.0*sfive(rrr/rsmooth)
+        !if(rcyl<rin)  f(i,2)=-gmass*ry/rr/rin**2.0
 
 #endif
 #if NDIM>2
-        f(i,3)=-gmass*rz/rr**3
-        if (rcyl<rin) f(i,3)=-gmass*rz/radiusin**3.0
+        f(i,3)=-gmass*rz/rrr/rr**2.0*sfive(rrr/rsmooth)
+        !if(rcyl<rin)  f(i,3)=-gmass*rz/rr/rin**2.0
 
 #endif
      end do
@@ -105,3 +110,4 @@ subroutine phi_ana(rr,pp,ngrid)
   end do
 #endif
 end subroutine phi_ana
+

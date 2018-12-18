@@ -27,7 +27,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/init_params/filetype,initfile,multiple,nregion,region_type &
        & ,x_center,y_center,z_center,aexp_ini &
        & ,length_x,length_y,length_z,exp_region &
-       & ,d_region,u_region,v_region,w_region,p_region,frac_Pcr &
+       & ,d_region,u_region,v_region,w_region,p_region,frac_Pcr&
 #if NENER>NGRP
        & ,prad_region &
 #endif
@@ -51,7 +51,7 @@ subroutine read_hydro_params(nml_ok)
        & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust,source_pred,veloc_pred&
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
-  namelist/refine_params/scale_height_refine,NH_refine,x_refine,y_refine,z_refine,r_refine &
+  namelist/refine_params/x_refine,y_refine,z_refine,r_refine &
        & ,a_refine,b_refine,exp_refine,jeans_refine,mass_cut_refine &
        & ,m_refine,mass_sph,err_grad_d,err_grad_p,err_grad_u &
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2,err_grad_E &
@@ -98,7 +98,8 @@ subroutine read_hydro_params(nml_ok)
        & ,larson_lifetime,flux_accretion,t_diss &
        & ,mu_gas &
        & ,isotrope_cond,slopelim_cond,k_perp,cr_diffusion &
-       & ,M0,Dcr,epsilon_diff_cr,fix_temp_diff,alfven_diff_coeff
+       & ,M0,Dcr,epsilon_diff_cr,fix_temp_diff,alfven_diff_coeff &
+       &,temper_iso,dens0,V0,U0,shifting,temper_expo,accret_nonsym,coef_rad,accret_rad,confine
 
   namelist/radiation_params/grey_rad_transfer &
        & ,rosseland_params,planck_params,epsilon_diff,fld_limiter &
@@ -621,8 +622,8 @@ subroutine read_hydro_params(nml_ok)
 #if USE_FLD==1 || USE_M_1==1
      !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
 
-     call temperature_eos(max((1.0_dp-sum_dust)*d_bound(i),smallr),P_bound(i)/(gamma-1.0d0),T_bound(i),ht,sum_dust)
-     if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht,sum_dust)
+     call temperature_eos(max((1.0_dp-sum_dust)*d_bound(i),smallr),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
+     if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht)
 
      do j=1,ngrp
         boundary_var(i,firstindex_er+j)=radiation_source(T_bound(i),j)/(scale_d*scale_v**2)

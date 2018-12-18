@@ -47,6 +47,7 @@ recursive subroutine amr_step(ilevel,icount)
   if(verbose)write(*,999)icount,ilevel
 
   call boundary_frig(ilevel)
+  call velocity_fine(ilevel)
 
   !-------------------------------------------
   ! Make new refinements and update boundaries

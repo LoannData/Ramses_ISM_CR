@@ -59,6 +59,9 @@ subroutine set_vdust(ilevel)
 #if NYC>0
   dens_floor=1d-17/scale_d
 #endif
+#if RELAX>0
+  dens_floor=1d-17/scale_d
+#endif
   vmax=5.e6/scale_v
   if(mrn.eqv..true.) then
      call size_dust(l_grain)
@@ -293,8 +296,13 @@ subroutine set_vdust(ilevel)
               if(sum_dust.eq.0.0d0)  v_dust(ind_cell(i),idust,idim)=0.0d0
               if(reduce_wdust) then   
               do idim=1,ndim       
-              v_dust(ind_cell(i),idust,idim)=  v_dust(ind_cell(i),idust,idim)/abs(v_dust(ind_cell(i),idust,idim))*min(abs(v_dust(ind_cell(i),idust,idim)),vmax)
-               end do   
+                 v_dust(ind_cell(i),idust,idim)=  v_dust(ind_cell(i),idust,idim)/abs(v_dust(ind_cell(i),idust,idim))*min(min(abs(v_dust(ind_cell(i),idust,idim)),vmax),cs)
+#if RELAX>0
+           if (d<dens_floor)   v_dust(ind_cell(i),idust,idim)= 0.0d0
+#endif
+           end do
+
+           
             end if
             end do
          end do

@@ -292,7 +292,8 @@ subroutine disk_refine_H(xx,ok,ncell,ilevel)
   use pm_commons
   use hydro_commons
   use poisson_commons
-  use cooling_module, ONLY: twopi
+  use cooling_module      , only :twopi ,kb,mh
+  use radiation_parameters,only:mu_gas
   use units_commons
   implicit none
   integer::ncell,ilevel
@@ -308,16 +309,22 @@ subroutine disk_refine_H(xx,ok,ncell,ilevel)
   ! P. Hennebelle 03/11/2005
   !-------------------------------------------------
   integer::i,indi
-  real(dp)::dx,H_0, omega,rr,cs0,H,Mstar,r0,cs
+  real(dp)::dx,H_0, omega,rr,H,cs
   real(dp)::sum_dust
-  real(dp)::er,xr,yr,zr,xn,yn,zn,r,aa,bb,res,rin
+  real(dp)::er,xr,yr,zr,xn,yn,zn,r,aa,bb,res,rin,rout,drrho,rrdr,radius,radiusdr,csdr,rho0,cs0
 
      xr=boxlen/2.0d0 ! Region centre
      yr=boxlen/2.0d0
      zr=boxlen/2.0d0
-     
-     rin=0.2d0
+      rout= 5.0d0!2.0*4.0
+      dx=0.5d0**ilevel
+
+     rin=boxlen*rd_factor/10.0
      res=0.1
+       H=HoverR*rout
+
+  Cs0 =  sqrt(gamma*kb*Tp0/(mu_gas*mH))/scale_v
+  rho0=rhocen/scale_d
 
      dx=0.5D0**ilevel
      do i=1,ncell
@@ -325,14 +332,20 @@ subroutine disk_refine_H(xx,ok,ncell,ilevel)
         xn=abs(xx(i,1)-xr)
         yn=abs(xx(i,2)-yr)
         zn=abs(xx(i,3)-zr)
+        RR = sqrt(xn**2.0+yn**2.0+rin**2.0)
+        RRdR= sqrt(xn**2.0+yn**2.0+rin**2.0)+dx
+        radius = sqrt(RR**2.0+zn**2.00+rin**2.0)
+        radiusdr= sqrt(RRdr**2.0+zn**2.00+rin**2.0)
 
-        rr =sqrt(xn**2.0+yn**2.0)
-        cs= cs0*sqrt((RR/R0)**(-1.0d0))
-        omega=sqrt(Mstar/rr**3.0)
-        H = 0.05*rr
-        !print *, H, rr, H/dx
-        ok(i)=ok(i).or.(H/dx<real(NH_refine,dp).and.rr>0.8*rin)
+         H = HoverR*rr
+         cs= cs0/sqrt(RR/rout)
+         csdr= Cs0/sqrt(RRdr/rout)
+
+         drRho= ((RRdr/rout)**(-2.5)*exp(-Mstar_cen/csdr**2.0*(1/RRdr-1/radiusdr))-(RR/rout)**(-2.5)*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius)))/((RR/rout)**(-2.5)*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))+1d-17/scale_d/rho0)
+
+        ok(i)=ok(i).or.(drrho>real(NH_refine,dp))
      end do
- 
+
+     
 
 end subroutine disk_refine_H

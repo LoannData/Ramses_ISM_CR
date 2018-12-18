@@ -428,7 +428,7 @@ subroutine compute_clump_properties_round2
 
 #endif 
         call pressure_eos((1.0_dp-sum_dust)*d,eint,p) 
-		call temperature_eos((1.0_dp-sum_dust)*d,eint,T2,ht,sum_dust)
+		call temperature_eos((1.0_dp-sum_dust)*d,eint,T2,ht)
 
         ! add radiation pressure by non-thermal gas (radiation or cosmic rays) ! WARNING DOES NOT WORK FOR 2 TEMP - ELECTRONIC CONDUCTION 
         p=p+err/3.d0

@@ -4,7 +4,7 @@
 !#########################################################
 subroutine gravana(x,f,dx,ncell)
   use amr_parameters
-  use poisson_parameters
+  use poisson_parameters  
   implicit none
   integer ::ncell                         ! Size of input arrays
   real(dp)::dx                            ! Cell size
@@ -16,11 +16,10 @@ subroutine gravana(x,f,dx,ncell)
   ! f(i,1:ndim) is the gravitational acceleration in user units.
   !================================================================
   integer::idim,i
-  real(dp)::gmass,emass,xmass,ymass,zmass,rr,rx,ry,rz,rcyl,rin,radiusin,HoverR,H1
-  rin= 0.2d0
-  HoverR=0.05
+  real(dp)::gmass,emass,xmass,ymass,zmass,rr,rx,ry,rz
+
   ! Constant vector
-  if(gravity_type==1)then
+  if(gravity_type==1)then 
      do idim=1,ndim
         do i=1,ncell
            f(i,idim)=gravity_params(idim)
@@ -29,45 +28,33 @@ subroutine gravana(x,f,dx,ncell)
   end if
 
   ! Point mass
-  if(gravity_type==2)then
-     gmass=1.0d0 ! GM
-     emass=2.0d0*dx
+  if(gravity_type==2)then 
+     gmass=gravity_params(1) ! GM
      emass=gravity_params(2) ! Softening length
-     xmass=gravity_params(3) ! Point mass coordinates
-     ymass=gravity_params(4)
-     zmass=gravity_params(5)
+     xmass=0.5d0*boxlen!gravity_params(3) ! Point mass coordinates
+     ymass=0.5d0*boxlen!gravity_params(4)
+     zmass=0.5d0*boxlen!gravity_params(5)
      do i=1,ncell
         rx=0.0d0; ry=0.0d0; rz=0.0d0
-        
-        rx=x(i,1)-boxlen/2.0d0
+        rx=x(i,1)-xmass
 #if NDIM>1
-        ry=x(i,2)-boxlen/2.0d0
+        ry=x(i,2)-ymass
 #endif
 #if NDIM>2
-        rz=x(i,3)-boxlen/2.0d0
+        rz=x(i,3)-zmass
 #endif
-        rr=sqrt(rx**2+ry**2+rz**2)
-
-        radiusin=sqrt(rin**2.0+rz**2)
-        
-        rcyl=sqrt(rx**2+ry**2)
-        H1=Hoverr*rcyl
-
+        rr=sqrt(rx**2+ry**2+rz**2+emass**2)
         f(i,1)=-gmass*rx/rr**3
-        if (rcyl<rin) f(i,1)=0.0d0!-gmass*rx/rr/radiusin**2.0
-
 #if NDIM>1
         f(i,2)=-gmass*ry/rr**3
-        if (rcyl<rin) f(i,2)=0.0d0!-gmass*rx/rr/radiusin**2.0
-
 #endif
 #if NDIM>2
         f(i,3)=-gmass*rz/rr**3
-        if (rcyl<rin) f(i,3)=-gmass*rz/radiusin**3.0
-
 #endif
      end do
   end if
+
+
 
 end subroutine gravana
 !#########################################################

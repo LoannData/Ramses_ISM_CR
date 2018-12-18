@@ -2335,7 +2335,7 @@ function cmp_temp(this)
      sum_dust = sum_dust + uold(this,firstindex_ndust+idust)/uold(this,1)
   end do
 #endif
-  call temperature_eos((1.0_dp-sum_dust)*rho,eps,cmp_temp,ht,sum_dust)
+  call temperature_eos((1.0_dp-sum_dust)*rho,eps,cmp_temp,ht)
 
   return
 

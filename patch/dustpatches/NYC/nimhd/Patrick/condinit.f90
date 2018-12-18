@@ -31,8 +31,8 @@ subroutine condinit(x,u,dx,nn)
   !================================================================
   integer::ivar, idust, i
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp)::xn,x0,sum_dust, qdisk,pdisk,cs0,cs2, RR, rin, rout, etadisk,cs,Hgdisk,sigmagdisk, vkep,Mstar, Msol,pi,yn,zn, r0, radius, rho0, HoverR,H1
-  real(dp):: T0, v_quasikep, alpha_disk,H,Bz,radiusin
+  real(dp)::xn,x0,sum_dust, RR,rrr, rin, rout,yn,zn, radius,rho0,cs0,cs,omega_kep,radiusin, radiusout,emass,H,drRho
+  real(dp)::rrdr,radiusdr,csdr,sfive,Bz,bzdr,rrdmr,bzdmr,csdmr,radiusdmr,csback,Hsmooth
 #if NDUST>0
   real(dp),dimension(1:ndust):: dustMRN
 #endif
@@ -44,82 +44,57 @@ subroutine condinit(x,u,dx,nn)
   do ivar=9,nvar
      q(1:nn,ivar)=0.0d0
   end do
-  
-  r0=5.0d0
-  rin= 0.2d0
-  rout= 5.5d0
-  rho0 = 2.3434e-11/scale_d
-  HoverR=0.05
-  H=HoverR*r0
-  Bz=1.0d5
-  Mstar = 1.0d0
-      
-  cs0 =  (H*sqrt(Mstar/r0**3.0))**2.0
-  x0 = boxlen/2.0d0
-  pi= 3.141592563585d0
-  qdisk= -1.0d0
-  pdisk=-3.0d0/2.0d0
+  rin =rd_factor
+  rout= 5.0d0!2.0*4.0
+  H=HoverR*rout
+  Cs0 =  sqrt(gamma*kb*Tp0/(mu_gas*mH))/scale_v
+  csback= sqrt(gamma*kb*Tpback/(mu_gas*mH))/scale_v
+  rho0=rhocen/scale_d
+  x0=boxlen/2.0
   do i=1,nn
      ! Compute position in normalized coordinates
      xn=(x(i,1)-x0)
      yn=(x(i,2)-x0)
      zn=(x(i,3)-x0)
      !cylindrical radius
-     RR = sqrt(xn**2.0+yn**2.0)
-     H1= HoverR*RR
      !spherical radius
-     radius = sqrt(xn**2.0+yn**2.0+zn**2.0)
-     radiusin=sqrt(rin**2.0+zn**2.0)
+     RR = sqrt(xn**2.0+yn**2.0+rsmooth**2.0)
+     RRR = sqrt(xn**2.0+yn**2.0)
      
-     cs2= cs0*(RR/R0)**(-1.0d0)
-     alpha_disk= Mstar/cs2
-     sum_dust=0.0d0
-#if NDUST>0
-     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
-        do idust =1,ndust
-           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-           if(q(i,1)<1e-17/scale_d) q(i, firstindex_ndust+idust)=0.0d0
+     radius = sqrt(RR**2.0+zn**2.0)
 
-           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
-           
-           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
-        end do   
-#endif
-        q(i,1)= rho0*(RR/r0)**(-1.5d0)*exp(alpha_disk*(1/radius-1/RR))+1d-20/scale_d
-        q(i,5)= q(i,1)*cs2*(1.0-sum_dust)
-        v_quasikep = sqrt(Mstar/radius)*sqrt(rr/radius-5.0d0/2.0*0.05**2.0)
-        q(i,2)= - v_quasikep*yn/RR
-        q(i,3)=  v_quasikep*xn/RR
-        q(i,4)=0.0d0
-        ! Left B fields - Assuming Bz is beta for z, pres is total pressure. P_B = B^2/2
-        q(i,6)     = 0.d0
-        q(i,7)     = 0.d0
-        q(i,8)     = 1./sqrt(0.5*Bz/(rho0*cs2*(1.0-sum_dust)*(RR/r0)**(-1.5d0)))
-        ! Right B fields. Div * B is zero with linear operator (Bxr - Bxl)/dx ...
-        q(i,nvar+1)= 0.d0
-        q(i,nvar+2)= 0.d0
-        q(i,nvar+3)= q(i,8)
-  
-        if (RR<rin) then
-           cs2= cs0*(rin/R0)**(-1.0d0)
-           alpha_disk= Mstar/cs2
-           v_quasikep = sqrt(Mstar/rin)*sqrt(rin/radiusin-5.0d0/2.0*0.05**2.0)
+     RRdR=RR+dx
+     RRdmR=abs(RR-dx)
 
-           q(i,1)=1d-20/scale_d
-           q(i,2)=0.0d0! - v_quasikep*yn/rr
-           q(i,3)=0.0d0!  v_quasikep*xn/rr
-           q(i,5)= q(i,1)*cs2*(1.0-sum_dust)
-           q(i,6)     = 0.d0
-           q(i,7)     = 0.d0
-           q(i,8)     = 0.d0!1./sqrt(0.5*Bz/(rho0*cs2*(1.0-sum_dust)*(rin/r0)**(-1.5d0)))
-        ! Right B fields. Div * B is zero with linear operator (Bxr - Bxl)/dx ...
-        q(i,nvar+1)= 0.d0
-        q(i,nvar+2)= 0.d0
-        q(i,nvar+3)= q(i,8)
-        endif
+     radiusdr= sqrt(RRdr**2.0+zn**2.0)
+     radiusdmr=sqrt(RRdmr**2.0+zn**2.0)
+     cs= sfive(rrr/rsmooth)*cs0/sqrt(RR/rout)+csback
+     csdr=sfive(rrr/rsmooth)*Cs0/sqrt(RRdr/rout)+csback
+     csdmr=sqrt(RRdmr**2.0+zn**2.0)     
+     Hsmooth=5.*hoverr*rrr
+     
+     q(i,1)=sfive(rrr/rsmooth)*rho0*(RR/rout)**(-2.5)*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))+rhoext/scale_d
+
+     drRho= (csdr**2.0*rho0*(RRdr/rout)**(-2.5)*exp(-Mstar_cen/csdr**2.0*(1/RRdr-1/radiusdr))-cs**2.0*rho0*(RR/rout)**(-2.5)*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius)))/q(i,1)/RR/dx
 
 
-      end do
+     omega_kep=sqrt(Mstar_cen/rr**3.0+drRho)!-3.5*Bz*(RR/rout)**(-1.0)/q(i,1)/RR)
+     q(i,5)=cs**2.0*q(i,1)
+     Bz=sfive(rrr/rsmooth)*sqrt(0.5d0*(cs**2.0*q(i,1))/beta_mag)
+
+     q(i,2)=-omega_kep*rr*yn/rrr
+     q(i,3)=omega_kep*rr*xn/rrr
+     q(i,4)=0.0d0
+
+     q(i,6)     = 0.d0
+     q(i,7)     = 0.d0
+     q(i,8)     = bz
+     ! Right B fields. Div * B is zero with linear operator (Bxr - Bxl)/dx ...
+     q(i,nvar+1)= 0.d0
+     q(i,nvar+2)= 0.d0
+     q(i,nvar+3)= q(i,8)
+    
+     end do
 
      ! Convert primitive to conservative variables
      ! density -> density
@@ -260,3 +235,4 @@ subroutine velana(x,v,dx,t,ncell)
 
 
 end subroutine velana
+

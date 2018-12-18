@@ -1127,7 +1127,7 @@ subroutine set_unew_sts(ilevel,iupdate,dtohm,dtad)
                  sum_dust= sum_dust+ uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)/d
               enddo
 #endif     
-              call temperature_eos((1.0_dp- sum_dust)*d,eps,Tcell,ht,sum_dust)
+              call temperature_eos((1.0_dp- sum_dust)*d,eps,Tcell,ht)
 
               B2 = A**2+B**2+C**2
               !compute nimhd timesteps
@@ -1312,7 +1312,7 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
                     sum_dust= sum_dust+ uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)/d
                  enddo
 #endif                         
-                    call temperature_eos((1.0_dp-sum_dust)*d,uold(active(ilevel)%igrid(i)+iskip,nvar),tcell,ht,sum_dust)
+                    call temperature_eos((1.0_dp-sum_dust)*d,uold(active(ilevel)%igrid(i)+iskip,nvar),tcell,ht)
                  end if
          
                  if(nmagdiffu2 .eq. 1 )ohm_heating=jsquare*etaohmdiss(d,bcell2,tcell)*dtnew(ilevel)!*vol_loc

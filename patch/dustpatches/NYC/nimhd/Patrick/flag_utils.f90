@@ -507,7 +507,7 @@ subroutine geometry_refine(xx,ok,ncell,ilevel)
   real(dp)::er,xr,yr,zr,rr,xn,yn,zn,r,aa,bb,rin,r2
   integer ::i
   real(dp)::d_scale,scale,dx,dx_loc,vol_loc
-  rin =0.2
+  rin = rsmooth
   nx_loc=(icoarse_max-icoarse_min+1)
   scale=boxlen/dble(nx_loc)
   dx=0.5d0**ilevel
@@ -519,21 +519,17 @@ subroutine geometry_refine(xx,ok,ncell,ilevel)
      xr=boxlen/2.0d0 ! Region centre
      yr=boxlen/2.0d0
      zr=boxlen/2.0d0
-     rr=r_refine  (ilevel) ! Region DIAMETER (beware !)
+     rr=r_refine  (ilevel)*rin! Region DIAMETER (beware !)
      aa=a_refine  (ilevel) ! percentage of box used
      bb=b_refine  (ilevel) ! Ellipticity (Z/X)
      rin=0.2
      do i=1,ncell
         xn=0.0d0; yn=0.0d0; zn=0.0d0
         xn=abs(xx(i,1)-xr)
-       
         yn=abs(xx(i,2)-yr)
-      
         zn=abs(xx(i,3)-zr)
-
         r=(xn**er+yn**er)**(1.0/er)/rr
-        !print* , abs(r-1.0),aa, ilevel
-        ok(i)=ok(i).and.(abs(r-1.0)<aa)
+        ok(i)=ok(i).and.(abs(r)<1)
      end do
   endif
 
