@@ -71,7 +71,9 @@ subroutine init_flow_fine(ilevel)
   real(dp),dimension(1:nvector)       ,save::vv
   real(dp),dimension(1:nvector,1:ndim),save::xx
   real(dp),dimension(1:nvector,1:nvar+3),save::uu
-
+#if RESIST>0
+  real(dp),dimension(1:nvector),save::sig
+#endif
   real(dp),allocatable,dimension(:,:,:)::init_array
   real(kind=4),allocatable,dimension(:,:)  ::init_plane
 
@@ -80,8 +82,9 @@ subroutine init_flow_fine(ilevel)
   character(LEN=5)::nchar,ncharvar
 
   integer,parameter::tag=1107
-
-
+#if RESIST>0
+  sig=0.0
+#endif  
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
@@ -455,13 +458,21 @@ subroutine init_flow_fine(ilevel)
            end do
            ! Call initial condition routine
            call condinit(xx,uu,dx_loc,ngrid)
+#if RESIST>0           
+           call columninit(xx,sig,dx_loc,ngrid)
+#endif
            ! Scatter variables
            do ivar=1,nvar+3
               do i=1,ngrid
                  uold(ind_cell(i),ivar)=uu(i,ivar)
               end do
            end do
-        end do
+           do i=1,ngrid
+#if RESIST>0            
+              store_disk(ind_cell(i),1)=sig(i)
+#endif              
+           end do
+           end do
         ! End loop over cells
      end do
      ! End loop over grids

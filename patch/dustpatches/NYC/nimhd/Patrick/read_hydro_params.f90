@@ -43,13 +43,13 @@ subroutine read_hydro_params(nml_ok)
        & ,A_region,B_region,C_region
   namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr, dtdiff_params,dt_control &
        & ,niter_riemann,slope_type,slope_mag_type,switch_solv,switch_solv_dens &
-       &, HoverR,tp0,beta_mag,tpback,rhoext,rd_factor,Mstar_cen,rhocen,nstep_relax,trelax,rsmooth,iso_smooth&
+       &, HoverR,tp0,beta_mag,tpback,rhoext,rd_factor,Mstar_cen,rhocen,nstep_relax,trelax,rsmooth,iso_smooth,damp,turb_perc,Gressel, Hayashi&
 #if NENER>0
        & ,gamma_rad &
 #endif
 #if NDUST>0       
        &,grain_size, grain_dens, K_dust, K_drag,decay_dust,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index, &
-       & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust,source_pred,veloc_pred&
+       & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,vdust_max,mhd_dust,reduce_wdust,source_pred,veloc_pred&
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
   namelist/refine_params/scale_height_refine,NH_refine,x_refine,y_refine,z_refine,r_refine &
@@ -109,7 +109,7 @@ subroutine read_hydro_params(nml_ok)
   ! modif nimhd
   namelist/nonidealmhd_params/nambipolar,gammaAD &
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
-       & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm
+       & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm,use_resist
   namelist/pseudovisco_params/nvisco,visco
   ! fin modif nimhd
 

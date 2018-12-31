@@ -96,6 +96,7 @@ recursive subroutine amr_step(ilevel,icount)
                  end do
               end do
 #endif
+            
               if(poisson)then
                  call make_virtual_fine_dp(phi(1),i)
                  do idim=1,ndim
@@ -496,6 +497,7 @@ recursive subroutine amr_step(ilevel,icount)
   !if(.not.dust_diffusion) print *,'dust_diffusion deactivated'
 
 #endif
+   
   !-----------
   ! Hydro step
   !-----------

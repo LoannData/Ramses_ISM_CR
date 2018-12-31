@@ -31,8 +31,12 @@
 !  then modified by Jacques Masson, Benoit Commercon and Neil Vaytet for non-ideal MHD
 ! ----------------------------------------------------------------
 ! modif nimhd
-!subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
-subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_grid,jcell)
+!subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid
+#if RESIST>0
+subroutine  mag_unsplit(uin,gravin,dcolin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_grid,jcell)
+#else
+subroutine  mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_grid,jcell)
+#endif  
 ! fin modif nimhd
   use amr_parameters
   use const             
@@ -46,7 +50,10 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   real(dp)::dx,dy,dz,dt
 
   ! Input states
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::uin 
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::uin
+#if RESIST>0  
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::dcolin
+#endif
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim)::gravin 
 
   ! Output fluxes
@@ -169,8 +176,11 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   ! AMBIPOLAR DIFFUSION
   
   if(nambipolar.eq.1) then
+#if RESIST>0
+     call computambip(uin,qin,dcolin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)
+#else
      call computambip(uin,qin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)
-  
+#endif
   endif
   
   ! Hall effect
@@ -183,6 +193,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
   ! OHMIC DISSIPATION
   
   if(nmagdiffu.eq.1) then
+
      call computdifmag(uin,qin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
   endif
   
@@ -620,7 +631,7 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
            DO l = 1, ngrid
 
               ! Cell centered values
-              r = q(l,i,j,k,ir)
+              r = max(q(l,i,j,k,ir),smallr)
               u = q(l,i,j,k,iu)
               v = q(l,i,j,k,iv)
               w = q(l,i,j,k,iw)
@@ -711,7 +722,7 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
 #endif
 
               ! Right state at left interface
-              qp(l,i,j,k,ir,1) = r - drx
+              qp(l,i,j,k,ir,1) =max( r - drx,smallr)
               qp(l,i,j,k,iu,1) = u - dux
               qp(l,i,j,k,iv,1) = v - dvx
               qp(l,i,j,k,iw,1) = w - dwx
@@ -719,7 +730,6 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
               qp(l,i,j,k,iA,1) = A
               qp(l,i,j,k,iB,1) = B - dBx
               qp(l,i,j,k,iC,1) = C - dCx
-              if (qp(l,i,j,k,ir,1)<smallr) qp(l,i,j,k,ir,1)=r
 #if NENER>0
               do irad=1,nener
                  qp(l,i,j,k,iC+irad,1) = e(irad) - dex(irad) 
@@ -728,7 +738,7 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
 #endif
 
               ! Left state at right interface
-              qm(l,i,j,k,ir,1) = r + drx
+              qm(l,i,j,k,ir,1) =max( r + drx,smallr)
               qm(l,i,j,k,iu,1) = u + dux
               qm(l,i,j,k,iv,1) = v + dvx
               qm(l,i,j,k,iw,1) = w + dwx
@@ -736,7 +746,6 @@ SUBROUTINE  trace1d(q,dq,qm,qp,dx,dt,ngrid)
               qm(l,i,j,k,iA,1) = A
               qm(l,i,j,k,iB,1) = B + dBx
               qm(l,i,j,k,iC,1) = C + dCx
-              if (qm(l,i,j,k,ir,1)<smallr) qm(l,i,j,k,ir,1)=r
 #if NENER>0
               do irad=1,nener
                  qm(l,i,j,k,iC+irad,1) = e(irad) + dex(irad) 
@@ -866,7 +875,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
            DO l = 1, ngrid
 
               ! Cell centered values
-              r =    q(l,i,j,k,ir)
+              r =    max(q(l,i,j,k,ir),smallr)
               u =    q(l,i,j,k,iu)
               v =    q(l,i,j,k,iv)
               w =    q(l,i,j,k,iw)
@@ -995,7 +1004,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 #endif
 
               ! Face averaged right state at left interface
-              qp(l,i,j,k,ir,1) = r - drx
+              qp(l,i,j,k,ir,1) = max(r - drx,smallr)
               qp(l,i,j,k,iu,1) = u - dux
               qp(l,i,j,k,iv,1) = v - dvx
               qp(l,i,j,k,iw,1) = w - dwx
@@ -1003,7 +1012,6 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               qp(l,i,j,k,iA,1) = AL     
               qp(l,i,j,k,iB,1) = B - dBx
               qp(l,i,j,k,iC,1) = C - dCx
-              if (qp(l,i,j,k,ir,1)<smallr) qp(l,i,j,k,ir,1)=r
               qp(l,i,j,k,ip,1) = MAX(smallp, qp(l,i,j,k,ip,1))
 #if NENER>0
               do irad=1,nener
@@ -1013,7 +1021,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 #endif
 
               ! Face averaged left state at right interface
-              qm(l,i,j,k,ir,1) = r + drx
+              qm(l,i,j,k,ir,1) =max( r + drx,smallr)
               qm(l,i,j,k,iu,1) = u + dux
               qm(l,i,j,k,iv,1) = v + dvx
               qm(l,i,j,k,iw,1) = w + dwx
@@ -1021,7 +1029,6 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               qm(l,i,j,k,iA,1) = AR     
               qm(l,i,j,k,iB,1) = B + dBx
               qm(l,i,j,k,iC,1) = C + dCx
-              if (qm(l,i,j,k,ir,1)<smallr) qm(l,i,j,k,ir,1)=r
               qm(l,i,j,k,ip,1) = MAX(smallp, qm(l,i,j,k,ip,1))
 #if NENER>0
               do irad=1,nener
@@ -1031,7 +1038,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 #endif
 
               ! Face averaged top state at bottom interface
-              qp(l,i,j,k,ir,2) = r - dry
+              qp(l,i,j,k,ir,2) = max(r - dry,smallr)
               qp(l,i,j,k,iu,2) = u - duy
               qp(l,i,j,k,iv,2) = v - dvy
               qp(l,i,j,k,iw,2) = w - dwy
@@ -1039,7 +1046,6 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               qp(l,i,j,k,iA,2) = A - dAy
               qp(l,i,j,k,iB,2) = BL     
               qp(l,i,j,k,iC,2) = C - dCy
-              if (qp(l,i,j,k,ir,2)<smallr) qp(l,i,j,k,ir,2)=r
               qp(l,i,j,k,ip,2) = MAX(smallp, qp(l,i,j,k,ip,2))
 #if NENER>0
               do irad=1,nener
@@ -1049,7 +1055,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 #endif
 
               ! Face averaged bottom state at top interface
-              qm(l,i,j,k,ir,2) = r + dry
+              qm(l,i,j,k,ir,2) =max( r + dry,smallr)
               qm(l,i,j,k,iu,2) = u + duy
               qm(l,i,j,k,iv,2) = v + dvy
               qm(l,i,j,k,iw,2) = w + dwy
@@ -1057,7 +1063,6 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               qm(l,i,j,k,iA,2) = A + dAy
               qm(l,i,j,k,iB,2) = BR     
               qm(l,i,j,k,iC,2) = C + dCy
-              if (qm(l,i,j,k,ir,2)<smallr) qm(l,i,j,k,ir,2)=r
               qm(l,i,j,k,ip,2) = MAX(smallp, qm(l,i,j,k,ip,2))
 #if NENER>0
               do irad=1,nener
@@ -1067,7 +1072,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 #endif
 
               ! Edge averaged right-top corner state (RT->LL)
-              qRT(l,i,j,k,ir,3) = r + (+drx+dry)
+              qRT(l,i,j,k,ir,3) =max( r + (+drx+dry),smallr)
               qRT(l,i,j,k,iu,3) = u + (+dux+duy)
               qRT(l,i,j,k,iv,3) = v + (+dvx+dvy)
               qRT(l,i,j,k,iw,3) = w + (+dwx+dwy)
@@ -1075,7 +1080,6 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               qRT(l,i,j,k,iC,3) = C + (+dCx+dCy)
               qRT(l,i,j,k,iA,3) = AR+ (   +dARy)
               qRT(l,i,j,k,iB,3) = BR+ (+dBRx   )
-              if (qRT(l,i,j,k,ir,3)<smallr) qRT(l,i,j,k,ir,3)=r
               qRT(l,i,j,k,ip,3) = MAX(smallp, qRT(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1085,7 +1089,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 #endif
 
               ! Edge averaged right-bottom corner state (RB->LR)
-              qRB(l,i,j,k,ir,3) = r + (+drx-dry)
+              qRB(l,i,j,k,ir,3) = max(r + (+drx-dry),smallr)
               qRB(l,i,j,k,iu,3) = u + (+dux-duy)
               qRB(l,i,j,k,iv,3) = v + (+dvx-dvy)
               qRB(l,i,j,k,iw,3) = w + (+dwx-dwy)
@@ -1093,7 +1097,6 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               qRB(l,i,j,k,iC,3) = C + (+dCx-dCy)
               qRB(l,i,j,k,iA,3) = AR+ (   -dARy)
               qRB(l,i,j,k,iB,3) = BL+ (+dBLx   )
-              if (qRB(l,i,j,k,ir,3)<smallr) qRB(l,i,j,k,ir,3)=r
               qRB(l,i,j,k,ip,3) = MAX(smallp, qRB(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1103,7 +1106,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 #endif
 
               ! Edge averaged left-top corner state (LT->RL)
-              qLT(l,i,j,k,ir,3) = r + (-drx+dry)
+              qLT(l,i,j,k,ir,3) = max(r + (-drx+dry),smallr)
               qLT(l,i,j,k,iu,3) = u + (-dux+duy)
               qLT(l,i,j,k,iv,3) = v + (-dvx+dvy)
               qLT(l,i,j,k,iw,3) = w + (-dwx+dwy)
@@ -1111,7 +1114,6 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               qLT(l,i,j,k,iC,3) = C + (-dCx+dCy)
               qLT(l,i,j,k,iA,3) = AL+ (   +dALy)
               qLT(l,i,j,k,iB,3) = BR+ (-dBRx   )
-              if (qLT(l,i,j,k,ir,3)<smallr) qLT(l,i,j,k,ir,3)=r
               qLT(l,i,j,k,ip,3) = MAX(smallp, qLT(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1121,7 +1123,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
 #endif
 
               ! Edge averaged left-bottom corner state (LB->RR)
-              qLB(l,i,j,k,ir,3) = r + (-drx-dry)
+              qLB(l,i,j,k,ir,3) =max( r + (-drx-dry),smallr)
               qLB(l,i,j,k,iu,3) = u + (-dux-duy)
               qLB(l,i,j,k,iv,3) = v + (-dvx-dvy)
               qLB(l,i,j,k,iw,3) = w + (-dwx-dwy)
@@ -1129,7 +1131,6 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
               qLB(l,i,j,k,iC,3) = C + (-dCx-dCy)
               qLB(l,i,j,k,iA,3) = AL+ (   -dALy)
               qLB(l,i,j,k,iB,3) = BL+ (-dBLx   )
-              if (qLB(l,i,j,k,ir,3)<smallr) qLB(l,i,j,k,ir,3)=r
               qLB(l,i,j,k,ip,3) = MAX(smallp, qLB(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1150,7 +1151,7 @@ SUBROUTINE trace2d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dt,ngrid)
         DO j = jlo, jhi
            DO i = ilo, ihi
               DO l = 1, ngrid
-                 r   = q(l,i,j,k,n )              ! Cell centered values
+                 r   = q(l,i,j,k,n )            ! Cell centered values
                  u   = q(l,i,j,k,iu)
                  v   = q(l,i,j,k,iv)
                  drx = half * dq(l,i,j,k,n,1)     ! TVD slopes
@@ -1318,7 +1319,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
            DO l = 1, ngrid
 
               ! Cell centered values
-              r =    q(l,i,j,k,ir)
+              r =    max(q(l,i,j,k,ir),smallr)
               u =    q(l,i,j,k,iu)
               v =    q(l,i,j,k,iv)
               w =    q(l,i,j,k,iw)            
@@ -1487,7 +1488,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Face averaged right state at left interface
-              qp(l,i,j,k,ir,1) = r - drx
+              qp(l,i,j,k,ir,1) = max(r - drx,smallr)
               qp(l,i,j,k,iu,1) = u - dux
               qp(l,i,j,k,iv,1) = v - dvx
               qp(l,i,j,k,iw,1) = w - dwx
@@ -1496,7 +1497,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qp(l,i,j,k,iB,1) = B - dBx
               qp(l,i,j,k,iC,1) = C - dCx
               if (qp(l,i,j,k,ir,1)<smallr) qp(l,i,j,k,ir,1)=r
-              qp(l,i,j,k,ip,1) = MAX(smallp, qp(l,i,j,k,ip,1))
 #if NENER>0
               do irad=1,nener
                  qp(l,i,j,k,iC+irad,1) = e(irad) - dex(irad) 
@@ -1505,7 +1505,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Face averaged left state at right interface
-              qm(l,i,j,k,ir,1) = r + drx
+              qm(l,i,j,k,ir,1) = max(r + drx,smallr)
               qm(l,i,j,k,iu,1) = u + dux
               qm(l,i,j,k,iv,1) = v + dvx
               qm(l,i,j,k,iw,1) = w + dwx
@@ -1513,7 +1513,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qm(l,i,j,k,iA,1) = AR
               qm(l,i,j,k,iB,1) = B + dBx
               qm(l,i,j,k,iC,1) = C + dCx
-              if (qm(l,i,j,k,ir,1)<smallr) qm(l,i,j,k,ir,1)=r
               qm(l,i,j,k,ip,1) = MAX(smallp, qm(l,i,j,k,ip,1))
 #if NENER>0
               do irad=1,nener
@@ -1523,7 +1522,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Face averaged top state at bottom interface
-              qp(l,i,j,k,ir,2) = r - dry
+              qp(l,i,j,k,ir,2) =max( r - dry,smallr)
               qp(l,i,j,k,iu,2) = u - duy
               qp(l,i,j,k,iv,2) = v - dvy
               qp(l,i,j,k,iw,2) = w - dwy
@@ -1531,7 +1530,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qp(l,i,j,k,iA,2) = A - dAy
               qp(l,i,j,k,iB,2) = BL
               qp(l,i,j,k,iC,2) = C - dCy
-              if (qp(l,i,j,k,ir,2)<smallr) qp(l,i,j,k,ir,2)=r
               qp(l,i,j,k,ip,2) = MAX(smallp, qp(l,i,j,k,ip,2))
 #if NENER>0
               do irad=1,nener
@@ -1541,7 +1539,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Face averaged bottom state at top interface
-              qm(l,i,j,k,ir,2) = r + dry
+              qm(l,i,j,k,ir,2) =max( r + dry,smallr)
               qm(l,i,j,k,iu,2) = u + duy
               qm(l,i,j,k,iv,2) = v + dvy
               qm(l,i,j,k,iw,2) = w + dwy
@@ -1549,7 +1547,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qm(l,i,j,k,iA,2) = A + dAy
               qm(l,i,j,k,iB,2) = BR
               qm(l,i,j,k,iC,2) = C + dCy
-              if (qm(l,i,j,k,ir,2)<smallr) qm(l,i,j,k,ir,2)=r
               qm(l,i,j,k,ip,2) = MAX(smallp, qm(l,i,j,k,ip,2))
 #if NENER>0
               do irad=1,nener
@@ -1559,7 +1556,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Face averaged front state at back interface
-              qp(l,i,j,k,ir,3) = r - drz
+              qp(l,i,j,k,ir,3) = max(r - drz,smallr)
               qp(l,i,j,k,iu,3) = u - duz
               qp(l,i,j,k,iv,3) = v - dvz
               qp(l,i,j,k,iw,3) = w - dwz
@@ -1567,7 +1564,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qp(l,i,j,k,iA,3) = A - dAz
               qp(l,i,j,k,iB,3) = B - dBz
               qp(l,i,j,k,iC,3) = CL
-              if (qp(l,i,j,k,ir,3)<smallr) qp(l,i,j,k,ir,3)=r
               qp(l,i,j,k,ip,3) = MAX(smallp, qp(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1577,7 +1573,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Face averaged back state at front interface
-              qm(l,i,j,k,ir,3) = r + drz
+              qm(l,i,j,k,ir,3) =max( r + drz,smallr)
               qm(l,i,j,k,iu,3) = u + duz
               qm(l,i,j,k,iv,3) = v + dvz
               qm(l,i,j,k,iw,3) = w + dwz
@@ -1585,7 +1581,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qm(l,i,j,k,iA,3) = A + dAz
               qm(l,i,j,k,iB,3) = B + dBz
               qm(l,i,j,k,iC,3) = CR
-              if (qm(l,i,j,k,ir,3)<smallr) qm(l,i,j,k,ir,3)=r
               qm(l,i,j,k,ip,3) = MAX(smallp, qm(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1595,7 +1590,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! X-edge averaged right-top corner state (RT->LL)
-              qRT(l,i,j,k,ir,1) = r + (+dry+drz)
+              qRT(l,i,j,k,ir,1) = max(r + (+dry+drz),smallr)
               qRT(l,i,j,k,iu,1) = u + (+duy+duz)
               qRT(l,i,j,k,iv,1) = v + (+dvy+dvz)
               qRT(l,i,j,k,iw,1) = w + (+dwy+dwz)
@@ -1603,7 +1598,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qRT(l,i,j,k,iA,1) = A + (+dAy+dAz)
               qRT(l,i,j,k,iB,1) = BR+ (   +dBRz)
               qRT(l,i,j,k,iC,1) = CR+ (+dCRy   )
-              if (qRT(l,i,j,k,ir,1)<smallr) qRT(l,i,j,k,ir,1)=r
               qRT(l,i,j,k,ip,1) = MAX(smallp, qRT(l,i,j,k,ip,1))
 #if NENER>0
               do irad=1,nener
@@ -1613,7 +1607,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! X-edge averaged right-bottom corner state (RB->LR)
-              qRB(l,i,j,k,ir,1) = r + (+dry-drz)
+              qRB(l,i,j,k,ir,1) = max(r + (+dry-drz),smallr)
               qRB(l,i,j,k,iu,1) = u + (+duy-duz)
               qRB(l,i,j,k,iv,1) = v + (+dvy-dvz)
               qRB(l,i,j,k,iw,1) = w + (+dwy-dwz)
@@ -1621,7 +1615,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qRB(l,i,j,k,iA,1) = A + (+dAy-dAz)
               qRB(l,i,j,k,iB,1) = BR+ (   -dBRz)
               qRB(l,i,j,k,iC,1) = CL+ (+dCLy   )
-              if (qRB(l,i,j,k,ir,1)<smallr) qRB(l,i,j,k,ir,1)=r
               qRB(l,i,j,k,ip,1) = MAX(smallp, qRB(l,i,j,k,ip,1))
 #if NENER>0
               do irad=1,nener
@@ -1631,7 +1624,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! X-edge averaged left-top corner state (LT->RL)
-              qLT(l,i,j,k,ir,1) = r + (-dry+drz)
+              qLT(l,i,j,k,ir,1) =max( r + (-dry+drz),smallr)
               qLT(l,i,j,k,iu,1) = u + (-duy+duz)
               qLT(l,i,j,k,iv,1) = v + (-dvy+dvz)
               qLT(l,i,j,k,iw,1) = w + (-dwy+dwz)
@@ -1639,7 +1632,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qLT(l,i,j,k,iA,1) = A + (-dAy+dAz)
               qLT(l,i,j,k,iB,1) = BL+ (   +dBLz)
               qLT(l,i,j,k,iC,1) = CR+ (-dCRy   )
-              if (qLT(l,i,j,k,ir,1)<smallr) qLT(l,i,j,k,ir,1)=r
               qLT(l,i,j,k,ip,1) = MAX(smallp, qLT(l,i,j,k,ip,1))
 #if NENER>0
               do irad=1,nener
@@ -1649,7 +1641,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! X-edge averaged left-bottom corner state (LB->RR)
-              qLB(l,i,j,k,ir,1) = r + (-dry-drz)
+              qLB(l,i,j,k,ir,1) = max(r + (-dry-drz),smallr)
               qLB(l,i,j,k,iu,1) = u + (-duy-duz)
               qLB(l,i,j,k,iv,1) = v + (-dvy-dvz)
               qLB(l,i,j,k,iw,1) = w + (-dwy-dwz)
@@ -1657,7 +1649,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qLB(l,i,j,k,iA,1) = A + (-dAy-dAz)
               qLB(l,i,j,k,iB,1) = BL+ (   -dBLz)
               qLB(l,i,j,k,iC,1) = CL+ (-dCLy   )
-              if (qLB(l,i,j,k,ir,1)<smallr) qLB(l,i,j,k,ir,1)=r
               qLB(l,i,j,k,ip,1) = MAX(smallp, qLB(l,i,j,k,ip,1))
 #if NENER>0
               do irad=1,nener
@@ -1667,7 +1658,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Y-edge averaged right-top corner state (RT->LL)
-              qRT(l,i,j,k,ir,2) = r + (+drx+drz)
+              qRT(l,i,j,k,ir,2) =max( r + (+drx+drz),smallr)
               qRT(l,i,j,k,iu,2) = u + (+dux+duz)
               qRT(l,i,j,k,iv,2) = v + (+dvx+dvz)
               qRT(l,i,j,k,iw,2) = w + (+dwx+dwz)
@@ -1675,7 +1666,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qRT(l,i,j,k,iA,2) = AR+ (   +dARz)
               qRT(l,i,j,k,iB,2) = B + (+dBx+dBz)
               qRT(l,i,j,k,iC,2) = CR+ (+dCRx   )
-              if (qRT(l,i,j,k,ir,2)<smallr) qRT(l,i,j,k,ir,2)=r
               qRT(l,i,j,k,ip,2) = MAX(smallp, qRT(l,i,j,k,ip,2))
 #if NENER>0
               do irad=1,nener
@@ -1685,7 +1675,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Y-edge averaged right-bottom corner state (RB->LR)
-              qRB(l,i,j,k,ir,2) = r + (+drx-drz)
+              qRB(l,i,j,k,ir,2) =max( r + (+drx-drz),smallr)
               qRB(l,i,j,k,iu,2) = u + (+dux-duz)
               qRB(l,i,j,k,iv,2) = v + (+dvx-dvz)
               qRB(l,i,j,k,iw,2) = w + (+dwx-dwz)
@@ -1693,7 +1683,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qRB(l,i,j,k,iA,2) = AR+ (   -dARz)
               qRB(l,i,j,k,iB,2) = B + (+dBx-dBz)
               qRB(l,i,j,k,iC,2) = CL+ (+dCLx   )
-              if (qRB(l,i,j,k,ir,2)<smallr) qRB(l,i,j,k,ir,2)=r
               qRB(l,i,j,k,ip,2) = MAX(smallp, qRB(l,i,j,k,ip,2))
 #if NENER>0
               do irad=1,nener
@@ -1703,7 +1692,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Y-edge averaged left-top corner state (LT->RL)
-              qLT(l,i,j,k,ir,2) = r + (-drx+drz)
+              qLT(l,i,j,k,ir,2) = max(r + (-drx+drz),smallr)
               qLT(l,i,j,k,iu,2) = u + (-dux+duz)
               qLT(l,i,j,k,iv,2) = v + (-dvx+dvz)
               qLT(l,i,j,k,iw,2) = w + (-dwx+dwz)
@@ -1711,7 +1700,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qLT(l,i,j,k,iA,2) = AL+ (   +dALz)
               qLT(l,i,j,k,iB,2) = B + (-dBx+dBz)
               qLT(l,i,j,k,iC,2) = CR+ (-dCRx   )
-              if (qLT(l,i,j,k,ir,2)<smallr) qLT(l,i,j,k,ir,2)=r
               qLT(l,i,j,k,ip,2) = MAX(smallp, qLT(l,i,j,k,ip,2))
 #if NENER>0
               do irad=1,nener
@@ -1721,7 +1709,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Y-edge averaged left-bottom corner state (LB->RR)
-              qLB(l,i,j,k,ir,2) = r + (-drx-drz)
+              qLB(l,i,j,k,ir,2) =max( r + (-drx-drz),smallr)
               qLB(l,i,j,k,iu,2) = u + (-dux-duz)
               qLB(l,i,j,k,iv,2) = v + (-dvx-dvz)
               qLB(l,i,j,k,iw,2) = w + (-dwx-dwz)
@@ -1729,7 +1717,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qLB(l,i,j,k,iA,2) = AL+ (   -dALz)
               qLB(l,i,j,k,iB,2) = B + (-dBx-dBz)
               qLB(l,i,j,k,iC,2) = CL+ (-dCLx   )
-              if (qLB(l,i,j,k,ir,2)<smallr) qLB(l,i,j,k,ir,2)=r
               qLB(l,i,j,k,ip,2) = MAX(smallp, qLB(l,i,j,k,ip,2))
 #if NENER>0
               do irad=1,nener
@@ -1739,7 +1726,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Z-edge averaged right-top corner state (RT->LL)
-              qRT(l,i,j,k,ir,3) = r + (+drx+dry)
+              qRT(l,i,j,k,ir,3) =max( r + (+drx+dry),smallr)
               qRT(l,i,j,k,iu,3) = u + (+dux+duy)
               qRT(l,i,j,k,iv,3) = v + (+dvx+dvy)
               qRT(l,i,j,k,iw,3) = w + (+dwx+dwy)
@@ -1747,7 +1734,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qRT(l,i,j,k,iA,3) = AR+ (   +dARy)
               qRT(l,i,j,k,iB,3) = BR+ (+dBRx   )
               qRT(l,i,j,k,iC,3) = C + (+dCx+dCy)
-              if (qRT(l,i,j,k,ir,3)<smallr) qRT(l,i,j,k,ir,3)=r
               qRT(l,i,j,k,ip,3) = MAX(smallp, qRT(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1757,7 +1743,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Z-edge averaged right-bottom corner state (RB->LR)
-              qRB(l,i,j,k,ir,3) = r + (+drx-dry)
+              qRB(l,i,j,k,ir,3) =max( r + (+drx-dry),smallr)
               qRB(l,i,j,k,iu,3) = u + (+dux-duy)
               qRB(l,i,j,k,iv,3) = v + (+dvx-dvy)
               qRB(l,i,j,k,iw,3) = w + (+dwx-dwy)
@@ -1765,7 +1751,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qRB(l,i,j,k,iA,3) = AR+ (   -dARy)
               qRB(l,i,j,k,iB,3) = BL+ (+dBLx   )
               qRB(l,i,j,k,iC,3) = C + (+dCx-dCy)
-              if (qRB(l,i,j,k,ir,3)<smallr) qRB(l,i,j,k,ir,3)=r
               qRB(l,i,j,k,ip,3) = MAX(smallp, qRB(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1775,7 +1760,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Z-edge averaged left-top corner state (LT->RL)
-              qLT(l,i,j,k,ir,3) = r + (-drx+dry)
+              qLT(l,i,j,k,ir,3) = max(r + (-drx+dry),smallr)
               qLT(l,i,j,k,iu,3) = u + (-dux+duy)
               qLT(l,i,j,k,iv,3) = v + (-dvx+dvy)
               qLT(l,i,j,k,iw,3) = w + (-dwx+dwy)
@@ -1783,7 +1768,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qLT(l,i,j,k,iA,3) = AL+ (   +dALy)
               qLT(l,i,j,k,iB,3) = BR+ (-dBRx   )
               qLT(l,i,j,k,iC,3) = C + (-dCx+dCy)
-              if (qLT(l,i,j,k,ir,3)<smallr) qLT(l,i,j,k,ir,3)=r
               qLT(l,i,j,k,ip,3) = MAX(smallp, qLT(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1793,7 +1777,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
 #endif
 
               ! Z-edge averaged left-bottom corner state (LB->RR)
-              qLB(l,i,j,k,ir,3) = r + (-drx-dry)
+              qLB(l,i,j,k,ir,3) = max(r + (-drx-dry),smallr)
               qLB(l,i,j,k,iu,3) = u + (-dux-duy)
               qLB(l,i,j,k,iv,3) = v + (-dvx-dvy)
               qLB(l,i,j,k,iw,3) = w + (-dwx-dwy)
@@ -1801,7 +1785,6 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
               qLB(l,i,j,k,iA,3) = AL+ (   -dALy)
               qLB(l,i,j,k,iB,3) = BL+ (-dBLx   )
               qLB(l,i,j,k,iC,3) = C + (-dCx-dCy)
-              if (qLB(l,i,j,k,ir,3)<smallr) qLB(l,i,j,k,ir,3)=r
               qLB(l,i,j,k,ip,3) = MAX(smallp, qLB(l,i,j,k,ip,3))
 #if NENER>0
               do irad=1,nener
@@ -1821,7 +1804,7 @@ SUBROUTINE trace3d(q,bf,dq,dbf,qm,qp,qRT,qRB,qLT,qLB,dx,dy,dz,dt,ngrid)
         DO j = jlo, jhi
            DO i = ilo, ihi
               DO l = 1, ngrid
-                 r   = q(l,i,j,k,n )            ! Cell centered values
+                 r   = q(l,i,j,k,n )           ! Cell centered values
                  u   = q(l,i,j,k,iu)
                  v   = q(l,i,j,k,iv)
                  w   = q(l,i,j,k,iw)
@@ -2896,8 +2879,6 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
               end do
            enddo
 #endif
-
-  ! Passive scalar (and extinction and internal energy and rad fluxes in M1) !!!!!!
            
            ! Compute thermal pressure through EOS
            do l = 1, ngrid
@@ -2925,13 +2906,17 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
         end do
      end do
   end do
+
+  ! Passive scalar (and extinction and internal energy and rad fluxes in M1) !!!!!!
 #if NVAR>8+NENER
-  do n = firstindex_pscal+1, firstindex_pscal+npscal
+  do n = 9+nener, nvar
      do k = ku1, ku2
         do j = ju1, ju2
            do i = iu1, iu2
               do l = 1, ngrid
-                 q(l,i,j,k,n) = uin(l,i,j,k,n)/max(uin(l,i,j,k,1),smallr)
+                 q(l,i,j,k,n) = uin(l,i,j,k,n)/q(l,i,j,k,1)
+                 !the passive scalar must not leave the cell is d<smallr
+                 !it can only enter
               end do
            end do
         end do
@@ -5511,6 +5496,7 @@ end subroutine computejb2
 !###########################################################
 !###########################################################
 !###########################################################
+
 subroutine computdifmag(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
 
   USE amr_parameters
@@ -5548,7 +5534,7 @@ real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jemf
 real(dp)::computdx,computdy,computdz,tcell,rhocell,bcell,ionisrate
 real(dp)::crossprodx,crossprody,crossprodz, Cv
 
-real(dp)::etaohmdiss,etaod2,tcellx,tcelly,tcellz,bsquarex,bsquarey,bsquarez,etaohmdissbricolo,dtlim
+real(dp)::etaohmdiss,etaod2,tcellx,tcelly,tcellz,bsquarex,bsquarey,bsquarez,etaohmdissbricolo,dtlim,etaod,etaohm_disk
 real(dp)::pressurex,pressurey,pressurez,rhox,rhoy,rhoz,epsx,epsy,epsz
 real(dp)::etaod2x,etaod2y,etaod2z,rhof,pf,bsqf,epsf,tcellf,barotrop1D
 
@@ -5630,7 +5616,11 @@ do k=min(1,ku1+1),max(1,ku2-1)
               etaod2x=etaohmdissbricolo(rhox,bsquarex,tcellx,dtlim,dx,ionisrate)
               etaod2y=etaohmdissbricolo(rhoy,bsquarey,tcelly,dtlim,dx,ionisrate)
               etaod2z=etaohmdissbricolo(rhoz,bsquarez,tcellz,dtlim,dx,ionisrate)
-              
+
+              if (use_resist) etaod2x= etaohm_disk(rhox,tcellx,ionisrate)
+              if (use_resist) etaod2y= etaohm_disk(rhoy,tcelly,ionisrate)           
+              if (use_resist) etaod2z= etaohm_disk(rhoz,tcellz,ionisrate)             
+
 ! WARNING dB/dt=-curl(eta*J)
               emfohmdiss(l,i,j,k,nxx)=-etaod2x*jemf(l,i,j,k,1)
               emfohmdiss(l,i,j,k,nyy)=-etaod2y*jemf(l,i,j,k,2)
@@ -5690,6 +5680,8 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     endif
                     
                     etaod2=etaohmdiss(rhof,bsqf,tcellf,ionisrate)
+
+              if (use_resist) etaod2= etaohm_disk(rhof,tcellf,ionisrate)
                     fluxohm(l,i,j,k,h)=etaod2*fluxmd(l,i,j,k,h)
                     
                     !               rhof=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1))
@@ -5770,8 +5762,12 @@ do k=min(1,ku1+1),max(1,ku2-1)
 !                    if(nmagdiffu2.eq.1)call temperature_eos((1.0d0-sum_dust)*rhocell,u(l,i,j,k,3),tcell,ht,sum_dust)
                     end if
                     
-                    jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdiss(rhocell,bcell,tcell,ionisrate)*dt
-                    
+
+                    if (use_resist) etaod= etaohm_disk(rhocell,tcell,ionisrate)
+                    if (use_resist)jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaod
+                    if(.not.use_resist)jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdiss(rhocell,bcell,tcell,ionisrate)*dt 
+
+                      
                  end if
               end do
         end do
@@ -5783,9 +5779,11 @@ end subroutine computdifmag
 !###########################################################
 !###########################################################
 !###########################################################
-!###########################################################
-SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)
-
+#if RESIST>0
+SUBROUTINE  computambip(u,q,dc,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)  
+#else
+SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)    
+#endif
   use amr_commons
   USE amr_parameters
   use hydro_commons
@@ -5794,8 +5792,11 @@ SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,floren
   IMPLICIT NONE
   
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q 
-  
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q
+#if RESIST>0  
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::dc
+#endif 
+
   INTEGER ::ngrid,ht
   REAL(dp)::dx,dy,dz,dt,dtambdiff2,barotrop1D
   
@@ -5812,10 +5813,10 @@ SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,floren
   real(dp)::computdx,computdy,computdz
 
   real(dp)::v1x,v1y,v1z,v2x,v2y,v2z
-  real(dp)::rhofx,rhofy,rhofz
+  real(dp)::rhofx,rhofy,rhofz,dcol
   real(dp)::bsquarex,bsquarey,bsquarez,bsquare
   real(dp)::bsquarexx,bsquareyy,bsquarezz
-  real(dp)::betaad2,betaadbricolo,betaad
+  real(dp)::betaad2,betaadbricolo,betaad,betaad_disk
   real(dp)::rhox,rhoy,rhoz,rhocell,bcell,bcellold,tcell,ionisrate
   real(dp)::dtlim,Cv,eps
   real(dp)::crossprodx,crossprody,crossprodz
@@ -5826,7 +5827,7 @@ SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,floren
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jcenter
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jxb
 
-  real(dp)::sum_dust
+  real(dp)::sum_dust,pi
 #if NDUST>0
   integer::idust
 #endif  
@@ -5854,7 +5855,7 @@ SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,floren
 
   dtlim=dt!*coefalfven
 !dt est deja dtnew, qui a été choisi comme le dt normal (avec la condition de courant) ou le dt normal seuillé si le dtAD est trop faible(bricolo)
-
+pi=3.14159265358
 jxb=0.0d0
 
 jxbsquare=0.0d0
@@ -5865,7 +5866,7 @@ jcenter=0.0d0
         do i=min(1,iu1+1),max(1,iu2-1)
            
            do l = 1, ngrid
-
+              dcol=dc(l,i,j,k)
               rhox=0.25d0*(u(l,i,j,k,1)+u(l,i,j-1,k,1)+u(l,i,j,k-1,1)+u(l,i,j-1,k-1,1))
               rhoy=0.25d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1)+u(l,i,j,k-1,1)+u(l,i-1,j,k-1,1))
               rhoz=0.25d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1)+u(l,i,j-1,k,1)+u(l,i-1,j-1,k,1))
@@ -5936,6 +5937,7 @@ jcenter=0.0d0
               betaad2=betaadbricolo(rhocell,rhox,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !              betaad2=betaadbricolo(rhocell,rhox,dtlim,bcellold,bcellold,dx,ntest,tcell)
 
+if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
               emfambdiff(l,i,j,k,1)=emfambdiff(l,i,j,k,1)*betaad2 
 
 ! EMF y
@@ -5964,6 +5966,7 @@ jcenter=0.0d0
              betaad2=betaadbricolo(rhocell,rhoy,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !             betaad2=betaadbricolo(rhocell,rhoy,dtlim,bcellold,bcellold,dx,ntest,tcell)
 
+if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
              emfambdiff(l,i,j,k,2)=emfambdiff(l,i,j,k,2)*betaad2            
                     
 ! EMF z
@@ -5988,6 +5991,8 @@ jcenter=0.0d0
              betaad2=betaadbricolo(rhocell,rhoz,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !             betaad2=betaadbricolo(rhocell,rhoz,dtlim,bcellold,bcellold,dx,ntest,tcell)
 
+if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
+             
              emfambdiff(l,i,j,k,3)=emfambdiff(l,i,j,k,3)*betaad2
 
 ! energy flux on faces
@@ -6005,6 +6010,9 @@ jcenter=0.0d0
               rhocell = rhocellmin(l,i,j,k)
               rhofx=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1))
               betaad2=betaadbricolo(rhocell,rhofx,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
+
+if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
+             
               fluxambdiff(l,i,j,k,1)=-betaad2*fluxad(l,i,j,k,1)
 
               v2x=bmagij(l,i,j,k,1,2)
@@ -6019,6 +6027,9 @@ jcenter=0.0d0
               end if
 
               betaad2=betaadbricolo(rhocell,rhofy,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
+
+if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
+             
               fluxambdiff(l,i,j,k,2)=-betaad2*fluxad(l,i,j,k,2)
 
               v2x=bmagij(l,i,j,k,1,3)
@@ -6033,6 +6044,9 @@ jcenter=0.0d0
               end if
 
               betaad2=betaadbricolo(rhocell,rhofz,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
+
+if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
+             
               fluxambdiff(l,i,j,k,3)=-betaad2*fluxad(l,i,j,k,3)
 
               v2x=u(l,i,j,k,6)
@@ -6054,6 +6068,8 @@ jcenter=0.0d0
               jxbsquare(l,i,j,k)=(jxb(l,i,j,k,1)*jxb(l,i,j,k,1)+jxb(l,i,j,k,2)*jxb(l,i,j,k,2)+jxb(l,i,j,k,3)*jxb(l,i,j,k,3))*&
               & betaad(u(l,i,j,k,1),bcell,tcell,ionisrate)*dtlim
 
+             jxbsquare(l,i,j,k)=(jxb(l,i,j,k,1)*jxb(l,i,j,k,1)+jxb(l,i,j,k,2)*jxb(l,i,j,k,2)+jxb(l,i,j,k,3)*jxb(l,i,j,k,3))*&
+              & betaad(u(l,i,j,k,1),bcell,tcell,ionisrate)*dtlim
 
 
            end do
@@ -6298,6 +6314,10 @@ implicit none
 real(dp)::rhon,rhoH,n_H_max,BBcell,temper,BBcellold
 real(dp)::eta_AD_chimie,ionisrate
 
+
+  !parameters for ressistivities from Lesur 2014
+  real(dp):: sigmavi
+
 ! function which computes the coefficient gamma which
 ! appears in ambipolar diffusion dB/dt=1/(gamma*rhoi*rhon)curl*(j*B)*B)+...
 ! see Duffin & Pudritz 2008, astro-ph 08/10/08 eq (6)
@@ -6319,7 +6339,10 @@ else
 endif
 
 gammaadbis=gammaadbis*scale_t*scale_d ! in code units
-
+if (use_resist) then
+  sigmavi  = 1.3d-9
+  gammaadbis=sigmavi/(xmion+mu_gas*mH)*scale_t*scale_d
+endif
 ! test
 !gammaadbis=gammaAD
 
@@ -7026,28 +7049,6 @@ if(ntestDADM.eq.0) then
 
    ! convert to CGS
 
-   ! scale_p = scale_d*(scale_v**2.)
-   ! xpcgs=xpressure*scale_p
-   ! rhocgs=rhon*scale_d
-   ! ! nb per cm3
-   ! xnbcgs=rhocgs/xmneutre
-   ! ! temperature in cgs
-   ! temper=xpcgs*xmolaire/(rhocgs*rperfectgaz)
-   ! !write(*,*)'temper',temper
-   ! 
-   ! ! degree of ionisation
-   ! ! Machida et al 2007 
-   ! xionisation=5.7d-4/(xnbcgs)
-   ! ! Shu 1987 27.7 p 363 and p 361 m_n=2.33 m_i=29
-   ! !xionisation=2.33d0/29.d0*densionbis(rhon)/rhon
-   ! 
-   ! ! Machida et al 2007 : etaMD=740
-   ! !etaohmdiss=etaMD*sqrt(temper/10.d0)*(1.d0-tanh(xnbcgs/1.d15))/xionisation
-   ! ! Dapp & Basu 2010
-   ! ! etaohmdiss=etaMD*1.3d18*(xnbcgs/1.d12)*sqrt(temper/10.d0)*(1.d0-tanh(xnbcgs/1.d15))
-   ! ! back to user units
-   ! !print*, etaohmdiss
-   ! !stop
 
    !rhoH=rhon*xmolaire*H2_fraction*scale_d/(mu_gas*mH) ! convert in H/cc
    rhoH=rhon*2.0d0*H2_fraction*scale_d/(mu_gas*mH) ! convert in H/cc
@@ -7197,17 +7198,6 @@ real(dp)::xx
 
 if(ntestDADM.eq.0) then
 
-   ! function which computes the coefficient beta which
-   ! appears in ambipolar diffusion dB/dt=curl(gamma(j*B)*B)+...
-   ! see Duffin & Pudritz 2008, astro-ph 08/10/08 eq (5)
-   ! WARNING no mu_0 needed here because F_Lorentz used
-
-   ! Warning gammaadbis and densionbis already in user units
-   ! but NOT rhon/xmneutre
-
-   !betaad=1.4d0/(gammaadbis(rhon)*densionbis(rhon)*rhon/xmneutre )
-   ! no xmneutre for Duffin and Pudritz
-
    rhotemp = MAX(rhon,rho_threshold)
 
    !xx=gammaadbis(rhotemp,bsquare,temper)*densionbis(rhon)*rhon
@@ -7236,10 +7226,10 @@ elseif(ntestDADM.eq.1) then
    !betaadbricolo=0.d0
    
 endif
-
-!rhon, gammaadbis(rhon) and densionbis(rhon) already in user units
-!!betaad=betaad/scale_d
-
+if (use_resist) then
+    xx=gammaadbis(rhotemp,bsquare,bsquare,temper,ionisrate)*densionbis(rhotemp)*rhotemp
+    betaad=1.0/xx
+endif
 end function betaad
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -7264,16 +7254,6 @@ real(dp)::xx,dtt,bbcgs
 
 if(ntestDADM.eq.0) then
 
-   ! function which computes the coefficient beta which
-   ! appears in ambipolar diffusion dB/dt=curl(gamma(j*B)*B)+...
-   ! see Duffin & Pudritz 2008, astro-ph 08/10/08 eq (5)
-   ! WARNING no mu_0 needed here because F_Lorentz used
-
-   ! Warning gammaadbis and densionbis already in user units
-   ! but NOT rhon/xmneutre
-
-   !betaad=1.4d0/(gammaadbis(rhon)*densionbis(rhon)*rhon/xmneutre )
-   ! no xmneutre for Duffin and Pudritz
 
    rhotemp = MAX(rhon,rho_threshold)
    rhotemp_cell = MAX(rhocelln,rho_threshold)
@@ -7342,7 +7322,71 @@ elseif(ntestDADM.eq.1) then
       betaadbricolo=1.d0/(gammaAD*rhoi0*rhon)
    !betaadbricolo=0.d0
 endif
+if (use_resist) then
+    xx=gammaadbis(rhotemp,bsquare,bsquare,temper,ionisrate)*densionbis(rhotemp)*rhotemp
+    betaadbricolo=1.0/xx
+endif
 
 end function betaadbricolo
+! fin modif nimhd
+#endif
+
+
+
+#if NIMHD==1
+double precision function betaad_disk(dens,dcol,temp)
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+use hydro_parameters
+use amr_commons
+use cooling_module
+use variables_X,only:pi
+use units_commons
+use cooling_module      , only : kb,mh
+use radiation_parameters,only:mu_gas
+implicit none
+real(dp):: dens,dcol,temp
+real(dp) :: sigmacr,sigmafuv,zetafuv,zetarad,zetacr,xfuv,alphadr,xel,dion,gammai,zeta,sigmavi
+real(dp):: betacap,xm,sigmaarb
+
+sigmavi=1.3e-9
+sigmacr=96./scale_m*scale_l**2.0
+sigmafuv=0.03/scale_m*scale_l**2.0
+sigmaarb=0.01/scale_m*scale_l**2.0
+
+zetafuv=2.e-5
+zetarad=1e-19
+zetacr=1e-16
+zeta= zetacr*exp(-dcol/sigmacr)+zetarad
+xfuv=zetafuv*exp(-(dcol/sigmafuv)**0.4)
+alphadr=3.e-6/(sqrt(temp))
+xel=sqrt(zeta/(H2_fraction*dens*scale_d/((mu_gas*mH)))/alphadr)+xfuv!,1e-4)
+dion=29.*xel*dens!*xmion/scale_m
+gammai=3.5e13*scale_d*scale_t!sigmavi/((xmion+mu_gas*mH))*scale_d*scale_t
+betaad_disk=min(1./gammai/dens/dion,1./gammai/(1d-17/scale_d)**2/(29.*xel))!*exp(-dcol/sigmaarb)
+end function betaad_disk
+! fin modif nimhd
+#endif
+
+
+#if NIMHD==1
+double precision function etaohm_disk(dens,temper,xionization)
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+use hydro_parameters
+use amr_commons
+use cooling_module
+use variables_X,only:pi
+use units_commons
+use cooling_module      , only : kb,mh
+use radiation_parameters,only:mu_gas
+implicit none
+real(dp):: dens,temper,xionization
+
+etaohm_disk= 360.0d0*sqrt(temper/100.0)/xionization*scale_t/scale_l**2.0
+
+end function etaohm_disk
 ! fin modif nimhd
 #endif

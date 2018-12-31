@@ -70,7 +70,7 @@ subroutine synchydrofine1(ind_cell,ncell,dteff)
      end do
   end do
   do i=1,ncell
-     uold(ind_cell(i),neul)=pp(i)
+    if(uold(ind_cell(i),1) .gt. smallr * 10.) uold(ind_cell(i),neul)=pp(i)
   end do
 
   ! Update momentum
@@ -80,7 +80,7 @@ subroutine synchydrofine1(ind_cell,ncell,dteff)
              & max(uold(ind_cell(i),1),smallr)*f(ind_cell(i),idim)*dteff
      end do
      do i=1,ncell
-        uold(ind_cell(i),idim+1)=pp(i)
+     if(uold(ind_cell(i),1) .gt. smallr * 10.)   uold(ind_cell(i),idim+1)=pp(i)
      end do
   end do
 
@@ -94,7 +94,7 @@ subroutine synchydrofine1(ind_cell,ncell,dteff)
      end do
   end do
   do i=1,ncell
-     uold(ind_cell(i),neul)=pp(i)
+  if(uold(ind_cell(i),1) .gt. smallr * 10.)   uold(ind_cell(i),neul)=pp(i)
   end do
 
 end subroutine synchydrofine1

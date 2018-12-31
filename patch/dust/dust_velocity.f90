@@ -56,13 +56,9 @@ subroutine set_vdust(ilevel)
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
   dens_floor=d0
-#if NYC>0
-  dens_floor=1d-17/scale_d
-#endif
-#if RELAX>0
-  dens_floor=1d-17/scale_d
-#endif
-  vmax=5.e6/scale_v
+
+
+  vmax=vdust_max/scale_v
   if(mrn.eqv..true.) then
      call size_dust(l_grain)
      do idust=1,ndust
@@ -124,7 +120,7 @@ subroutine set_vdust(ilevel)
                  eold=uold(igridn(i,ig1)+ih1,nvar)
               else
                  ! Gather left thermal energy
-                 d=uold(igridn(i,ig1)+ih1,1)
+                 d=max(uold(igridn(i,ig1)+ih1,1),smallr)
                  u=0.0d0; v=0.0d0; w=0.0d0
                  if(ndim>0)u=uold(igridn(i,ig1)+ih1,2)/d
                  if(ndim>1)v=uold(igridn(i,ig1)+ih1,3)/d
@@ -183,7 +179,7 @@ subroutine set_vdust(ilevel)
                eold=uold(igridn(i,ig2)+ih2,nvar)
               else
               ! Gather right thermal energy
-              d=uold(igridn(i,ig2)+ih2,1)
+              d=max(uold(igridn(i,ig2)+ih2,1),smallr)
               u=0.0; v=0.0; w=0.0
               if(ndim>0)u=uold(igridn(i,ig2)+ih2,2)/d
               if(ndim>1)v=uold(igridn(i,ig2)+ih2,3)/d
@@ -239,12 +235,12 @@ subroutine set_vdust(ilevel)
         end do
         do i=1,ngrid
            if (energy_fix) then
-              d=uold(ind_cell(i),1)
+              d=max(uold(ind_cell(i),1),smallr)
               enint=uold(ind_cell(i),nvar)
            else
               u=0.0d0; v=0.0d0; w=0.0d0
 
-              d=uold(ind_cell(i),1)
+              d=max(uold(ind_cell(i),1),smallr)
               if(ndim>0)u=uold(ind_cell(i),2)/d
               if(ndim>1)v=uold(ind_cell(i),3)/d
               if(ndim>2)w=uold(ind_cell(i),4)/d
@@ -293,13 +289,10 @@ subroutine set_vdust(ilevel)
                do idim=1,ndim
                   v_dust(ind_cell(i),idust,idim)= t_stop(idust)*gradP(i,idim)/d
 		end do	  
-              if(sum_dust.eq.0.0d0)  v_dust(ind_cell(i),idust,idim)=0.0d0
+              !if(uold(ind_cell(i),firstindex_ndust+idust)/d.le.1d-18)  v_dust(ind_cell(i),idust,idim)=0.0d0
               if(reduce_wdust) then   
               do idim=1,ndim       
-                 v_dust(ind_cell(i),idust,idim)=  v_dust(ind_cell(i),idust,idim)/abs(v_dust(ind_cell(i),idust,idim))*min(min(abs(v_dust(ind_cell(i),idust,idim)),vmax),cs)
-#if RELAX>0
-           if (d<dens_floor)   v_dust(ind_cell(i),idust,idim)= 0.0d0
-#endif
+                 v_dust(ind_cell(i),idust,idim)=  v_dust(ind_cell(i),idust,idim)/abs(v_dust(ind_cell(i),idust,idim))*(min(abs(v_dust(ind_cell(i),idust,idim)),vmax))
            end do
 
            

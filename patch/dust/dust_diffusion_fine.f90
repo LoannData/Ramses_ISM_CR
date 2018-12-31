@@ -152,7 +152,10 @@ subroutine set_uold_dust(ilevel)
      iskip=ncoarse+(ind-1)*ngridmax
      do i=1,active(ilevel)%ngrid           
            do idust=1,ndust
-              uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = max(unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust),1d-18)
+              uold(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust) = unew(active(ilevel)%igrid(i)+iskip,firstindex_ndust+idust)
+              if (sum_dust_new>1) print *, 'danger superieur a un', d
+              if (sum_dust_new<0) print *,'danger eps negatif', d
+
            end do
         end do
      end do
