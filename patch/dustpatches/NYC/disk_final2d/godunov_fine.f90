@@ -179,7 +179,7 @@ subroutine set_uold(ilevel)
           !    unew(active(ilevel)%igrid(i)+iskip,ivar)=old_pscal*max(unew(active(ilevel)%igrid(i)+iskip,1),smallr)
               !print *,old_pscal
           ! else
-              uold(active(ilevel)%igrid(i)+iskip,ivar) = unew(active(ilevel)%igrid(i)+iskip,ivar)
+              uold(active(ilevel)%igrid(i)+iskip,ivar) = unew(active(ilevel)%igrid(i)+iskip,ivar)/unew(active(ilevel)%igrid(i)+iskip,1)*max(unew(active(ilevel)%igrid(i)+iskip,1),smallr)
           ! endif
         end do
    

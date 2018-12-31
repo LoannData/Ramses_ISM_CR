@@ -36,7 +36,6 @@ subroutine relaxation_implementation(ilevel,nstp)
 #endif
     integer,dimension(1:3,1:2,1:8)::iii,jjj
     if(hayashi) then
-     gressel=.false.
      rhayash=1.0d0
   endif
 #if NDUST>0

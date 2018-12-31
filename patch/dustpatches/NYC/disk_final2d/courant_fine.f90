@@ -26,6 +26,9 @@ subroutine courant_fine(ilevel)
   real(kind=8)::mass_all,ekin_all,eint_all,emag_all,dt_all
   real(dp),dimension(1:nvector,1:nvar+3+ndust),save::uu
   real(dp),dimension(1:nvector,1:ndim),save::gg
+#if RESIST>0
+  real(dp),dimension(1:nvector),save::dcol
+#endif
 #if NDUST>0
   real(dp)::dt_dust,vdust
   integer::idust
@@ -63,7 +66,6 @@ subroutine courant_fine(ilevel)
   scale=boxlen/dble(nx_loc)
   dx=0.5D0**ilevel*scale
   vol=dx**ndim
-  call velocity_fine(ilevel)
 
   if (ischeme .eq. 1) then
      CALL velocity_fine(ilevel)
@@ -131,6 +133,15 @@ subroutine courant_fine(ilevel)
               end do
            end do
         end if
+#if RESIST>0
+                ! Gather gravitational acceleration
+        dcol=0.0d0
+        if(use_resist)then
+           do i=1,nleaf
+              dcol(i)=store_disk(ind_leaf(i),1)
+              end do
+        end if
+#endif        
         ! Gather radiative force
 #if USE_FLD==1 || USE_M_1==1
         if(fld)then
@@ -192,8 +203,12 @@ subroutine courant_fine(ilevel)
 
 #if NIMHD==1
            ! modif nimhd
-
+#if RESIST>0
+           call cmpdt(uu,gg,dcol,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
+#else
            call cmpdt(uu,gg,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
+
+#endif          
            dt_loc=min(dt_loc,dt_lev)
            dtambdiff_loc=min(dtambdiff_loc,dtambdiff_lev)
            dtmagdiff_loc=min(dtmagdiff_loc,dtmagdiff_lev)
@@ -328,16 +343,13 @@ subroutine courant_fine(ilevel)
 111 format('   Entering courant_fine for level ',I2)
 
 end subroutine courant_fine
-
 !#########################################################
 !#########################################################
 !#########################################################
 !#########################################################
 subroutine velocity_fine(ilevel)
-  use amr_commons      !, ONLY: dp,ndim,nvector,boxlen,t
-!  use hydro_parameters !, ONLY: nvar,boundary_var,gamma,bx_bound,by_bound,bz_bound,turb,dens0,V0
+  use amr_commons
   use hydro_commons
-  use poisson_parameters
   implicit none
   integer::ilevel
   !----------------------------------------------------------
@@ -345,39 +357,20 @@ subroutine velocity_fine(ilevel)
   ! the maximum density rho_max, and the potential energy
   !----------------------------------------------------------
   integer::igrid,ngrid,ncache,i,ind,iskip,ix,iy,iz
-  integer::info,ibound,nx_loc,idim,neul=5
+  integer::nx_loc,idim,neul=5
   real(dp)::dx,dx_loc,scale,d,u,v,w,A,B,C
-  real(kind=8)::rho_max_loc,rho_max_all,epot_loc,epot_all
   real(dp),dimension(1:twotondim,1:3)::xc
   real(dp),dimension(1:3)::skip_loc
 
   integer ,dimension(1:nvector),save::ind_grid,ind_cell
-  real(dp),dimension(1:nvector,1:ndim),save::x
+  real(dp),dimension(1:nvector,1:ndim),save::xx
   real(dp),dimension(1:nvector,1:3),save::vv
-  real(dp),dimension(1:nvector,1:nvar+3)::q   ! Primitive variables
-  real(dp)::pi,time
-  integer ::ivar,jgrid,ind_cell_vois
-  real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2,Cwnm
-  real(dp)::dx_min, fact, Emag,Emag0,Cs,Cs0,rc,r0,r_acc
-  real(dp)::omega0,x0,y0,z0,M00,emass,xx,yy,zz,dens1,d00
-
-!  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-
-!  Cwnm = sqrt(8000./scale_T2)
-
-  Cs0=sqrt(temper_iso)
-
-  pi=ACOS(-1.0d0)
-
-!  time = t * Cwnm / boxlen
-
- 
 
   if(numbtot(1,ilevel)==0)return
 
   ! Mesh size at level ilevel in coarse cell units
   dx=0.5D0**ilevel
-  
+
   ! Rescaling factors
   nx_loc=(icoarse_max-icoarse_min+1)
   skip_loc=(/0.0d0,0.0d0,0.0d0/)
@@ -386,8 +379,6 @@ subroutine velocity_fine(ilevel)
   if(ndim>2)skip_loc(3)=dble(kcoarse_min)
   scale=dble(nx_loc)/boxlen
   dx_loc=dx/scale
-
-  dx_min = (0.5D0**levelmin)/scale
 
   ! Set position of cell centers relative to grid center
   do ind=1,twotondim
@@ -398,163 +389,65 @@ subroutine velocity_fine(ilevel)
      if(ndim>1)xc(ind,2)=(dble(iy)-0.5D0)*dx
      if(ndim>2)xc(ind,3)=(dble(iz)-0.5D0)*dx
   end do
-  
+
   !-------------------------------------
   ! Compute analytical velocity field
   !-------------------------------------
   ncache=active(ilevel)%ngrid
-  
+
   ! Loop over grids by vector sweeps
   do igrid=1,ncache,nvector
      ngrid=MIN(nvector,ncache-igrid+1)
      do i=1,ngrid
         ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
      end do
-     
+
      ! Loop over cells
      do ind=1,twotondim
-        
+
         ! Gather cell indices
         iskip=ncoarse+(ind-1)*ngridmax
         do i=1,ngrid
            ind_cell(i)=iskip+ind_grid(i)
         end do
-        
+
         ! Gather cell centre positions
         do idim=1,ndim
            do i=1,ngrid
-              x(i,idim)=xg(ind_grid(i),idim)+xc(ind,idim)
+              xx(i,idim)=xg(ind_grid(i),idim)+xc(ind,idim)
            end do
         end do
         ! Rescale position from code units to user units
         do idim=1,ndim
            do i=1,ngrid
-              x(i,idim)=(x(i,idim)-skip_loc(idim))/scale
+              xx(i,idim)=(xx(i,idim)-skip_loc(idim))/scale
            end do
         end do
-        
-  M00=gravity_params(1)
-  emass=gravity_params(2)
 
-  x0=gravity_params(3)
-  y0=gravity_params(4)
-  z0=gravity_params(5)
-  omega0 = sqrt(M00)
-  r0 = 5.5!boxlen / 8.
-  d00=1e-11/scale_d
+        ! Impose analytical velocity field
+        call velana(xx,vv,dx_loc,t,ngrid)
 
-       do i=1,ngrid
+        ! Impose induction variables
+        do i=1,ngrid
+           uold(ind_cell(i),1)=1.0_dp
+        end do
+        do idim=1,3
+           do i=1,ngrid
+              uold(ind_cell(i),idim+1)=vv(i,idim)
+           end do
+        end do
+        ! Update total energy
+        do i=1,ngrid
+           d=uold(ind_cell(i),1)
+           u=uold(ind_cell(i),2)/d
+           v=uold(ind_cell(i),3)/d
+           w=uold(ind_cell(i),4)/d
+           A=0.5_dp*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+           B=0.5_dp*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+           C=0.5_dp*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+           uold(ind_cell(i),neul)=1.0_dp/(gamma-1.0_dp)+0.5_dp*d*(u**2+v**2+w**2)+0.5_dp*(A**2+B**2+C**2)
+        end do
 
-
-     xx=x(i,1)-x0
-     yy=x(i,2)-y0
-     zz=x(i,3)-z0
-     rc=sqrt(xx**2+yy**2)
-     dens1=1.d-22/scale_d
-
-     Cs=max(Cs0*( (rc**5+(10.*emass)**5)**(1./5.)/r0)**(-temper_expo/2.),Cs0/2.)
-
-     Emag=0.
-
-        !confine the gas outside the disk close to  the equatorial plane 
-        !this is to force it to be accreted from the equatorial plane
-        if(rc .ge. 0.5*r0 .and. confine) then 
-           if(zz .ge. 0.) uold(ind_cell(i),4) = min(uold(ind_cell(i),4) , 0.)
-           if(zz .le. 0.) uold(ind_cell(i),4) = max(uold(ind_cell(i),4) , 0.)
-        endif
-
-        if(rc .ge. 1.*r0 .and. confine .and. uold(ind_cell(i),1) .gt. 1.d-5) then 
-!           if(zz .ge. 0.) uold(ind_cell(i),4) = min(uold(ind_cell(i),4) , -5.*Cs*min(abs(zz)/r0,1.)*uold(ind_cell(i),1) )
-!           if(zz .le. 0.) uold(ind_cell(i),4) = max(uold(ind_cell(i),4) ,  5.*Cs*min(abs(zz)/r0,1.)*uold(ind_cell(i),1) )
-           if(zz .ge. 0.) uold(ind_cell(i),4) =  -5.*Cs*min(abs(zz)/r0,1.)*uold(ind_cell(i),1) 
-           if(zz .le. 0.) uold(ind_cell(i),4) =   5.*Cs*min(abs(zz)/r0,1.)*uold(ind_cell(i),1) 
-        endif
-
-        if(rc .ge. 3.5*r0) then 
-      
-           dens1 =  max(d00 * r0**2 / sqrt(rc**2 + emass**2)**(3-temper_expo/2.) * exp( - M00 / Cs**2 / 2.  * zz**2 / (rc**2+emass**2)**(1.5) ) /1000. ,1.d-22/scale_d)
-           uold(ind_cell(i),1) = dens1
-
-          
-           uold(ind_cell(i),2) = dens1*   omega0 * yy / (rc**2+emass**2)**(0.75)
-           uold(ind_cell(i),3) = dens1*( -omega0 * xx / (rc**2+emass**2)**(0.75))
-           uold(ind_cell(i),4) = 0.
-
-           uold(ind_cell(i),6)  = 0.!sqrt(dens0*2.)*Cs*bx_bound
-           uold(ind_cell(i),9)  = 0.!sqrt(dens0*2.)*Cs*bx_bound
-
-           uold(ind_cell(i),7)  = 0.!sqrt(dens0*2.)*Cs*by_bound
-           uold(ind_cell(i),10) = 0.!sqrt(dens0*2.)*Cs*by_bound
-
-           uold(ind_cell(i),8)  = 0.!sqrt(dens0*2.)*Cs*bz_bound
-           uold(ind_cell(i),11) = 0.!sqrt(dens0*2.)*Cs*bz_bound
-
-
-
-!          if(accret_circ) then 
-
-!           uold(ind_cell(i),1) = dens0 + uold(ind_cell(i),1)
-
-
-             !add some mass flux
-!             uold(ind_cell(i),2) = dens0*U0*Cs + uold(ind_cell(i),2)
-
-
-             !gives enough momentum for the gas to reach the outer part of the disk 
-!             uold(ind_cell(i),3) = dens0*V0 * sqrt(gravity_params(1)/r0) *(r0/rc) + uold(ind_cell(i),3)
-
-
-!          else 
-
-          r_acc = sqrt(yy**2+(zz-shifting*r0)**2)
-
-          if( r_acc .lt. r0/accret_rad .and. xx .lt. 0. .and. accret_nonsym .eqv. .true.) then 
-
-           uold(ind_cell(i),1) = dens0 + uold(ind_cell(i),1)
-
-
-             !add some mass flux
-             uold(ind_cell(i),2) = dens0*U0*Cs + uold(ind_cell(i),2)
-
-
-             !gives enough momentum for the gas to reach the outer part of the disk 
-             uold(ind_cell(i),3) = dens0*V0 * sqrt(gravity_params(1)/r0) *(r0/rc) + uold(ind_cell(i),3)
-
-!           endif
-
-           else if (accret_nonsym .eqv. .false. .and. abs(zz) .lt. r0 ) then
-
-             !the total mass flux is the same for the 2 accretion schemes
-             !pi r0^2 / (2.*pi*3.5*r0*r0) = > 1/(2*3.5)
-             uold(ind_cell(i),1) = dens0 / (2.*3.5) + uold(ind_cell(i),1)
-
-             !add some mass flux
-             uold(ind_cell(i),2) = -dens0 / (2.*3.5)*U0*Cs*xx/rc + uold(ind_cell(i),2)
-
-             uold(ind_cell(i),3) = -dens0 / (2.*3.5)*U0*Cs*yy/rc + uold(ind_cell(i),3)
-
-             !gives enough momentum for the gas to reach the outer part of the disk 
-             uold(ind_cell(i),2) = dens0 / (2.*3.5)*V0 * (yy/rc) * sqrt(gravity_params(1)/r0) *(r0/rc) + uold(ind_cell(i),2)
-
-             uold(ind_cell(i),3) = dens0 / (2.*3.5)*V0 * (-xx/rc) * sqrt(gravity_params(1)/r0) *(r0/rc) + uold(ind_cell(i),3)
-
-
-           endif
-
-
-           uold(ind_cell(i),neul)= uold(ind_cell(i),1)*Cs**2/(gamma-1.) + 0.5/uold(ind_cell(i),1)*(uold(ind_cell(i),2)**2+uold(ind_cell(i),3)**2+uold(ind_cell(i),4)**2) + Emag
-
-
-          endif
-
-
-
-
-       enddo
-
-
-
-       
      end do
      ! End loop over cells
 

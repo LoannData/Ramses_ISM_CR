@@ -4,7 +4,8 @@
 !#########################################################
 subroutine gravana(x,f,dx,ncell)
   use amr_parameters
-  use poisson_parameters  
+  use poisson_parameters
+  use hydro_parameters
   implicit none
   integer ::ncell                         ! Size of input arrays
   real(dp)::dx                            ! Cell size
@@ -16,10 +17,12 @@ subroutine gravana(x,f,dx,ncell)
   ! f(i,1:ndim) is the gravitational acceleration in user units.
   !================================================================
   integer::idim,i
-  real(dp)::gmass,emass,xmass,ymass,zmass,rr,rx,ry,rz
+  real(dp)::gmass,emass,xmass,ymass,zmass,RRR,rr,rx,ry,rz,rcyl,rin,radiusin,H1,sfive,hsmooth
+  rin =rd_factor
 
+  HoverR=0.05
   ! Constant vector
-  if(gravity_type==1)then 
+  if(gravity_type==1)then
      do idim=1,ndim
         do i=1,ncell
            f(i,idim)=gravity_params(idim)
@@ -28,33 +31,48 @@ subroutine gravana(x,f,dx,ncell)
   end if
 
   ! Point mass
-  if(gravity_type==2)then 
-     gmass=gravity_params(1) ! GM
+  if(gravity_type==2)then
+     gmass=Mstar_cen! GM
+     emass=2.0*dx
+
      emass=gravity_params(2) ! Softening length
-     xmass=0.5d0*boxlen!gravity_params(3) ! Point mass coordinates
-     ymass=0.5d0*boxlen!gravity_params(4)
-     zmass=0.5d0*boxlen!gravity_params(5)
+     xmass=gravity_params(3) ! Point mass coordinates
+     ymass=gravity_params(4)
+     zmass=gravity_params(5)
+     
      do i=1,ncell
         rx=0.0d0; ry=0.0d0; rz=0.0d0
-        rx=x(i,1)-xmass
+        
+        rx=x(i,1)-boxlen/2.0d0
 #if NDIM>1
-        ry=x(i,2)-ymass
+        ry=x(i,2)-boxlen/2.0d0
 #endif
 #if NDIM>2
-        rz=x(i,3)-zmass
+        rz=x(i,3)-boxlen/2.0d0
 #endif
-        rr=sqrt(rx**2+ry**2+rz**2+emass**2)
-        f(i,1)=-gmass*rx/rr**3
+        rr=sqrt(rx**2+ry**2+rz**2+rsmooth**2.0)
+
+        RRR = sqrt(rx**2.0+ry**2.0+rz**2.0)
+        radiusin=sqrt(rin**2.0+rz**2)
+        Hsmooth=5.*hoverr*rrr
+        
+        rcyl=sqrt(rx**2+ry**2)
+        H1=Hoverr*rcyl
+
+        f(i,1)=-gmass*rx/rrr/rr**2.0*sfive(rrr/rsmooth)
+        !if(rcyl<rin)  f(i,1)=-gmass*rx/rr/rin**2.0
 #if NDIM>1
-        f(i,2)=-gmass*ry/rr**3
+        f(i,2)=-gmass*ry/rrr/rr**2.0*sfive(rrr/rsmooth)
+        !if(rcyl<rin)  f(i,2)=-gmass*ry/rr/rin**2.0
+
 #endif
 #if NDIM>2
-        f(i,3)=-gmass*rz/rr**3
+        f(i,3)=-gmass*rz/rrr/rr**2.0*sfive(rrr/rsmooth)
+        !if(rcyl<rin)  f(i,3)=-gmass*rz/rr/rin**2.0
+
 #endif
      end do
   end if
-
-
 
 end subroutine gravana
 !#########################################################
@@ -92,3 +110,4 @@ subroutine phi_ana(rr,pp,ngrid)
   end do
 #endif
 end subroutine phi_ana
+

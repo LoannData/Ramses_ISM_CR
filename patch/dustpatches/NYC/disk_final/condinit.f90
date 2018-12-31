@@ -110,7 +110,8 @@ subroutine condinit(x,u,dx,nn)
 
      omega_kep=sqrt(Mstar_cen/rr**3.0+drRho)!-3.5*Bz*(RR/rout)**(-1.0)/q(i,1)/RR)
      q(i,5)=cs**2.0*q(i,1)
-     Bz=sfive(rrr/rsmooth)*sqrt(2.0d0*(cs**2.0*q(i,1))/beta_mag)
+     Bz=sfive(rr/rsmooth)*sqrt(2.0d0*(cs**2.0*rho0*(RR/rout)**(-2.5))/beta_mag)
+
      call get_vturb(turb_perc,cs,vtur)
      !call get_dturb(turb_perc,q(i,1),delro)
      q(i,2)=-omega_kep*rr*yn/rrr+vtur(1)
@@ -136,6 +137,17 @@ subroutine condinit(x,u,dx,nn)
      THayash= 280.0d0*(rr/rhayash)**(-1./2.)
      cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
      H=cs/omega_kep
+#if NDUST>0
+     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
+        do idust =1,ndust
+           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           !if(q(i,1).eq.rhoext/scale_d) q(i, firstindex_ndust+idust)=1.d-18
+
+           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
+           
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+        end do   
+#endif
      q(i,1)= max(sigmaHayash/sqrt(2.0*pi*H)*exp(-zn**2.0/(2.0*H**2.0)),rhoext/scale_d)
      q(i,5)=cs**2.0*q(i,1)
      Bz=sqrt(2.0d0*(cs**2.0*sigmaHayash/sqrt(2.0*pi*H))/beta_mag)
