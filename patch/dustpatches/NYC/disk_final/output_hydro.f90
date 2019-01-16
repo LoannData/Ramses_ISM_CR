@@ -8,18 +8,21 @@ subroutine file_descriptor_hydro(filename)
 
   character(LEN=80)::filename
   character(LEN=80)::fileloc
-  integer::ivar,ilun,idust
+  integer::ivar,ilun,idust,ndisk
   
   if(verbose)write(*,*)'Entering file_descriptor_hydro'
 
   ilun=11
-
+  ndisk =0
+#if RESIST>0
+  ndisk=nstore_disk
+#endif
   ! Open file
   fileloc=TRIM(filename)
   open(unit=ilun,file=fileloc,form='formatted')
 
   ! Write run parameters
-  write(ilun,'("nvar        =",I11)')nvar+4+ndust*ndim
+  write(ilun,'("nvar        =",I11)')nvar+4+ndust*ndim+ndisk
   ivar=1
   write(ilun,'("variable #",I2,": density")')ivar
   if(write_conservative) then
@@ -159,6 +162,15 @@ endif
      
      ivar = ivar +(ndim-1)
   end do
+     
+#if RESIST>0
+     write(ilun,'("variable #",I2,": Column_dens")')ivar+2
+     write(ilun,'("variable #",I2,": etaohm")')ivar+3
+     write(ilun,'("variable #",I2,": betaad")')ivar+4
+
+
+     ivar=ivar+4
+#endif
 #endif   
   close(ilun)
 
@@ -188,6 +200,7 @@ subroutine backup_hydro(filename)
 #if NENER>0
   integer::irad
 #endif
+  integer:: idisk
 
   if(verbose)write(*,*)'Entering backup_hydro'
 
@@ -401,23 +414,21 @@ subroutine backup_hydro(filename)
               end do
            end do
 #endif
-!!$#if NIMHD==1
-!!$if(use_resist) then           
-!!$                 do i=1,ncache
-!!$                    xdp(i)=0.0
-!!$                 end do
-!!$                 write(ilun)xdp
-!!$                 do i=1,ncache
-!!$                    d=max(uold(ind_grid(i)+iskip,1),smallr)
-!!$                    xdp(i)=betaadbricolo(d,d,0,0,0,0,0,0,0)
-!!$                 end do
-!!$                 write(ilun)xdp
-!!$endif                 
-!!$#endif
+
+#if RESIST>0
+           if(use_resist) then
+              do idisk=1,nstore_disk
+                 do i=1,ncache
+                    xdp(i)=store_disk(ind_grid(i)+iskip,idisk)
+                 end do
+                 write(ilun)xdp              
               end do
+           end if
+#endif           
+        end do
         
         deallocate(ind_grid, xdp)
-        end if
+     end if
      end do
   end do
   close(ilun)

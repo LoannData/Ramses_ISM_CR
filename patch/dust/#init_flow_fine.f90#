@@ -478,10 +478,10 @@ subroutine init_flow_fine(ilevel)
                  store_disk(ind_cell(i),idisk)=sig(i,idisk)
                end do
 #endif              
-           end do
-           end do
+            end do
+         end do
         ! End loop over cells
-     end do
+      end do
      ! End loop over grids
 
      

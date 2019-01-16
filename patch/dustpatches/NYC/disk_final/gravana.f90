@@ -59,15 +59,15 @@ subroutine gravana(x,f,dx,ncell)
         rcyl=sqrt(rx**2+ry**2)
         H1=Hoverr*rcyl
 
-        f(i,1)=-gmass*rx/rrr/rr**2.0*sfive(rrr/rsmooth)
+        f(i,1)=-gmass*rx/rrr/rr**2.0
         !if(rcyl<rin)  f(i,1)=-gmass*rx/rr/rin**2.0
 #if NDIM>1
-        f(i,2)=-gmass*ry/rrr/rr**2.0*sfive(rrr/rsmooth)
+        f(i,2)=-gmass*ry/rrr/rr**2.0
         !if(rcyl<rin)  f(i,2)=-gmass*ry/rr/rin**2.0
 
 #endif
 #if NDIM>2
-        f(i,3)=-gmass*rz/rrr/rr**2.0*sfive(rrr/rsmooth)
+        f(i,3)=-gmass*rz/rrr/rr**2.0
         !if(rcyl<rin)  f(i,3)=-gmass*rz/rr/rin**2.0
 
 #endif

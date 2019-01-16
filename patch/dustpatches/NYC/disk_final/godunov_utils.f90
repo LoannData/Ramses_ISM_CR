@@ -35,7 +35,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   real(dp),dimension(1:nvector,1:nvar+3+ndust)::uu
   real(dp),dimension(1:nvector,1:ndim)::gg
 #if RESIST>0
-  real(dp),dimension(1:nvector)::dcol  
+  real(dp),dimension(1:nvector,1:nstore_disk)::dcol  
 #endif  
   real(dp),dimension(1:nvector),save::a2,B2,rho,ctot
   real(dp)::dtcell,smallp,cf,cc,bc,bn
@@ -206,8 +206,9 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      dtohmdiss=1.d35
      do k = 1,ncell
         xx=etaohmdiss(rhoad(k),B2(k),tcell(k),ionisrate(k))
-        if(use_resist) xx= etaohm_disk(rhoad(k),B2(k),ionisrate(k))
-       
+#if RESIST>0       
+        if(use_resist) xx= dcol(k,2)
+#endif
         if(xx.gt.0.d0) then
            dtohmdissb=coefohm*dx*dx/xx
         else
@@ -225,7 +226,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      do k = 1,ncell
         xx=B2(k)*betaad(rhoad(k),B2(k),tcell(k),ionisrate(k))
 #if RESIST>0
-        if(use_resist) xx= betaad_disk(rhoad(k),dcol(k),tcell(k))*B2(k)         
+        if(use_resist) xx= dcol(k,3)*B2(k)         
 #endif
         if (xx.gt.0.d0) then
            !! WARNING RHOAD mandatory because rho(k) is not density cf lines above

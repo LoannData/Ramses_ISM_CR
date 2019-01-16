@@ -130,7 +130,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
           do k = 1, ncell
 #if NDUST>0
            do idust=1,ndust
-              ctot(k)=ctot(k)+uu(k,nvar+idust)+udust(k)
+              ctot(k)=ctot(k)+udust(k)
            end do   
 #endif            
         end do
@@ -146,7 +146,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      do k = 1, ncell
 #if NDUST>0
            do idust=1,ndust
-              ctot(k)=ctot(k)+uu(k,nvar+idust)+udust(k)
+              ctot(k)=ctot(k)+udust(k)
            end do   
 #endif            
         end do

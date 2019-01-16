@@ -60,8 +60,10 @@ subroutine init_hydro
      allocate(enew(1:ncell))
      divu=0.0d0; enew=0.0d0
   end if
+#if RESIST>0  
   allocate(store_disk(1:ncell,1:nstore_disk))
   store_disk=0.d0
+#endif  
 #if NDUST>0
   allocate(dflux_dust(1:ncell,1:ndust))
   allocate(v_dust(1:ncell,1:ndust,1:ndim))

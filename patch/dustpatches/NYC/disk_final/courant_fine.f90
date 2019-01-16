@@ -27,11 +27,11 @@ subroutine courant_fine(ilevel)
   real(dp),dimension(1:nvector,1:nvar+3+ndust),save::uu
   real(dp),dimension(1:nvector,1:ndim),save::gg
 #if RESIST>0
-  real(dp),dimension(1:nvector),save::dcol
+  real(dp),dimension(1:nvector,1:nstore_disk),save::dd
 #endif
 #if NDUST>0
   real(dp)::dt_dust,vdust
-  integer::idust
+  integer::idust,idisk
   !real(dp),dimension(1:nvector)::vdu
 #endif
 #if NIMHD==1
@@ -135,11 +135,13 @@ subroutine courant_fine(ilevel)
         end if
 #if RESIST>0
                 ! Gather gravitational acceleration
-        dcol=0.0d0
+        dd=0.0d0
         if(use_resist)then
            do i=1,nleaf
-              dcol(i)=store_disk(ind_leaf(i),1)
-              end do
+              do idisk=1,nstore_disk
+              dd(i,idisk)=store_disk(ind_leaf(i),idisk)
+           end do
+           enddo
         end if
 #endif        
         ! Gather radiative force
@@ -204,7 +206,7 @@ subroutine courant_fine(ilevel)
 #if NIMHD==1
            ! modif nimhd
 #if RESIST>0
-           call cmpdt(uu,gg,dcol,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
+           call cmpdt(uu,gg,dd,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
 #else
            call cmpdt(uu,gg,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
 

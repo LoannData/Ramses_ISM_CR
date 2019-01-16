@@ -52,7 +52,7 @@ subroutine  mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind
   ! Input states
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::uin
 #if RESIST>0  
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::dcolin
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nstore_disk)::dcolin
 #endif
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim)::gravin 
 
@@ -193,8 +193,12 @@ subroutine  mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind
   ! OHMIC DISSIPATION
   
   if(nmagdiffu.eq.1) then
-
+#if RESIST>0
+     call computdifmag(uin,qin,dcolin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
+#else
      call computdifmag(uin,qin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
+
+#endif
   endif
   
   !  END OHMIC DISSIPATION
@@ -5496,9 +5500,12 @@ end subroutine computejb2
 !###########################################################
 !###########################################################
 !###########################################################
+#if RESIST>0
+subroutine computdifmag(u,q,dci,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
+#else
+  subroutine computdifmag(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
 
-subroutine computdifmag(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
-
+#endif
   USE amr_parameters
   use hydro_commons
   use cooling_module,ONLY:kB,mH,clight
@@ -5508,7 +5515,9 @@ subroutine computdifmag(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemf
 
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q 
-
+#if RESIST>0  
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nstore_disk)::dci
+#endif
   INTEGER ::ngrid
   REAL(dp)::dx,dy,dz,dt
 
@@ -5538,6 +5547,7 @@ real(dp)::etaohmdiss,etaod2,tcellx,tcelly,tcellz,bsquarex,bsquarey,bsquarez,etao
 real(dp)::pressurex,pressurey,pressurez,rhox,rhoy,rhoz,epsx,epsy,epsz
 real(dp)::etaod2x,etaod2y,etaod2z,rhof,pf,bsqf,epsf,tcellf,barotrop1D
 
+real(dp):: etx,ety,etz
 integer , dimension(1:3) :: index_i,index_j,index_k
 
 real(dp)::sum_dust
@@ -5559,8 +5569,11 @@ do k=min(1,ku1+1),max(1,ku2-1)
               jemf(l,i,j,k,1)=jemfx(l,i,j,k,1)
               jemf(l,i,j,k,2)=jemfy(l,i,j,k,2)
               jemf(l,i,j,k,3)=jemfz(l,i,j,k,3)
-
-
+#if RESIST>0
+              etx=0.25d0*(dci(l,i,j,k,   2)+dci(l,i  ,j-1,k,   2)+dci(l,i,j  ,k-1,   2)+dci(l,i  ,j-1,k-1,   2))
+              ety=0.25d0*(dci(l,i,j,k,   2)+dci(l,i-1,j  ,k,   2)+dci(l,i,j  ,k-1,   2)+dci(l,i-1,j  ,k-1,   2))
+              etz=0.25d0*(dci(l,i,j,k,   2)+dci(l,i-1,j  ,k,   2)+dci(l,i,j-1,k  ,   2)+dci(l,i-1,j-1,k  ,   2))
+#endif
               rhox=0.25d0*(u(l,i,j,k,   1)+u(l,i  ,j-1,k,   1)+u(l,i,j  ,k-1,   1)+u(l,i  ,j-1,k-1,   1))
               rhoy=0.25d0*(u(l,i,j,k,   1)+u(l,i-1,j  ,k,   1)+u(l,i,j  ,k-1,   1)+u(l,i-1,j  ,k-1,   1))
               rhoz=0.25d0*(u(l,i,j,k,   1)+u(l,i-1,j  ,k,   1)+u(l,i,j-1,k  ,   1)+u(l,i-1,j-1,k  ,   1))
@@ -5600,7 +5613,9 @@ do k=min(1,ku1+1),max(1,ku2-1)
 !                  print*,rhox,epsx,rhoy,epsy,rhoz,epsz
                   sum_dust=0.0d0
 #if NDUST>0
-                  sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/u(l,i,j,k,1)
+                  do idust=1,ndust
+                     sum_dust=sum_dust+u(l,i,j,k,firstindex_ndust+idust)/u(l,i,j,k,1)
+                  end do
 #endif                  
                   call temperature_eos((1.0d0-sum_dust)*rhox,epsx,tcellx,ht)
                   call temperature_eos((1.0d0-sum_dust)*rhoy,epsy,tcelly,ht)
@@ -5617,9 +5632,9 @@ do k=min(1,ku1+1),max(1,ku2-1)
               etaod2y=etaohmdissbricolo(rhoy,bsquarey,tcelly,dtlim,dx,ionisrate)
               etaod2z=etaohmdissbricolo(rhoz,bsquarez,tcellz,dtlim,dx,ionisrate)
 
-              if (use_resist) etaod2x= etaohm_disk(rhox,tcellx,ionisrate)
-              if (use_resist) etaod2y= etaohm_disk(rhoy,tcelly,ionisrate)           
-              if (use_resist) etaod2z= etaohm_disk(rhoz,tcellz,ionisrate)             
+              if (use_resist) etaod2x= etx
+              if (use_resist) etaod2y= ety     
+              if (use_resist) etaod2z= etz      
 
 ! WARNING dB/dt=-curl(eta*J)
               emfohmdiss(l,i,j,k,nxx)=-etaod2x*jemf(l,i,j,k,1)
@@ -5680,8 +5695,10 @@ do k=min(1,ku1+1),max(1,ku2-1)
                     endif
                     
                     etaod2=etaohmdiss(rhof,bsqf,tcellf,ionisrate)
-
-              if (use_resist) etaod2= etaohm_disk(rhof,tcellf,ionisrate)
+#if RESIST>0
+                    if (use_resist) etaod2= dci(l,i,j,k,2)
+#endif
+                    
                     fluxohm(l,i,j,k,h)=etaod2*fluxmd(l,i,j,k,h)
                     
                     !               rhof=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1))
@@ -5762,9 +5779,10 @@ do k=min(1,ku1+1),max(1,ku2-1)
 !                    if(nmagdiffu2.eq.1)call temperature_eos((1.0d0-sum_dust)*rhocell,u(l,i,j,k,3),tcell,ht,sum_dust)
                     end if
                     
-
-                    if (use_resist) etaod= etaohm_disk(rhocell,tcell,ionisrate)
-                    if (use_resist)jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaod
+#if RESIST>0
+                    if (use_resist) etaod= dci(l,i,j,k,2)
+#endif                    
+                    if (use_resist)jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaod*dt
                     if(.not.use_resist)jcentersquare(l,i,j,k) = jcentersquare(l,i,j,k)*etaohmdiss(rhocell,bcell,tcell,ionisrate)*dt 
 
                       
@@ -5780,7 +5798,7 @@ end subroutine computdifmag
 !###########################################################
 !###########################################################
 #if RESIST>0
-SUBROUTINE  computambip(u,q,dc,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)  
+SUBROUTINE  computambip(u,q,dci,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)  
 #else
 SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)    
 #endif
@@ -5794,7 +5812,7 @@ SUBROUTINE  computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,floren
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q
 #if RESIST>0  
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::dc
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nstore_disk)::dci
 #endif 
 
   INTEGER ::ngrid,ht
@@ -5866,7 +5884,6 @@ jcenter=0.0d0
         do i=min(1,iu1+1),max(1,iu2-1)
            
            do l = 1, ngrid
-              dcol=dc(l,i,j,k)
               rhox=0.25d0*(u(l,i,j,k,1)+u(l,i,j-1,k,1)+u(l,i,j,k-1,1)+u(l,i,j-1,k-1,1))
               rhoy=0.25d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1)+u(l,i,j,k-1,1)+u(l,i-1,j,k-1,1))
               rhoz=0.25d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1)+u(l,i,j-1,k,1)+u(l,i-1,j-1,k,1))
@@ -5936,8 +5953,9 @@ jcenter=0.0d0
               ionisrate=default_ionisrate
               betaad2=betaadbricolo(rhocell,rhox,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !              betaad2=betaadbricolo(rhocell,rhox,dtlim,bcellold,bcellold,dx,ntest,tcell)
-
-if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
+#if RESIST>0
+              if(use_resist) betaad2=dci(l,i,j,k,3)*bcell
+#endif             
               emfambdiff(l,i,j,k,1)=emfambdiff(l,i,j,k,1)*betaad2 
 
 ! EMF y
@@ -5965,8 +5983,9 @@ if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell
 
              betaad2=betaadbricolo(rhocell,rhoy,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !             betaad2=betaadbricolo(rhocell,rhoy,dtlim,bcellold,bcellold,dx,ntest,tcell)
-
-if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
+#if RESIST>0
+             if(use_resist) betaad2=dci(l,i,j,k,3)*bcell
+#endif             
              emfambdiff(l,i,j,k,2)=emfambdiff(l,i,j,k,2)*betaad2            
                     
 ! EMF z
@@ -5990,9 +6009,9 @@ if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell
              
              betaad2=betaadbricolo(rhocell,rhoz,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
 !             betaad2=betaadbricolo(rhocell,rhoz,dtlim,bcellold,bcellold,dx,ntest,tcell)
-
-if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
-             
+#if RESIST>0
+if(use_resist) betaad2= dci(l,i,j,k,3)*bcell            
+#endif            
              emfambdiff(l,i,j,k,3)=emfambdiff(l,i,j,k,3)*betaad2
 
 ! energy flux on faces
@@ -6010,9 +6029,9 @@ if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell
               rhocell = rhocellmin(l,i,j,k)
               rhofx=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1))
               betaad2=betaadbricolo(rhocell,rhofx,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
-
-if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
-             
+#if RESIST>0
+if(use_resist) betaad2= dci(l,i,j,k,3)*bcell            
+#endif             
               fluxambdiff(l,i,j,k,1)=-betaad2*fluxad(l,i,j,k,1)
 
               v2x=bmagij(l,i,j,k,1,2)
@@ -6027,9 +6046,9 @@ if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell
               end if
 
               betaad2=betaadbricolo(rhocell,rhofy,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
-
-if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
-             
+#if RESIST>0
+if(use_resist) betaad2= dci(l,i,j,k,3)*bcell            
+#endif             
               fluxambdiff(l,i,j,k,2)=-betaad2*fluxad(l,i,j,k,2)
 
               v2x=bmagij(l,i,j,k,1,3)
@@ -6044,9 +6063,9 @@ if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell
               end if
 
               betaad2=betaadbricolo(rhocell,rhofz,dtlim,bcell,bcell,dx,ntest,tcell,ionisrate)
-
-if(use_resist) betaad2= betaad_disk(rhocell,dcol,tcell)*bcell            
-             
+#if RESIST>0
+if(use_resist) betaad2= dci(l,i,j,k,3)*bcell            
+#endif            
               fluxambdiff(l,i,j,k,3)=-betaad2*fluxad(l,i,j,k,3)
 
               v2x=u(l,i,j,k,6)
@@ -7380,7 +7399,6 @@ use amr_commons
 use cooling_module
 use variables_X,only:pi
 use units_commons
-use cooling_module      , only : kb,mh
 use radiation_parameters,only:mu_gas
 implicit none
 real(dp):: dens,temper,xionization

@@ -879,7 +879,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),save::gloc=0.0d0
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::jcell=0.d0
 #if RESIST>0
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::dc=0.d0 
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nstore_disk),save::dc 
 #endif
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:nvar,1:ndim),save::flux
   real(dp),dimension(1:nvector,1:3,1:3,1:3),save::emfx=0.0d0,emfy=0.0d0,emfz=0.0d0
@@ -892,7 +892,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   integer::neul=5
   integer::ind_buffer1,ind_buffer2,ind_buffer3
   integer::ind_father1,ind_father2,ind_father3
-  integer::i,j,ivar,idim,ind_son,ind_father,iskip,nbuffer
+  integer::i,j,ivar,idim,ind_son,ind_father,iskip,nbuffer,jdisk,istore
   integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh,nexist
   integer::i1min,i1max,j1min,j1max,k1min,k1max
   integer::i2min,i2max,j2min,j2max,k2min,k2max
@@ -900,7 +900,9 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp)::dflux_x,dflux_y,dflux_z
   real(dp)::dx,scale,oneontwotondim
   real(dp)::dflux,weight
-
+#if RESIST>0  
+  dc=0.0d0
+#endif  
   oneontwotondim = 1.d0/dble(twotondim)
 
   ! Mesh spacing in that level
@@ -1011,11 +1013,16 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         end if
 #if RESIST>0
         if(use_resist)then
-              do i=1,nexist
-                 dc(ind_exist(i),i3,j3,k3)=store_disk(ind_cell(i),1)
+           do i=1,nexist
+              do istore=1,nstore_disk
+                 dc(ind_exist(i),i3,j3,k3,istore)=store_disk(ind_cell(i),istore)
+              end do
               end do
               do i=1,nbuffer
-                 dc(ind_nexist(i),i3,j3,k3)=store_disk(ibuffer_father(i,0),1)
+                 do istore=1,nstore_disk
+                    
+                    dc(ind_nexist(i),i3,j3,k3,istore)=store_disk(ibuffer_father(i,0),istore)
+                   enddo
               end do
         end if
 #endif        

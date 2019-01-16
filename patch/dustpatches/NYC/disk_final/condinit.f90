@@ -148,9 +148,9 @@ subroutine condinit(x,u,dx,nn)
            sum_dust = sum_dust + q(i, firstindex_ndust+idust)
         end do   
 #endif
-     q(i,1)= max(sigmaHayash/sqrt(2.0*pi*H)*exp(-zn**2.0/(2.0*H**2.0)),rhoext/scale_d)
+     q(i,1)= max(sigmaHayash/sqrt(2.0*pi*H**2.0)*exp(-zn**2.0/(2.0*H**2.0)),rhoext/scale_d)
      q(i,5)=cs**2.0*q(i,1)
-     Bz=sqrt(2.0d0*(cs**2.0*sigmaHayash/sqrt(2.0*pi*H))/beta_mag)
+     Bz=sqrt(2.0d0*(cs**2.0*sigmaHayash/sqrt(2.0*pi*H**2.0))/beta_mag)
      call get_vturb(turb_perc,cs,vtur)
      !call get_dturb(turb_perc,q(i,1),delro)
      q(i,2)=-omega_kep*rr*yn/rrr+vtur(1)
@@ -241,7 +241,7 @@ subroutine condinit(x,u,dx,nn)
 !================================================================
 !================================================================
 !================================================================
-subroutine columninit(x,sig,dx,nn)
+subroutine columninit(x,sigm,dx,nn)
   use amr_parameters
   use hydro_parameters
   use poisson_parameters
@@ -253,7 +253,8 @@ subroutine columninit(x,sig,dx,nn)
   integer ::nn                              ! Number of cells
   real(dp)::dx                              ! Cell size
   real(dp),dimension(1:nvector,1:ndim)::x   ! Cell center position.
-  real(dp),dimension(1:nvector)::sig   ! column dens
+  real(dp),dimension(1:nvector,1:nstore_disk),save::sig1   ! column dens etc
+  real(dp),dimension(1:nvector,1:nstore_disk)::sigm   ! column dens etc
 
   !================================================================
   ! This routine generates initial conditions for RAMSES.
@@ -269,13 +270,39 @@ subroutine columninit(x,sig,dx,nn)
   ! scalars in the hydro solver.
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
-  integer::ivar, idust, i
-  real(dp)::xn,x0,sum_dust, RR,yn,zn
-  real(dp)::rhayash
-!hayashi's params
+  integer::  ivar, idust, i
+  real(dp):: xn,x0,sum_dust, RR,yn,zn
+  real(dp):: rhayash,pi,thayash,cs,omega_kep,H,csback,sig0,sfive,rout,rin,delta_rho
+  real(dp):: dens,Bz
+  real(dp):: sigmacr,sigmafuv,zetafuv,zetarad,zetacr,xfuv,sigmasc,sigmaab,alph,bet,gammai,sigmave,sigmahayash
+  real(dp):: eel, me, clum, alpha_dr, xe, zeta,zeta1
+  real(dp) :: scale_dcol
+  real(dp):: betaambd,etaohmic,eta_cap,beta_cap
+  !hayashi's params
+  rin =rd_factor
+  rout= 5.0d0!2.0*4.0
+  H=HoverR*rout
+  
+  csback= sqrt(gamma*kb*Tpback/(mu_gas*mH))/scale_v
 
   x0=boxlen/2.0
-  
+  pi=3.141592653589
+
+  scale_dcol= scale_m/scale_l**2.0
+  !resistivity params
+  sigmacr=96./scale_dcol
+  sigmafuv=0.03/scale_dcol
+  zetafuv=2e-5
+  zetarad=1e-19
+  zetacr=1e-16
+  sigmasc=7e23*mu_gas*mH/scale_dcol
+  sigmaab=1e21*mu_gas*mH/scale_dcol
+  alph=0.65
+  bet=0.4
+  gammai=3.5e13*scale_d*scale_t
+  eel=4.8e-10
+  me=9.1e-28
+  clum=2.997e10
   if(hayashi) then
      rhayash=1.0d0
   endif
@@ -287,17 +314,47 @@ subroutine columninit(x,sig,dx,nn)
      !cylindrical radius
      !spherical radius
      RR = sqrt(xn**2.0+yn**2.0+rsmooth**2.0)
-     
 
 
-
-  !MMSN model Hayashi
   if (Hayashi) then
+     omega_kep=sqrt(Mstar_cen/rr**3.0)
 
-     sig(i)= 1700.d0/scale_m*scale_l**2.0*(rr/rhayash)**(-3./2.)
+     sigmaHayash= 1700.d0/scale_m*scale_l**2.0*(rr/rhayash)**(-3./2.)
+   
+     THayash= 280.0d0*(rr/rhayash)**(-1./2.)
+     cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
+     H=cs/omega_kep
+
+     dens= max(sigmaHayash/sqrt(2.0*pi*H**2.0)*exp(-zn**2.0/(2.0*H**2.0)),rhoext/scale_d)
+     Bz=sqrt(2.0d0*(cs**2.0*sigmaHayash/sqrt(2.0*pi*H**2.0))/beta_mag)
+
+     sig0=1700/sqrt(2.0*pi)*(rr/rhayash)**(-3./2.)/scale_m*scale_l**2.0
+     sig1(i,1)= min(1700.d0/scale_m*scale_l**2.0*(rr/rhayash)**(-3./2.),sig0*(1.0d0-erf(abs(zn)/(sqrt(2.0)*H))))
+     zeta1=(rr/rhayash)**(-2.2)*(1e-15*(exp(-(sig1(i,1)/sigmasc)**alph))+6e-12*(exp(-(sig1(i,1)/sigmaab)**bet)))
+     zeta=zetacr*exp(-sig1(i,1)/sigmacr)+zetarad+zeta1
+     xfuv=zetafuv*exp(-(sig1(i,1)/sigmafuv)**4.0)
+     alpha_dr=3e-6/sqrt(Thayash)
+     xe= sqrt(zeta/alpha_dr/(H2_fraction*dens*scale_d/(mu_gas*mH)))+xfuv
+     sigmave=8.28e-9*sqrt(Thayash/100.)
+     eta_cap=10*omega_kep*H**2.0
+     beta_cap=eta_cap/bz**2.0
+     etaohmic=min(clum**2.0*me/(4.0*pi*eel**2.0)/xe*sigmave/scale_l**2*scale_t,eta_cap)
+     betaambd=min(1./gammai/dens**2/xe/29,beta_cap)
+     sig1(i,2)=etaohmic
+     sig1(i,3)=betaambd
+!!$     sig1(i,4)=xe
+!!$     sig1(i,5)=1./dens/betaambd/omega_kep
+!!$     sig1(i,6)=Bz**2.0/dens/etaohmic/omega_kep
+     ! print *, sig(i,2),sig(i,3)
   endif
+  
   end do
-
+sigm(1:nn,1)=sig1(1:nn,1)
+sigm(1:nn,2)=sig1(1:nn,2)
+sigm(1:nn,3)=sig1(1:nn,3)
+!!$sig(1:nn,4)=sig1(1:nn,4)
+!!$sig(1:nn,5)=sig1(1:nn,5)
+!!$sig(1:nn,6)=sig1(1:nn,6)
 
 end subroutine columninit
 !================================================================
