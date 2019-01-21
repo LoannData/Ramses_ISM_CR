@@ -7,8 +7,12 @@ subroutine init_flow
 #if NDUST==0
     use hydro_commons, ONLY: nvar, uold
 #endif
-#if NDUST>0  
-  use hydro_commons, ONLY: nvar, uold, ndim,ndust, v_dust,store_disk
+#if NDUST>0
+#if RESIST>0
+    use hydro_commons, ONLY: nvar, uold, ndim,ndust, v_dust,store_disk
+#else
+    use hydro_commons, ONLY: nvar, uold, ndim,ndust, v_dust
+#endif
 #endif
 #if RESIST>0
   use hydro_parameters, ONLY : nstore_disk
