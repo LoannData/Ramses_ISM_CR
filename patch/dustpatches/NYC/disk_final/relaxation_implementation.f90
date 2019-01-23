@@ -19,12 +19,14 @@ subroutine relaxation_implementation(ilevel,nstp)
   real(dp) ::A,B,C,e_mag,e_kin1,e_kin2,enint,d,u,v,w,e
   real(dp)::dx,scale,x0,xn,yn,zn, radius,rho0,cs0,cs,omega_kep,radiusin, radiusout,smoothing
   real(dp)::relax,rin,rr,dx_loc,rout,emass,relaxinit,H,csdr,drrho,radiusdr,rrdr,rrr,rrrm,csback,csmax,cloc,hsmooth
+    real(dp):: sinthetai, sintheta,alpha_disk,k_corona,v_kep,cs_iso,n_disk,buffer_H
+
   real(dp),dimension(ndim)::vel
 
   real(dp),dimension(1:3)::skip_loc
   real(dp),dimension(1:twotondim,1:3)::xc
   real(dp),dimension(1:nvector,1:ndim),save::xx
-  real(dp):: epsilon_0,sum_dust,alpha_disk
+  real(dp):: epsilon_0,sum_dust
   integer::idust
 
   real(dp) :: sfive,ssix,trel,sone
@@ -119,6 +121,12 @@ subroutine relaxation_implementation(ilevel,nstp)
          RRR = sqrt(xn**2.0+yn**2.0)
          RRdR= sqrt(xn**2.0+yn**2.0+rsmooth**2.0)+dx
          radius = sqrt(RR**2.0+zn**2.0)
+         sintheta=zn/sqrt(zn**2.0+RR**2.0)
+         sinthetai= 1.0 + log10(10e-3)*hoverr**2.
+     
+         alpha_disk=-1.
+         n_disk=-2.
+         k_corona= 6.
          radiusdr= sqrt(RRdr**2.0+zn**2.0)
 
  
@@ -127,6 +135,24 @@ subroutine relaxation_implementation(ilevel,nstp)
                 if(Gressel)cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
                 if(Hayashi)THayash= 280.0d0*(rr/rhayash)**(-1./2.)
                 if(Hayashi) cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
+                H=hoverr*RRR
+                 buffer_H=0.1
+                 if(bethune) then
+                      alpha_disk=-1.
+                      n_disk=-2.
+                      k_corona= 6.
+                      THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
+                      cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v
+                 if(abs(zn).lt.3.72*H-H*buffer_H) then
+                    cs = cs_iso
+                 else
+                    if (abs(zn).gt.3.72*H) then
+                       cs=k_corona*cs_iso
+                    else
+                       cs= cs_iso*(k_corona+(1.0-k_corona)*(abs(zn)-3.72*H+H*buffer_H)/(H*buffer_H))
+                    endif
+                 endif
+               endif
                 d=max(uold(ind_cell(i),1),smallr)
                 u=uold(ind_cell(i),2)/d
                 v=uold(ind_cell(i),3)/d
@@ -146,7 +172,25 @@ subroutine relaxation_implementation(ilevel,nstp)
                 if(Gressel)cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
                 if(Hayashi)THayash= 280.0d0*(rr/rhayash)**(-1./2.)
                 if(Hayashi) cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
-             d=max(uold(ind_cell(i),1),smallr)
+                 H=hoverr*RRR
+                 buffer_H=0.1
+                 if(bethune) then
+                      alpha_disk=-1.
+                      n_disk=-2.
+                      k_corona= 6.
+                      THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
+                      cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v                    
+                 if(abs(zn).lt.3.72*H-H*buffer_H) then
+                    cs = cs_iso
+                 else
+                    if (abs(zn).gt.3.72*H) then
+                       cs=k_corona*cs_iso
+                    else
+                       cs= cs_iso*(k_corona+(1.0-k_corona)*(abs(zn)-3.72*H+H*buffer_H)/(H*buffer_H))
+                    endif
+                 endif
+               endif  
+                 d=max(uold(ind_cell(i),1),smallr)
              smoothing=sfive(abs(0.5*boxlen-Hsmooth)/abs(zn))*sfive(rrr/rsmooth)
              if(damp)uold(ind_cell(i),2)=uold(ind_cell(i),2)/abs(uold(ind_cell(i),2))*min(abs(uold(ind_cell(i),2)),1e8/scale_v)
              if(damp)uold(ind_cell(i),3)=uold(ind_cell(i),3)/abs(uold(ind_cell(i),3))*min(abs(uold(ind_cell(i),3)),1e8/scale_v)

@@ -34,6 +34,7 @@ subroutine condinit(x,u,dx,nn)
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
   real(dp)::xn,x0,sum_dust, RR,rrr, rin, rout,yn,zn, radius,rho0,cs0,cs,omega_kep,radiusin, radiusout,emass,H,drRho
   real(dp)::rrdr,radiusdr,csdr,sfive,Bz,bzdr,rrdmr,bzdmr,csdmr,radiusdmr,csback,Hsmooth,delta_rho
+  real(dp):: sinthetai, sintheta,alpha_disk,k_corona,v_kep,cs_iso,n_disk,buffer_H
 !hayashi's params
   real(dp):: sigmaHayash, THayash, rHayash,pi
   real(dp),dimension(1:ndim) :: vtur
@@ -58,6 +59,7 @@ subroutine condinit(x,u,dx,nn)
   x0=boxlen/2.0
   
   delta_rho=0.1
+  rhayash=1.0
   if(hayashi) then
      rhayash=1.0d0
   endif
@@ -166,7 +168,47 @@ subroutine condinit(x,u,dx,nn)
      q(i,nvar+2)= 0.d0
      q(i,nvar+3)= q(i,8)
   endif
-  
+
+  if(bethune) then
+     sintheta=abs(zn)/sqrt(zn**2.0+RRR**2.0)
+     sinthetai= 1.0 + log10(1.e-3)*hoverr**2.0
+
+     
+     alpha_disk=-1.
+     n_disk=-2.
+     k_corona= 6.
+     THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
+     cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v
+     H=hoverr*RRR
+     buffer_H=0.1
+     if(abs(zn).lt.3.72*H-H*buffer_H) then
+     cs = cs_iso
+     q(i,1)=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+     else
+     if (abs(zn).gt.3.72*H) then
+     cs=k_corona*cs_iso
+     q(i,1)=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+     else
+     cs= cs_iso*(k_corona+(1.0-k_corona)*(abs(zn)-3.72*H+H*buffer_H)/(H*buffer_H))
+     q(i,1)=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+     endif
+     endif
+
+     v_kep=sqrt(Mstar_cen/rr)!sqrt((1.0-(alpha_disk+1.0)*(1.-1./sintheta))/radius+(n_disk+alpha_disk)*cs**2.0)
+
+     q(i,5)=q(i,1)*cs**2.0
+     q(i,2)=-v_kep*yn/rrr
+     q(i,3)=v_kep*xn/rrr
+     Bz=sqrt(2.0d0*(cs_iso**2.0*rho0*(RR/rhayash)**n_disk/beta_mag))
+     q(i,6)     = 0.d0
+     q(i,7)     = 0.d0
+     q(i,8)     = bz
+     
+     ! Right B fields. Div * B is zero with linear operator (Bxr - Bxl)/dx ...
+     q(i,nvar+1)= 0.d0
+     q(i,nvar+2)= 0.d0
+     q(i,nvar+3)= q(i,8)
+  endif
 
   
      end do
@@ -278,11 +320,14 @@ subroutine columninit(x,sigm,dx,nn)
   real(dp):: eel, me, clum, alpha_dr, xe, zeta,zeta1
   real(dp) :: scale_dcol
   real(dp):: betaambd,etaohmic,eta_cap,beta_cap
+  real(dp):: sinthetai, sintheta,alpha_disk,k_corona,v_kep,cs_iso,n_disk,buffer_H,radius,rho0,rrr
+
   !hayashi's params
   rin =rd_factor
   rout= 5.0d0!2.0*4.0
   H=HoverR*rout
-  
+   rho0=rhocen/scale_d
+ 
   csback= sqrt(gamma*kb*Tpback/(mu_gas*mH))/scale_v
 
   x0=boxlen/2.0
@@ -303,7 +348,7 @@ subroutine columninit(x,sigm,dx,nn)
   eel=4.8e-10
   me=9.1e-28
   clum=2.997e10
-  if(hayashi) then
+  if(hayashi.or.bethune) then
      rhayash=1.0d0
   endif
   do i=1,nn
@@ -314,8 +359,57 @@ subroutine columninit(x,sigm,dx,nn)
      !cylindrical radius
      !spherical radius
      RR = sqrt(xn**2.0+yn**2.0+rsmooth**2.0)
+     radius = sqrt(RR**2.0+zn**2.0)
+     RRR = sqrt(xn**2.0+yn**2.0)
 
 
+     if (bethune) then     
+     alpha_disk=-1.
+     n_disk=-2.
+     k_corona= 6.
+     THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
+     cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v
+     H=hoverr*RRR
+     buffer_H=0.1
+     if(abs(zn).lt.3.72*H-H*buffer_H) then
+     cs = cs_iso
+     dens=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+     else
+     if (abs(zn).gt.3.72*H) then
+     cs=k_corona*cs_iso
+     dens=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+     else
+     cs= cs_iso*(k_corona+(1.0-k_corona)*(abs(zn)-3.72*H+H*buffer_H)/(H*buffer_H))
+     dens=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+     endif
+     endif
+
+     omega_kep=sqrt(Mstar_cen/rr**3.0)
+
+     Bz=sqrt(2.0d0*(cs_iso**2.0*rho0*(RR/rhayash)**n_disk/beta_mag))
+
+
+
+     sig0=1700/sqrt(2.0*pi)*(rr/rhayash)**(-3./2.)/scale_m*scale_l**2.0
+     sig1(i,1)= min(1700.d0/scale_m*scale_l**2.0*(rr/rhayash)**(-3./2.),sig0*(1.0d0-erf(abs(zn)/(sqrt(2.0)*H))))
+     zeta1=(rr/rhayash)**(-2.2)*(1e-15*(exp(-(sig1(i,1)/sigmasc)**alph))+6e-12*(exp(-(sig1(i,1)/sigmaab)**bet)))
+     zeta=zetacr*exp(-sig1(i,1)/sigmacr)+zetarad+zeta1
+     xfuv=zetafuv*exp(-(sig1(i,1)/sigmafuv)**4.0)
+     alpha_dr=3e-6/sqrt(Thayash)
+     xe= sqrt(zeta/alpha_dr/(H2_fraction*dens*scale_d/(mu_gas*mH)))+xfuv
+     sigmave=8.28e-9*sqrt(Thayash/100.)
+     eta_cap=10*omega_kep*H**2.0
+     beta_cap=eta_cap/bz**2.0
+     etaohmic=min(clum**2.0*me/(4.0*pi*eel**2.0)/xe*sigmave/scale_l**2*scale_t,eta_cap)
+     betaambd=min(1./gammai/dens**2/xe/29,beta_cap)
+     sig1(i,2)=etaohmic
+     sig1(i,3)=betaambd
+!!$     sig1(i,4)=xe
+!!$     sig1(i,5)=1./dens/betaambd/omega_kep
+!!$     sig1(i,6)=Bz**2.0/dens/etaohmic/omega_kep
+     ! print *, sig(i,2),sig(i,3)
+  endif
+  
   if (Hayashi) then
      omega_kep=sqrt(Mstar_cen/rr**3.0)
 

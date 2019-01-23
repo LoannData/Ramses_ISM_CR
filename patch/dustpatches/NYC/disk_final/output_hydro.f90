@@ -416,14 +416,12 @@ subroutine backup_hydro(filename)
 #endif
 
 #if RESIST>0
-           if(use_resist) then
               do idisk=1,nstore_disk
                  do i=1,ncache
                     xdp(i)=store_disk(ind_grid(i)+iskip,idisk)
                  end do
                  write(ilun)xdp              
               end do
-           end if
 #endif           
         end do
         

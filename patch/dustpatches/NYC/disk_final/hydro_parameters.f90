@@ -285,6 +285,7 @@ module hydro_parameters
   logical :: use_resist=.false.
   logical :: Gressel=.true.
   logical :: Hayashi = .false.
+  logical :: bethune= .false.
   integer :: ndcol=1
   integer,parameter :: nstore_disk=3 ! 1=column dens,2=betaad,3=etaohm,4=xe,5=elsass_ambi,6=elsass_ohm
   ! modif nimhd
