@@ -638,7 +638,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            end do
 #endif           
            
-           T2min(i) = barotrop1D((1.0d0-sum_dust)*nH(i)*scale_d,sum_dust) 
+           T2min(i) = barotrop1D((1.0d0-sum_dust)*nH(i)*scale_d) 
         enddo
      end if
 
@@ -1116,7 +1116,7 @@ end subroutine pressure_eos
 !===========================================================================================
 !===========================================================================================
 !===========================================================================================
-subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht,sum_dust)
+subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
   use amr_commons
   use hydro_commons
   use units_commons
@@ -1129,7 +1129,7 @@ subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht,sum_dust)
   !--------------------------------------------------------------
   integer::i_t,i_r,i
   integer::ht
-  real(dp), intent(in) :: Enint_temp,rho_temp,sum_dust
+  real(dp), intent(in) :: Enint_temp,rho_temp
   real(dp):: Enint,rho
   real(dp), intent(out):: Teos
   real(dp)::logr,tt,uu,y1,y2,y3,y4
@@ -1203,7 +1203,7 @@ if(eos)then
      endif
   endif
   else if(barotrop)then
-     Teos=barotrop1D(rho_temp*scale_d,sum_dust)
+     Teos=barotrop1D(rho_temp*scale_d)
   else 
      rho   = rho_temp*scale_d
      Enint = Enint_temp*scale_d*scale_v**2 
@@ -1471,7 +1471,7 @@ end function cmp_Cv_eos
 !################################################################
 !################################################################
 !################################################################
-double precision function barotrop1D(rhon,sumd)
+double precision function barotrop1D(rhon)
   use hydro_commons
   use amr_parameters, only : n_star
   use radiation_parameters, only : Tr_floor
@@ -1481,7 +1481,7 @@ double precision function barotrop1D(rhon,sumd)
   integer :: j
 
   if(analytical_barotrop)then
-     barotrop1D = Tr_floor * ( 1.0d0 + (rhon/(n_star*sumd*100.0d0/(1.0-sumd)))**(gamma-1.0d0) )
+     barotrop1D = Tr_floor * ( 1.0d0 + (rhon/(n_star))**(gamma-1.0d0) )
   else
      inp=rhon ! in g.cc
      ll=(1.d0+(log10(inp)-rhomin_barotrop)/drho_barotrop)

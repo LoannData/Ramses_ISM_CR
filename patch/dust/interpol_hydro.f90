@@ -305,12 +305,12 @@ do idust=1,ndust
      end do
      ! Scatter result to cells
      do i=1,ncell
-        v_dust(ind_cell(i),idust,1) =getxdust(i,1)/dble(twotondim)
+      !  v_dust(ind_cell(i),idust,1) =getxdust(i,1)/dble(twotondim)
 #if NDIM>1                   
-        v_dust(ind_cell(i),idust,2) =getxdust(i,2)/dble(twotondim)
+      !  v_dust(ind_cell(i),idust,2) =getxdust(i,2)/dble(twotondim)
 #endif
 #if NDIM>2          
-        v_dust(ind_cell(i),idust,3) =getxdust(i,3)/dble(twotondim)
+      !  v_dust(ind_cell(i),idust,3) =getxdust(i,3)/dble(twotondim)
 #endif        
      end do
   end do
