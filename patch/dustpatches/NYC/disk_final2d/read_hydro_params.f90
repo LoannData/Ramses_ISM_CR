@@ -27,7 +27,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/init_params/filetype,initfile,multiple,nregion,region_type &
        & ,x_center,y_center,z_center,aexp_ini &
        & ,length_x,length_y,length_z,exp_region &
-       & ,d_region,u_region,v_region,w_region,p_region,frac_Pcr&
+       & ,d_region,u_region,v_region,w_region,p_region,frac_Pcr &
 #if NENER>NGRP
        & ,prad_region &
 #endif
@@ -43,15 +43,16 @@ subroutine read_hydro_params(nml_ok)
        & ,A_region,B_region,C_region
   namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr, dtdiff_params,dt_control &
        & ,niter_riemann,slope_type,slope_mag_type,switch_solv,switch_solv_dens &
+       &, HoverR,tp0,beta_mag,tpback,rhoext,rd_factor,Mstar_cen,rhocen,nstep_relax,trelax,rsmooth,iso_smooth,damp,turb_perc,Gressel, Hayashi&
 #if NENER>0
        & ,gamma_rad &
 #endif
 #if NDUST>0       
        &,grain_size, grain_dens, K_dust, K_drag,decay_dust,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index, &
-       & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust,source_pred,veloc_pred&
+       & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,vdust_max,mhd_dust,reduce_wdust,source_pred,veloc_pred&
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
-  namelist/refine_params/x_refine,y_refine,z_refine,r_refine &
+  namelist/refine_params/scale_height_refine,NH_refine,x_refine,y_refine,z_refine,r_refine &
        & ,a_refine,b_refine,exp_refine,jeans_refine,mass_cut_refine &
        & ,m_refine,mass_sph,err_grad_d,err_grad_p,err_grad_u &
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2,err_grad_E &
@@ -98,8 +99,7 @@ subroutine read_hydro_params(nml_ok)
        & ,larson_lifetime,flux_accretion,t_diss &
        & ,mu_gas &
        & ,isotrope_cond,slopelim_cond,k_perp,cr_diffusion &
-       & ,M0,Dcr,epsilon_diff_cr,fix_temp_diff,alfven_diff_coeff &
-       &,temper_iso,dens0,V0,U0,shifting,temper_expo,accret_nonsym,coef_rad,accret_rad,confine
+       & ,M0,Dcr,epsilon_diff_cr,fix_temp_diff,alfven_diff_coeff
 
   namelist/radiation_params/grey_rad_transfer &
        & ,rosseland_params,planck_params,epsilon_diff,fld_limiter &
@@ -109,7 +109,7 @@ subroutine read_hydro_params(nml_ok)
   ! modif nimhd
   namelist/nonidealmhd_params/nambipolar,gammaAD &
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
-       & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm
+       & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm,use_resist
   namelist/pseudovisco_params/nvisco,visco
   ! fin modif nimhd
 

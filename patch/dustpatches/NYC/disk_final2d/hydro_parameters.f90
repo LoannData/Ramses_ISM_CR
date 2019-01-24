@@ -128,6 +128,8 @@ module hydro_parameters
 #endif
 
   ! Refinement parameters for hydro
+  integer ::scale_height_refine=0
+  real(dp)::NH_refine=1.0
   real(dp)::err_grad_d=-1.0  ! Density gradient
   real(dp)::err_grad_u=-1.0  ! Velocity gradient
   real(dp)::err_grad_p=-1.0  ! Pressure gradient
@@ -197,7 +199,7 @@ module hydro_parameters
   real(dp)::courant_factor=0.5d0
   real(dp)::difmag=0.0d0
   real(dp)::smallc=1.d-10
-  real(dp)::smallr=1.d-20
+  real(dp)::smallr=1.d-15
   
   real(dp)::smallcr=1.d-10
   real(dp)::eta_mag=0.0d0
@@ -264,8 +266,27 @@ module hydro_parameters
   real(dp) :: eta_dust =1.0
   logical  :: source_pred=.true.
   logical  :: veloc_pred=.true.
-  
-  
+  real(dp) :: vdust_max=1.d5
+  !Disk parameters
+  real(dp):: HoverR = 0.15
+  real(dp):: Tp0= 108.d0
+  real(dp):: rd_factor=0.25d0
+  real(dp):: rsmooth=0.05
+  real(dp):: Mstar_cen=1.0d0
+  real(dp):: rhocen= 1e-11
+  integer :: nstep_relax=1000
+  real(dp):: trelax=0.1
+  real(dp) :: beta_mag=1e5
+  logical :: iso_smooth=.false.
+  logical :: damp=.false.
+  real(dp):: Tpback=10.d0
+  real(dp):: rhoext=1e-17
+  real(dp)::turb_perc= 0.01d0
+  logical :: use_resist=.false.
+  logical :: Gressel=.true.
+  logical :: Hayashi = .false.
+  integer :: ndcol=1
+  integer :: nstore_disk=3 ! 1=column densR,2=column densZ,3=Z
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2
@@ -358,14 +379,5 @@ module hydro_parameters
   integer ::interpol_mag_type_cond=-1
   real(dp)::frac_pcr=0.1
 
-  real(dp)::temper_iso
-  real(dp)::temper_expo=0.
-  real(dp)::dens0=0.01
-  real(dp)::V0,U0
-  real(dp)::shifting=0.
-  real(dp)::coef_rad=10.
-  logical::accret_nonsym=.true.
-  logical::confine=.false.
-  real(dp)::accret_rad=1.
-
+  
 end module hydro_parameters

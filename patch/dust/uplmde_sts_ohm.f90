@@ -232,7 +232,9 @@ subroutine diffine1_sts(ind_grid,ncache,dtdiff,ilevel,icycle)
    real(dp),dimension(1:nvector,1:ndim),save::vv,xx
 
    logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
-
+#if RESIST>0
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nstore_disk),save::dc 
+#endif
    REAL(dp),DIMENSION(1:nvector,1:3,1:3,1:3),save::emfx
    REAL(dp),DIMENSION(1:nvector,1:3,1:3,1:3),save::emfy
    REAL(dp),DIMENSION(1:nvector,1:3,1:3,1:3),save::emfz
@@ -262,7 +264,7 @@ subroutine diffine1_sts(ind_grid,ncache,dtdiff,ilevel,icycle)
    integer ::mvar
 
    integer::neul=5
-
+integer :: istore
    flux=0.0d0
    emfx=0.d0
    emfy=0.d0
@@ -403,7 +405,21 @@ subroutine diffine1_sts(ind_grid,ncache,dtdiff,ilevel,icycle)
                         end do
                      end do
 
-
+#if RESIST>0
+        if(use_resist)then
+           do i=1,nexist
+              do istore=1,nstore_disk
+                 dc(ind_exist(i),i3,j3,k3,istore)=store_disk(ind_cell(i),istore)
+              end do
+              end do
+              do i=1,nbuffer
+                 do istore=1,nstore_disk
+                    
+                    dc(ind_nexist(i),i3,j3,k3,istore)=store_disk(ibuffer_father(i,0),istore)
+                   enddo
+              end do
+        end if
+#endif
                      ! Gather refinement flag
                      do i=1,nexist
                         ok(ind_exist(i),i3,j3,k3)=son(ind_cell(i))>0
@@ -425,8 +441,11 @@ subroutine diffine1_sts(ind_grid,ncache,dtdiff,ilevel,icycle)
    !----------------
    ! Compute current
    !----------------
+#if RESIST>0   
+   call cmp_current_sts(uloc,dc,emfx,emfy,emfz,flux,ncache,dx_loc,dx_loc,dx_loc,dtdiff,jxbsquare,jcentersquare,ok,jcell)
+#else
    call cmp_current_sts(uloc,emfx,emfy,emfz,flux,ncache,dx_loc,dx_loc,dx_loc,dtdiff,jxbsquare,jcentersquare,ok,jcell)
-
+#endif
    !------------------------------------------------
    ! Reset flux along direction at refined interface    
    !------------------------------------------------
@@ -904,8 +923,14 @@ end subroutine diffine1_sts
 !###########################################################
 !###########################################################
 !###########################################################
+#if RESIST>0
+subroutine cmp_current_sts(u,dc,Ex_arete,Ey_arete,Ez_arete,fluxni, &
+     &ngrid,dx,dy,dz,dt,jxbsquare,jcentersquare,ok,jcell)
+#else
 subroutine cmp_current_sts(u,Ex_arete,Ey_arete,Ez_arete,fluxni, &
-      &ngrid,dx,dy,dz,dt,jxbsquare,jcentersquare,ok,jcell)
+     &ngrid,dx,dy,dz,dt,jxbsquare,jcentersquare,ok,jcell)  
+#endif
+  
    use amr_parameters
    use const
    use hydro_parameters
@@ -931,7 +956,9 @@ subroutine cmp_current_sts(u,Ex_arete,Ey_arete,Ez_arete,fluxni, &
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),save::q
    logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ok
-
+#if RESIST>0
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nstore_disk)::dc 
+#endif
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::bemfx,bemfy,bemfz
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::jemfx,jemfy,jemfz
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::florentzx,florentzy,florentzz
@@ -986,11 +1013,20 @@ subroutine cmp_current_sts(u,Ex_arete,Ey_arete,Ez_arete,fluxni, &
       !     call computejb(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,florentzx,florentzy,florentzz,fluxmd,fluxh,fluxad)
    end if
    if (nmagdiffu2.eq.1) then
-      call computdifmag(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
+#if RESIST>0
+      call computdifmag(u,q,dc,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
+#else
+      call computdifmag(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)      
+#endif      
    endif
    if (nambipolar2.eq.1)  then
-      call computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)
-   end if
+#if RESIST>0      
+     call computambip(u,q,dc,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)
+#else
+     
+     call computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)
+#endif
+  end if
 
    !ben
    ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
@@ -1062,7 +1098,7 @@ subroutine set_unew_sts(ilevel,iupdate,dtohm,dtad)
   integer::idust
 #endif  
   real(dp)::d,u,v,w,e,A,B,C,e_r,Cv,dtohm,dtad,dx,dtohmb,dtadb
-  real(dp)::xx,tcell,B2,betaad,barotrop1D,eps,scale,etaohmdiss
+  real(dp)::xx,tcell,B2,betaad,barotrop1D,eps,scale,etaohmdiss,ionisrate
   real(dp),dimension(1:3)::skip_loc
 
   if(numbtot(1,ilevel)==0)return
@@ -1133,7 +1169,7 @@ subroutine set_unew_sts(ilevel,iupdate,dtohm,dtad)
               !compute nimhd timesteps
               ! Ohmic dissipation
               if (nmagdiffu2.eq.1) then
-                 xx=etaohmdiss(d,B2,tcell)
+                 xx=etaohmdiss(d,B2,tcell ,ionisrate)
                  if(xx.gt.0.d0) then
                     dtohmb=coefohm*dx*dx/xx
                  else
@@ -1145,7 +1181,7 @@ subroutine set_unew_sts(ilevel,iupdate,dtohm,dtad)
               ! ambipolar diffusion
               if (nambipolar2.eq.1)then
                  dtad=1.d36
-                 xx=B2*betaad(d,B2,tcell) 
+                 xx=B2*betaad(d,B2,tcell,ionisrate) 
                  if (xx.gt.0.d0) then
                     !! WARNING RHOAD mandatory because rho(k) is not density cf lines above
                     dtadb=coefad*dx*dx/xx
@@ -1239,7 +1275,7 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
  
   real(dp)::ekinold,emagold,erold,etotold,tcell,xy,b2,dtloc,dtlocb,betaad,e,barotrop1d
   real(dp)::norm_jcenter,norm_jxb,eta_ad,eta_ohm,Bx,By,Bz
-  real(dp)::Ohm_heating,etaohmdiss,jsquare
+  real(dp)::Ohm_heating,etaohmdiss,jsquare,ionisrate
   real(dp)::ambi_heating,nimhd_heating,jx,jy,jz,bcell2
 
 
@@ -1315,11 +1351,11 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
                     call temperature_eos((1.0_dp-sum_dust)*d,uold(active(ilevel)%igrid(i)+iskip,nvar),tcell,ht)
                  end if
          
-                 if(nmagdiffu2 .eq. 1 )ohm_heating=jsquare*etaohmdiss(d,bcell2,tcell)*dtnew(ilevel)!*vol_loc
+                 if(nmagdiffu2 .eq. 1 )ohm_heating=jsquare*etaohmdiss(d,bcell2,tcell,ionisrate)*dtnew(ilevel)!*vol_loc
                  
                  if(nambipolar2 .eq. 1 )then
                     ambi_heating = (jy*C-jz*B)**2+(jz*A-jx*C)**2+(jx*B-jy*A)**2
-                    ambi_heating = ambi_heating * betaad(d,bcell2,tcell)*dtnew(ilevel)
+                    ambi_heating = ambi_heating * betaad(d,bcell2,tcell,ionisrate)*dtnew(ilevel)
                  endif
                  nimhd_heating=ambi_heating+ohm_heating
               end if

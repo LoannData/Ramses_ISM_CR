@@ -264,7 +264,7 @@ module hydro_parameters
   real(dp) :: eta_dust =1.0
   logical  :: source_pred=.true.
   logical  :: veloc_pred=.true.
-  
+  real(dp) :: vdust_max=1.d5
   
   ! modif nimhd
   integer:: nxx=1

@@ -155,7 +155,8 @@ endif
      if(idust<10) write(ilun,'("variable #",I2,": vdz_",I1)')ivar+idust+2,idust
      if(idust.ge.10) write(ilun,'("variable #",I2,": vdz_",I2)')ivar+idust+2,idust
 
-#endif          
+#endif
+     
      ivar = ivar +(ndim-1)
   end do
 #endif   
@@ -173,7 +174,7 @@ subroutine backup_hydro(filename)
 #endif
   character(LEN=80)::filename
   integer::i,ivar,ncache,ind,ilevel,igrid,iskip,ilun,istart,ibound,ht,idim
-  real(dp)::d,u,v,w,A,B,C,e
+  real(dp)::d,u,v,w,A,B,C,e,betaadbricolo
   real(dp):: sum_dust
 #if NDUST>0
   integer:: idust
@@ -241,7 +242,7 @@ subroutine backup_hydro(filename)
               do ivar=1,4
                  if(ivar==1)then ! Write density
                     do i=1,ncache
-                       xdp(i)=max(uold(ind_grid(i)+iskip,1),smallr)
+                       xdp(i)=uold(ind_grid(i)+iskip,1)
                     end do
                  else ! Write velocity field
                     if(write_conservative) then
@@ -400,7 +401,20 @@ subroutine backup_hydro(filename)
               end do
            end do
 #endif
-        end do
+!!$#if NIMHD==1
+!!$if(use_resist) then           
+!!$                 do i=1,ncache
+!!$                    xdp(i)=0.0
+!!$                 end do
+!!$                 write(ilun)xdp
+!!$                 do i=1,ncache
+!!$                    d=max(uold(ind_grid(i)+iskip,1),smallr)
+!!$                    xdp(i)=betaadbricolo(d,d,0,0,0,0,0,0,0)
+!!$                 end do
+!!$                 write(ilun)xdp
+!!$endif                 
+!!$#endif
+              end do
         
         deallocate(ind_grid, xdp)
         end if

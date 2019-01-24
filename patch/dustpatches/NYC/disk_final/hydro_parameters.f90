@@ -266,7 +266,7 @@ module hydro_parameters
   real(dp) :: eta_dust =1.0
   logical  :: source_pred=.true.
   logical  :: veloc_pred=.true.
-  
+  real(dp) :: vdust_max=1.d5
   !Disk parameters
   real(dp):: HoverR = 0.15
   real(dp):: Tp0= 108.d0
@@ -278,8 +278,15 @@ module hydro_parameters
   real(dp):: trelax=0.1
   real(dp) :: beta_mag=1e5
   logical :: iso_smooth=.false.
+  logical :: damp=.false.
   real(dp):: Tpback=10.d0
   real(dp):: rhoext=1e-17
+  real(dp)::turb_perc= 0.01d0
+  logical :: use_resist=.false.
+  logical :: Gressel=.true.
+  logical :: Hayashi = .false.
+  integer :: ndcol=1
+  integer,parameter :: nstore_disk=3 ! 1=column dens,2=betaad,3=etaohm,4=xe,5=elsass_ambi,6=elsass_ohm
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2

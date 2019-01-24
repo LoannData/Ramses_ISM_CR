@@ -29,11 +29,15 @@ subroutine relaxation_implementation(ilevel,nstp)
 
   real(dp) :: sfive,ssix,trel,sone
   real(dp) :: dref, pref,uref,vref,wref
+   real(dp):: sigmaHayash, THayash, rHayash,pi
+ 
 #if NDUST>0
   real(dp),dimension(1:ndust):: dustMRN
 #endif
     integer,dimension(1:3,1:2,1:8)::iii,jjj
-
+    if(hayashi) then
+     rhayash=1.0d0
+  endif
 #if NDUST>0
   epsilon_0 = dust_ratio(1)
 #endif
@@ -117,34 +121,12 @@ subroutine relaxation_implementation(ilevel,nstp)
          radius = sqrt(RR**2.0+zn**2.0)
          radiusdr= sqrt(RRdr**2.0+zn**2.0)
 
-         if (rrr<rin) then
-
-             cs= cs0/sqrt(RR/rout)
-             csdr= Cs0/sqrt(RRdr/rout)
-
-             dref=rho0*(RR/rout)**(-2.5)*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))+rhoext/scale_d
- 
-             drRho= (csdr**2.0*(RRdr/rout)**(-2.5)*exp(-Mstar_cen/csdr**2.0*(1/RRdr-1/radiusdr))&
-                  &-cs**2.0*(RR/rout)**(-2.5)**exp(-Mstar_cen/cs**2.0*(1/RR-1/radius)))/((RR/rout)**(-2.5)*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))+1d-17/scale_d/rho0)/RR/dx
-             omega_kep=sqrt(Mstar_cen/radius**3.0+drRho)
-
-             uref=-omega_kep*rr*yn/rrr*dref
-             vref=omega_kep*rr*xn/rrr*dref
-             wref=0.0d0*dref
-             pref=cs**2.0*dref/(gamma-1.0d0)+0.5d0*(uref**2.0+vref**2.0+wref**2.0)
-             smoothing=sone((rr-0.5*rin)/(rin-0.5*rin))
-!             uold(ind_cell(i),1)=-smoothing*uold(ind_cell(i),1)+(1.0-smoothing)*dref!+uold(ind_cell(i),1)
-!             uold(ind_cell(i),2)=-smoothing*uold(ind_cell(i),2)+(1.0-smoothing)*uref!+uold(ind_cell(i),2)
-!             uold(ind_cell(i),3)=-smoothing*uold(ind_cell(i),3)+(1.0-smoothing)*vref!+uold(ind_cell(i),3)
-!             uold(ind_cell(i),4)=-smoothing*uold(ind_cell(i),4)+(1.0-smoothing)*wref!+uold(ind_cell(i),4)
-!             uold(ind_cell(i),5)=-smoothing*uold(ind_cell(i),5)+(1.0-smoothing)*pref!+uold(ind_cell(i),5)
-
-          endif
-          Hsmooth=5.*hoverr*rrr
  
           if(iso_smooth) then
              if (rrr<rin.or.abs(zn)>Hsmooth) then
-                cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
+                if(Gressel)cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
+                if(Hayashi)THayash= 280.0d0*(rr/rhayash)**(-1./2.)
+                if(Hayashi) cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
                 d=max(uold(ind_cell(i),1),smallr)
                 u=uold(ind_cell(i),2)/d
                 v=uold(ind_cell(i),3)/d
@@ -153,26 +135,34 @@ subroutine relaxation_implementation(ilevel,nstp)
                 B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
                 C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
                 e=0.5d0*d*(u**2+v**2+w**2)+0.5d0*(A**2+B**2+C**2)
-
-                uold(ind_cell(i),5)=e+d*cs**2.0/(gamma-1.0d0)
+                sum_dust=0.0d0
+#if NDUST>0
+                do idust =1,ndust
+                   sum_dust = sum_dust + uold(ind_cell(i), firstindex_ndust+idust)/d
+                end do
+#endif 
+                uold(ind_cell(i),5)=e+(1.0d0-sum_dust)*d*cs**2.0/(gamma-1.0d0)
+             endif
+                if(Gressel)cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
+                if(Hayashi)THayash= 280.0d0*(rr/rhayash)**(-1./2.)
+                if(Hayashi) cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
+             d=max(uold(ind_cell(i),1),smallr)
+             smoothing=sfive(abs(0.5*boxlen-Hsmooth)/abs(zn))*sfive(rrr/rsmooth)
+             if(damp)uold(ind_cell(i),2)=uold(ind_cell(i),2)/abs(uold(ind_cell(i),2))*min(abs(uold(ind_cell(i),2)),1e8/scale_v)
+             if(damp)uold(ind_cell(i),3)=uold(ind_cell(i),3)/abs(uold(ind_cell(i),3))*min(abs(uold(ind_cell(i),3)),1e8/scale_v)
+             if(damp)uold(ind_cell(i),4)=uold(ind_cell(i),4)/abs(uold(ind_cell(i),4))*min(abs(uold(ind_cell(i),4)),1e8/scale_v)
+             
+             u=uold(ind_cell(i),2)/d
+             v=uold(ind_cell(i),3)/d
+             w=uold(ind_cell(i),4)/d
+             A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+             B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+             C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+             e=0.5d0*d*(u**2+v**2+w**2)+0.5d0*(A**2+B**2+C**2)
+             cloc= sqrt(gamma*(uold(ind_cell(i),5)-e)*(gamma-1.0)/d)
+             if(cloc>csmax) uold(ind_cell(i),5)=e+d*cs**2.0/(gamma-1.0d0)
+             
           endif
-          cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
-          d=max(uold(ind_cell(i),1),smallr)
-           
-          uold(ind_cell(i),2)=sfive(abs(0.5*boxlen-Hsmooth)/abs(zn))*uold(ind_cell(i),2)*sfive(rrr/rsmooth)
-          uold(ind_cell(i),3)=sfive(abs(0.5*boxlen-Hsmooth)/abs(zn))*uold(ind_cell(i),3)*sfive(rrr/rsmooth)
-          uold(ind_cell(i),4)=sfive(abs(0.5*boxlen-Hsmooth)/abs(zn))*uold(ind_cell(i),4)*sfive(rrr/rsmooth)
-           
-          u=uold(ind_cell(i),2)/d
-          v=uold(ind_cell(i),3)/d
-          w=uold(ind_cell(i),4)/d
-          A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-          B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-          C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-          e=0.5d0*d*(u**2+v**2+w**2)+0.5d0*(A**2+B**2+C**2)
-          cloc= sqrt(gamma*(uold(ind_cell(i),5)-e)*(gamma-1.0)/d)
-          if(cloc>csmax) uold(ind_cell(i),5)=e+d*cs**2.0/(gamma-1.0d0)
-          endif 
          
   
       enddo

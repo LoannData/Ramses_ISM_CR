@@ -7,13 +7,19 @@ subroutine init_flow
 #if NDUST==0
     use hydro_commons, ONLY: nvar, uold
 #endif
-#if NDUST>0  
-  use hydro_commons, ONLY: nvar, uold, ndim,ndust, v_dust
+#if NDUST>0
+#if RESIST>0
+    use hydro_commons, ONLY: nvar, uold, ndim,ndust, v_dust,store_disk
+#else
+    use hydro_commons, ONLY: nvar, uold, ndim,ndust, v_dust
 #endif
-  
+#endif
+#if RESIST>0
+  use hydro_parameters, ONLY : nstore_disk
+#endif  
   implicit none
 
-  integer::ilevel,ivar,idust, idim
+  integer::ilevel,ivar,idust, idim,idisk
 
   if(verbose)write(*,*)'Entering init_flow'
   do ilevel=nlevelmax,1,-1
@@ -22,6 +28,11 @@ subroutine init_flow
      do ivar=1,nvar+3
         call make_virtual_fine_dp(uold(1,ivar),ilevel)
      end do
+#if RESIST>0
+  do idisk=1,nstore_disk
+     call make_virtual_fine_dp(store_disk(1,idisk),ilevel)
+  end do
+#endif
      if(simple_boundary)call make_boundary_hydro(ilevel)
   end do
 
@@ -59,7 +70,7 @@ subroutine init_flow_fine(ilevel)
 #endif
   integer::ilevel
   
-  integer::i,icell,igrid,ncache,iskip,ngrid,ilun
+  integer::i,icell,igrid,ncache,iskip,ngrid,ilun,idisk
   integer::ind,idim,ivar,ix,iy,iz,nx_loc
   integer::i1,i2,i3,i1_min,i1_max,i2_min,i2_max,i3_min,i3_max
   integer::buf_count
@@ -71,7 +82,9 @@ subroutine init_flow_fine(ilevel)
   real(dp),dimension(1:nvector)       ,save::vv
   real(dp),dimension(1:nvector,1:ndim),save::xx
   real(dp),dimension(1:nvector,1:nvar+3),save::uu
-
+#if RESIST>0
+  real(dp),dimension(1:nvector,1:nstore_disk),save::sig
+#endif
   real(dp),allocatable,dimension(:,:,:)::init_array
   real(kind=4),allocatable,dimension(:,:)  ::init_plane
 
@@ -80,7 +93,6 @@ subroutine init_flow_fine(ilevel)
   character(LEN=5)::nchar,ncharvar
 
   integer,parameter::tag=1107
-
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
@@ -455,13 +467,23 @@ subroutine init_flow_fine(ilevel)
            end do
            ! Call initial condition routine
            call condinit(xx,uu,dx_loc,ngrid)
+#if RESIST>0           
+           call columninit(xx,sig,dx_loc,ngrid)
+#endif
            ! Scatter variables
            do ivar=1,nvar+3
               do i=1,ngrid
                  uold(ind_cell(i),ivar)=uu(i,ivar)
               end do
            end do
-        end do
+           do i=1,ngrid
+#if RESIST>0
+              do idisk=1,nstore_disk
+                 store_disk(ind_cell(i),idisk)=sig(i,idisk)
+               end do
+#endif              
+           end do
+           end do
         ! End loop over cells
      end do
      ! End loop over grids

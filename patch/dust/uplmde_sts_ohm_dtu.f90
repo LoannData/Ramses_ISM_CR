@@ -283,7 +283,9 @@ subroutine diffine1_sts_dtu(ind_grid,ncache,dtdiff,ilevel,icycle)
    real(dp),dimension(1:nvector,1:twotondim,1:nvar+3),save::u2
    real(dp),dimension(1:nvector,0:twondim  ,1:ndim),save::g1=0.0d0
    real(dp),dimension(1:nvector,1:twotondim,1:ndim),save::g2=0.0d0
-
+#if RESIST>0
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nstore_disk),save::dc 
+#endif
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),save::uloc
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),save::gloc=0.0d0
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::jcell=0.d0 
@@ -314,7 +316,7 @@ subroutine diffine1_sts_dtu(ind_grid,ncache,dtdiff,ilevel,icycle)
    integer::i3min,i3max,j3min,j3max,k3min,k3max
    integer::ind_father1,ind_father2,ind_father3
    integer::ind_buffer1,ind_buffer2,ind_buffer3
-   integer::interpol_type_old,ivar1,ivar2,ivar3,ivar4,ivar5,ivar6
+   integer::interpol_type_old,ivar1,ivar2,ivar3,ivar4,ivar5,ivar6,istore
    real(dp)::dflux_x,dflux_y,dflux_z
    real(dp)::dx_loc,scale,oneontwotondim
    real(dp)::emag,emagold
@@ -433,7 +435,21 @@ subroutine diffine1_sts_dtu(ind_grid,ncache,dtdiff,ilevel,icycle)
                        end do
                      end do
 
-
+#if RESIST>0
+        if(use_resist)then
+           do i=1,nexist
+              do istore=1,nstore_disk
+                 dc(ind_exist(i),i3,j3,k3,istore)=store_disk(ind_cell(i),istore)
+              end do
+              end do
+              do i=1,nbuffer
+                 do istore=1,nstore_disk
+                    
+                    dc(ind_nexist(i),i3,j3,k3,istore)=store_disk(ibuffer_father(i,0),istore)
+                   enddo
+              end do
+        end if
+#endif
                      ! Gather refinement flag
                      do i=1,nexist
                         ok(ind_exist(i),i3,j3,k3)=son(ind_cell(i))>0
@@ -455,8 +471,12 @@ subroutine diffine1_sts_dtu(ind_grid,ncache,dtdiff,ilevel,icycle)
    !----------------
    ! Compute current
    !----------------
+#if RESIST>0   
+   call cmp_current_sts_dtu(uloc,dc,emfx,emfy,emfz,flux,ncache,dx_loc,dx_loc,dx_loc,dtdiff,jxbsquare,jcentersquare,ok,jcell)
+#else
    call cmp_current_sts_dtu(uloc,emfx,emfy,emfz,flux,ncache,dx_loc,dx_loc,dx_loc,dtdiff,jxbsquare,jcentersquare,ok,jcell)
 
+#endif
 
    !-------------------------------------------------
    ! Reset current along direction x at refined edges
@@ -1001,8 +1021,13 @@ end subroutine diffine1_sts_dtu
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine cmp_current_sts_dtu(u,Ex_arete,Ey_arete,Ez_arete,fluxni, &
-      &ngrid,dx,dy,dz,dt,jxbsquare,jcentersquare,ok,jcell)
+#if RESIST>0
+subroutine cmp_current_sts_dtu(u,dc,Ex_arete,Ey_arete,Ez_arete,fluxni, &
+     &ngrid,dx,dy,dz,dt,jxbsquare,jcentersquare,ok,jcell)
+#else
+  subroutine cmp_current_sts_dtu(u,Ex_arete,Ey_arete,Ez_arete,fluxni, &
+     &ngrid,dx,dy,dz,dt,jxbsquare,jcentersquare,ok,jcell)
+#endif
    use amr_parameters
    use const
    use hydro_parameters
@@ -1024,7 +1049,9 @@ subroutine cmp_current_sts_dtu(u,Ex_arete,Ey_arete,Ez_arete,fluxni, &
    real(dp),dimension(1:nvector,1:3,1:3,1:3) :: Ex_arete
    real(dp),dimension(1:nvector,1:3,1:3,1:3) :: Ey_arete
    real(dp),dimension(1:nvector,1:3,1:3,1:3) :: Ez_arete
-
+#if RESIST>0
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nstore_disk)::dc 
+#endif
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),save::q
    logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::ok
@@ -1079,14 +1106,23 @@ jcell=0.0d0
 
    call ctoprim_sts(u,q,ngrid)
    if((nambipolar2.eq.1).or.(nmagdiffu2.eq.1)) then
-      call computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,florentzx,florentzy,florentzz,fluxmd,fluxh,fluxad,jcell)
+      call computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,florentzx,florentzy,florentzz,fluxmd,fluxh,fluxad,jcell)      
       !     call computejb(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,florentzx,florentzy,florentzz,fluxmd,fluxh,fluxad)
    end if
    if (nmagdiffu2.eq.1) then
+#if RESIST>0     
+      call computdifmag(u,q,dc,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
+#else
       call computdifmag(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm,jcentersquare)
+
+#endif
    endif
    if (nambipolar2.eq.1)  then
+#if RESIST>0    
+      call computambip(u,q,dc,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)
+#else
       call computambip(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,florentzx,florentzy,florentzz,fluxad,bmagij,emfambdiff,fluxambdiff,jxbsquare)
+#endif      
    end if
 
 

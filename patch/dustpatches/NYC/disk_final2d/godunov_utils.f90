@@ -4,7 +4,11 @@
 !###########################################################
 #if NIMHD==1
 ! modif nimhd
-subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
+#if RESIST>0
+subroutine cmpdt(uu,gg,dcol,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
+#else
+subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)  
+#endif 
 #else  
 subroutine cmpdt(uu,gg,dx,dt,ncell)
 #endif
@@ -20,16 +24,19 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
 #if NIMHD==1  
   ! modif nimhd
   real(dp)::dtambdiff,dtohmdiss,dthallbis ! ambipolar, Ohmic and Hall diffusiom times
-  real(dp)::dtambdiffb,dtohmdissb,dthallb
+  real(dp)::dtambdiffb,dtohmdissb,dthallb,betaad_disk,etaohm_disk
   real(dp),dimension(1:nvector),save::bsqrt  ! corresponds to sqrt(B*B)
   real(dp)::xx,betaadbricolo,betaad
   real(dp),dimension(1:nvector),save::rhoad,xpress
   real(dp)::etaohmdiss,reshall,barotrop1D
   integer :: ntest
   ! fin modif nimhd
-#endif
+#endif  
   real(dp),dimension(1:nvector,1:nvar+3+ndust)::uu
   real(dp),dimension(1:nvector,1:ndim)::gg
+#if RESIST>0
+  real(dp),dimension(1:nvector)::dcol  
+#endif  
   real(dp),dimension(1:nvector),save::a2,B2,rho,ctot
   real(dp)::dtcell,smallp,cf,cc,bc,bn
   integer::k,idim
@@ -130,7 +137,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
           do k = 1, ncell
 #if NDUST>0
            do idust=1,ndust
-              ctot(k)=ctot(k)+udust(k)
+              ctot(k)=ctot(k)+uu(k,nvar+idust)+udust(k)
            end do   
 #endif            
         end do
@@ -146,7 +153,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      do k = 1, ncell
 #if NDUST>0
            do idust=1,ndust
-              ctot(k)=ctot(k)+udust(k)
+              ctot(k)=ctot(k)+uu(k,nvar+idust)+udust(k)
            end do   
 #endif            
         end do
@@ -199,6 +206,8 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
      dtohmdiss=1.d35
      do k = 1,ncell
         xx=etaohmdiss(rhoad(k),B2(k),tcell(k),ionisrate(k))
+        if(use_resist) xx= etaohm_disk(rhoad(k),B2(k),ionisrate(k))
+       
         if(xx.gt.0.d0) then
            dtohmdissb=coefohm*dx*dx/xx
         else
@@ -214,7 +223,10 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
   else
      dtambdiff=1.d36
      do k = 1,ncell
-        xx=B2(k)*betaad(rhoad(k),B2(k),tcell(k),ionisrate(k)) 
+        xx=B2(k)*betaad(rhoad(k),B2(k),tcell(k),ionisrate(k))
+#if RESIST>0
+        if(use_resist) xx= betaad_disk(rhoad(k),dcol(k),tcell(k))*B2(k)         
+#endif
         if (xx.gt.0.d0) then
            !! WARNING RHOAD mandatory because rho(k) is not density cf lines above
            dtambdiffb=coefad*dx*dx/xx
@@ -651,6 +663,9 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   REAL(dp),dimension(1:nener)::erado,eradl,eradr
   REAL(dp),dimension(1:nener)::eradstarl,eradstarr
 #endif
+!!$#if NPSCAL>0
+!!$    REAL(dp),dimension(1:npscal)::escalo,escall,escalr,escalstarl,escalstarr
+!!$#endif
   entho = one/(gamma-one)
 
   ! Enforce continuity of normal component
@@ -659,7 +674,7 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   qleft(4)=A; qright(4)=A
 
   ! Left variables
-  rl=qleft(1); Pl=qleft(2); ul=qleft(3)
+  rl=max(qleft(1),smallr); Pl=qleft(2); ul=qleft(3)
   vl=qleft(5); Bl=qleft(6); wl=qleft(7); Cl=qleft(8)
   ecinl = half*(ul*ul+vl*vl+wl*wl)*rl
   emagl = half*(A*A+Bl*Bl+Cl*Cl)
@@ -679,9 +694,13 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   end do
 #endif
   eintl=Pl*entho
-
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escall(ivar)=qleft(firstindex_pscal+ivar)
+!!$   end do
+!!$#endif
   ! Right variables
-  rr=qright(1); Pr=qright(2); ur=qright(3)
+  rr=max(qright(1),smallr); Pr=qright(2); ur=qright(3)
   vr=qright(5); Br=qright(6); wr=qright(7); Cr=qright(8)
   ecinr = half*(ur*ur+vr*vr+wr*wr)*rr
   emagr = half*(A*A+Br*Br+Cr*Cr)
@@ -700,6 +719,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptotr = Ptotr + qright(firstindex_er+irad)*(gamma_rad(nent+irad)-1.0d0)
   end do
 #endif
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalr(ivar)=qright(firstindex_pscal+ivar)
+!!$   end do
+!!$#endif
   eintr=Pr*entho
 
   ! Find the largest eigenvalues in the normal direction to the interface
@@ -722,6 +746,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
 
   ! Left star region variables
   rstarl=rl*(SL-ul)/(SL-ustar)
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalstarl(ivar)=escall(ivar)*(SR-ur)/(SR-ustar)
+!!$   end do
+!!$#endif    
   estar =rl*(SL-ul)*(SL-ustar)-A**2
   el    =rl*(SL-ul)*(SL-ul   )-A**2
 #if NENER>0
@@ -749,6 +778,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
 
   ! Right star region variables
   rstarr=rr*(SR-ur)/(SR-ustar)
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalstarr(ivar)=escalr(ivar)*(SR-ur)/(SR-ustar)
+!!$   end do
+!!$#endif  
   estar =rr*(SR-ur)*(SR-ustar)-A**2
   er    =rr*(SR-ur)*(SR-ur   )-A**2
 #if NENER>0
@@ -799,6 +833,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
         erado(irad)=eradl(irad)
      end do
 #endif
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalo(ivar)=escall(ivar)
+!!$   end do
+!!$#endif
      einto=eintl
   else if(SAL>0d0)then
      ro=rstarl
@@ -815,6 +854,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
         erado(irad)=eradstarl(irad)
      end do
 #endif
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalo(ivar)=escalstarl(ivar)
+!!$   end do
+!!$#endif
      einto=eintstarl
   else if(ustar>0d0)then
      ro=rstarl
@@ -826,6 +870,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptoto=Ptotstar
      etoto=etotstarstarl
      vdotBo=vdotBstarstar
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalo(ivar)=escalstarl(ivar)
+!!$   end do
+!!$#endif     
 #if NENER>0
      do irad = 1,nener
         erado(irad)=eradstarl(irad)
@@ -842,6 +891,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptoto=Ptotstar
      etoto=etotstarstarr
      vdotBo=vdotBstarstar
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalo(ivar)=escalstarr(ivar)
+!!$   end do
+!!$#endif     
 #if NENER>0
      do irad = 1,nener
         erado(irad)=eradstarr(irad)
@@ -858,6 +912,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptoto=Ptotstar
      etoto=etotstarr
      vdotBo=vdotBstarr
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalo(ivar)=escalstarr(ivar)
+!!$   end do
+!!$#endif     
 #if NENER>0
      do irad = 1,nener
         erado(irad)=eradstarr(irad)
@@ -874,6 +933,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
      Ptoto=Ptotr
      etoto=etotr
      vdotBo=vdotBr
+!!$#if NPSCAL>0
+!!$  do ivar=1,npscal
+!!$     escalo(ivar)=escalr(ivar)
+!!$   end do
+!!$#endif    
 #if NENER>0
      do irad = 1,nener
         erado(irad)=eradr(irad)
@@ -881,10 +945,10 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
 #endif
      einto=eintr
   end if
-
   ! Compute the Godunov flux
   fgdnv    = zero
   fgdnv(1) = ro*uo
+!  if(ro.le.10.*smallr) fgdnv(1) = 0.0d0
   fgdnv(2) = (etoto+Ptoto)*uo-A*vdotBo
   fgdnv(3) = ro*uo*uo+Ptoto-A*A
   fgdnv(4) = zero
@@ -915,10 +979,11 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
 #if NPSCAL>0
   do ivar = 1,npscal
      if(fgdnv(1)>0)then
-        fgdnv(firstindex_pscal+ivar) = fgdnv(1)*qleft (firstindex_pscal+ivar)
+        fgdnv(firstindex_pscal+ivar) = fgdnv(1)*qleft(firstindex_pscal+ivar)
      else
         fgdnv(firstindex_pscal+ivar) = fgdnv(1)*qright(firstindex_pscal+ivar)
      endif
+!!$      fgdnv(firstindex_pscal+ivar) = ro*uo*escalo(ivar)
   end do
 #endif
   !Thermal energy
@@ -1077,6 +1142,7 @@ SUBROUTINE find_speed_fast(qvar,vel_info)
   USE amr_parameters
   USE const
   USE hydro_parameters
+  
   !! calculate the fast magnetosonic velocity
   !! the structure of qvar is : rho, Pressure, Vnormal, Bnormal,
   !! Vtransverse1,Btransverse1,Vtransverse2,Btransverse2
@@ -1092,7 +1158,7 @@ SUBROUTINE find_speed_fast(qvar,vel_info)
 #if NDUST>0
   INTEGER:: idust
 #endif  
-  d=qvar(1); P=qvar(2); u=qvar(3); A=qvar(4)
+  d=max(qvar(1),smallr); P=qvar(2); u=qvar(3); A=qvar(4)
   v=qvar(5); B=qvar(6); w=qvar(7); C=qvar(8)
   B2 = A*A+B*B+C*C
   sum_dust=0.d0
@@ -1132,7 +1198,7 @@ SUBROUTINE find_speed_alfven(qvar,vel_info)
   REAL(dp) :: vel_info
   REAL(dp) :: d,A
 
-  d=qvar(1); A=qvar(4)
+  d=max(qvar(1),smallr); A=qvar(4)
   vel_info = sqrt(A*A/d)
 
 END SUBROUTINE find_speed_alfven

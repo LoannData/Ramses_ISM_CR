@@ -27,7 +27,7 @@ recursive subroutine amr_step(ilevel,icount)
   integer::mpi_err
 #endif
 
-  integer::ilevel,icount,ilev
+  integer::ilevel,icount,ilev,idisk
   !-------------------------------------------------------------------!
   ! This routine is the adaptive-mesh/adaptive-time-step main driver. !
   ! Each routine is called using a specific order, don't change it,   !
@@ -96,6 +96,7 @@ recursive subroutine amr_step(ilevel,icount)
                  end do
               end do
 #endif
+            
               if(poisson)then
                  call make_virtual_fine_dp(phi(1),i)
                  do idim=1,ndim
@@ -159,7 +160,14 @@ recursive subroutine amr_step(ilevel,icount)
   !-----------------
                                call timer('particles','start')
   if(pic)call make_tree_fine(ilevel)
-
+#if NDUST>0
+  call set_vdust(ilevel)
+  do idim =1,ndim
+     do idust=1,ndust
+        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+     end do
+  end do
+#endif
   !------------------------
   ! Output results to files
   !------------------------
@@ -496,6 +504,7 @@ recursive subroutine amr_step(ilevel,icount)
   !if(.not.dust_diffusion) print *,'dust_diffusion deactivated'
 
 #endif
+   
   !-----------
   ! Hydro step
   !-----------

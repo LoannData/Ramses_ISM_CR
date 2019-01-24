@@ -295,6 +295,7 @@ subroutine cmpvdust(uin,vout,dx,dy,dz,dt,ngrid)
   real(dp),dimension(1:ndust)  :: t_stop
   real(dp)  ::pi,tstop_tot,t_stop_floor,dens_floor
   real(dp), dimension(1:ndust) ::d_grain,l_grain,isnot_charged
+  real(dp) :: au, omega,H_disc, r_disk,msol,vk
   real(dp),dimension(1:ndim):: ew
   ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
   jlo=MIN(1,ju1+1); jhi=MAX(1,ju2-1)
@@ -327,6 +328,14 @@ subroutine cmpvdust(uin,vout,dx,dy,dz,dt,ngrid)
                  tstop_tot=0.0d0
                  t_stop=0.0d0
                  cs =sqrt(gamma*qin(l,i,j,k,5)/d)
+                 au = 10.0d0*1.5d13
+                 Msol =2.0d33
+                 r_disk=5.0d0*au
+                 H_disc =r_disk*0.05d0
+                 vk=sqrt(Grav*Msol/r_disk)
+                 omega= vk/r_disk
+                 Cs = omega*H_disc/scale_v! sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
+
                  do idust = 1,ndust
                     t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d- uin(l,i,j,k,firstindex_ndust+idust))
                     if(K_drag)  t_stop(idust) = uin(l,i,j,k,firstindex_ndust+idust)/K_dust(idust)
