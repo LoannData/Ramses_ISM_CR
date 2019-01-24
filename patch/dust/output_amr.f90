@@ -553,13 +553,15 @@ subroutine output_header(filename)
 #endif
   character(LEN=80)::filename
 
-  integer::ilun
+  integer::ilun,idust
   integer(i8b)::npart_tot
   character(LEN=80)::fileloc
 #ifdef LONGINT
   integer(i8b)::tmp_long
 #endif
+  real(dp), dimension(1:ndust) ::l_grain
 
+  
   if(verbose)write(*,*)'Entering output_header'
 
   ! Compute total number of particles
@@ -614,7 +616,19 @@ subroutine output_header(filename)
 #if MC>0
       write(ilun,'(a)',advance='no')'loc '
 #endif 
-     close(ilun)
+
+#if NDUST>0
+      if(mrn.eqv..true.) then
+         call size_dust(l_grain)
+         write(ilun,*)
+         do idust=1,ndust
+            write(ilun,*)'Mean size in dust bin ',idust,': ',l_grain(idust),' cm'
+         end do
+      end if
+
+#endif
+
+      close(ilun)
 
   endif
 
