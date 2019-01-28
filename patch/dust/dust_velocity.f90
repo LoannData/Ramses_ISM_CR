@@ -69,7 +69,8 @@ subroutine vdustfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,1:twotondim,1:nvar+3),save::u2
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),save::uloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndust,1:ndim),save::vloc
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),save::gloc=0.0d0
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndust,1:ndim),save::vdloc
+!  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),save::gloc=0.0d0
 
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
   integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
@@ -190,17 +191,29 @@ subroutine vdustfine1(ind_grid,ncache,ilevel)
            end do
         end do
 
-        ! Gather gravitational acceleration
-        if(poisson)then
+!!$        ! Gather gravitational acceleration
+!!$        if(poisson)then
+!!$           do idim=1,ndim
+!!$              do i=1,nexist
+!!$                 gloc(ind_exist(i),i3,j3,k3,idim)=f(ind_cell(i),idim)
+!!$              end do
+!!$              do i=1,nbuffer
+!!$                 gloc(ind_nexist(i),i3,j3,k3,idim)=f(ibuffer_father(i,0),idim)
+!!$              end do
+!!$           end do
+!!$        end if
+  
+        ! Gather dust velocity
+        do idust=1,ndust
            do idim=1,ndim
               do i=1,nexist
-                 gloc(ind_exist(i),i3,j3,k3,idim)=f(ind_cell(i),idim)
+                 vdloc(ind_exist(i),i3,j3,k3,idust,idim)=v_dust(ind_cell(i),idust,idim)
               end do
               do i=1,nbuffer
-                 gloc(ind_nexist(i),i3,j3,k3,idim)=f(ibuffer_father(i,0),idim)
-              end do
+                 vdloc(ind_nexist(i),i3,j3,k3,idust,idim)=f(ibuffer_father(i,0),idim)
            end do
-        end if
+        end do
+     end do
   
 
         ! Gather refinement flag
@@ -223,7 +236,7 @@ subroutine vdustfine1(ind_grid,ncache,ilevel)
 
 
   !call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
-  call cmpvdust(uloc,vloc,dx,dx,dx,dtnew(ilevel),ncache)
+  call cmpvdust(uloc,vloc,vdloc,dx,dx,dx,dtnew(ilevel),ncache)
 
    !--------------------------------------------------------
    !Udate at level ilevel for the dust velocity
@@ -266,7 +279,7 @@ end subroutine vdustfine1
 !###########################################################
 !###########################################################
 
-subroutine cmpvdust(uin,vout,dx,dy,dz,dt,ngrid)
+subroutine cmpvdust(uin,vout,vdin,dx,dy,dz,dt,ngrid)
   use amr_parameters
   use hydro_parameters
   use hydro_commons
@@ -279,6 +292,7 @@ subroutine cmpvdust(uin,vout,dx,dy,dz,dt,ngrid)
 
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndust,1:ndim)::vout
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndust,1:ndim)::vdin
   ! Primitive variables
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::qin 
   real(dp),dimension(1:nvector,iu1:iu2+1,ju1:ju2+1,ku1:ku2+1,1:3)::bf
@@ -288,21 +302,24 @@ subroutine cmpvdust(uin,vout,dx,dy,dz,dt,ngrid)
   integer ::i, j, k, l
   integer ::ilo,ihi,jlo,jhi,klo,khi
   integer ::idust,idim
-  real(dp) :: d,u,v,w,e_mag,e_kin, sum_dust, ening, pressure, cs,A,B,C,wnorm,vmax
-  real(dp)::  dAy, dAz,dBx,dBz,dCx,dCy
-  real(dp):: fx,fy,fz
+  real(dp) :: d,u,v,w,e_mag,e_kin, sum_dust, enint
+  real(dp) ::pressure, cs,A,B,C,wnorm,vmax, Mach_dv
+  real(dp) ::  dAy, dAz,dBx,dBz,dCx,dCy
+  real(dp) :: fx,fy,fz
   real(dp),dimension(1:ndim) :: fpress
   real(dp),dimension(1:ndust)  :: t_stop
   real(dp)  ::pi,tstop_tot,t_stop_floor,dens_floor
   real(dp), dimension(1:ndust) ::d_grain,l_grain,isnot_charged
   real(dp),dimension(1:ndim):: ew
+
   ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
   jlo=MIN(1,ju1+1); jhi=MAX(1,ju2-1)
   klo=MIN(1,ku1+1); khi=MAX(1,ku2-1)
+
   vmax=vdust_max/scale_v
   pi =3.14159265358979323846_dp
   if(mrn.eqv..true.) then
- isnot_charged=0.0d0    
+     isnot_charged=0.0d0    
      call size_dust(l_grain)
      do idust=1,ndust
        l_grain(idust) = l_grain(idust)/scale_l
@@ -326,13 +343,12 @@ subroutine cmpvdust(uin,vout,dx,dy,dz,dt,ngrid)
                  d= max(qin(l,i,j,k,1),smallr)
                  tstop_tot=0.0d0
                  t_stop=0.0d0
-                 cs =sqrt(gamma*qin(l,i,j,k,5)/d)
+                 sum_dust=0.0d0
                  do idust = 1,ndust
-                    t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d- uin(l,i,j,k,firstindex_ndust+idust))
-                    if(K_drag)  t_stop(idust) = uin(l,i,j,k,firstindex_ndust+idust)/K_dust(idust)
-                    if(dust_barr) t_stop (idust)= 0.1_dp
-                    tstop_tot= tstop_tot-t_stop(idust)*qin(l,i,j,k,firstindex_ndust+idust)
+                    sum_dust= sum_dust + qin(l,i,j,k,firstindex_ndust+idust)
                  end do
+
+
                  !magnetic field and required derivatives to get rotB
                  dAy=(0.5d0*(uin(l,i,j+1,k,6)+uin(l,i,j+1,k,nvar+1))-0.5d0*(uin(l,i,j-1,k,6)+uin(l,i,j-1,k,nvar+1)))*0.5d0/dy
                  dAz=(0.5d0*(uin(l,i,j,k+1,6)+uin(l,i,j,k+1,nvar+1))-0.5d0*(uin(l,i,j,k-1,6)+uin(l,i,j,k-1,nvar+1)))*0.5d0/dz
@@ -345,6 +361,48 @@ subroutine cmpvdust(uin,vout,dx,dy,dz,dt,ngrid)
                  dCy=(0.5d0*(uin(l,i,j+1,k,8)+uin(l,i,j+1,k,nvar+3))-0.5d0*(uin(l,i,j-1,k,8)+uin(l,i,j-1,k,nvar+3)))*0.5d0/dy
                  dCx=(0.5d0*(uin(l,i+1,j,k,8)+uin(l,i+1,j,k,nvar+3))-0.5d0*(uin(l,i-1,j,k,8)+uin(l,i-1,j,k,nvar+3)))*0.5d0/dx
                  C=0.5d0*(uin(l,i,j,k,8)+uin(l,i,j,k,nvar+3))
+                 e_mag=0.5d0*(A**2+B**2+C**2)
+
+                 u=0.0d0; v=0.0d0; w=0.0d0
+                 u = qin(l,i,j,k,2)
+                 if(ndim>1)v = qin(l,i,j,k,3)
+                 if(ndim>2)w = qin(l,i,j,k,4)
+                 e_kin=0.5d0*d*(u**2+v**2+w**2)
+
+#if NENER>0
+                 do irad=1,nener
+                    e_mag=e_mag+uin(l,i,j,k,8+irad)
+                 end do
+#endif
+                 if(energy_fix)then
+                    enint=uin(l,i,j,k,nvar)
+                 else
+                    enint=uin(l,i,j,k,5)-e_kin- e_mag
+                 end if
+                 
+                 call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+
+                 do idust = 1,ndust
+                    t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d- uin(l,i,j,k,firstindex_ndust+idust))
+                    if(K_drag)  t_stop(idust) = uin(l,i,j,k,firstindex_ndust+idust)/K_dust(idust)
+                    if(dust_barr) t_stop (idust)= 0.1_dp
+                    tstop_tot= tstop_tot-t_stop(idust)*qin(l,i,j,k,firstindex_ndust+idust)
+                    if(kwok_correction)then
+#if NDIM==1
+                       wnorm= sqrt(vdin(l,i,j,k,idust,1)**2.0)
+#endif
+#if NDIM==2
+                       wnorm= sqrt(vdin(l,i,j,k,idust,1)**2.0+vdin(l,i,j,k,idust,2)**2.0)
+                 
+#endif
+#if NDIM==3
+                       wnorm= sqrt(vdin(l,i,j,k,idust,1)**2.0+vdin(l,i,j,k,idust,2)**2.0+vdin(l,i,j,k,idust,3)**2.0)
+
+#endif                       
+                       Mach_dv = wnorm / cs
+                       t_stop(idust) =  t_stop(idust) /(1.0d0+(9.0d0*pi*Mach_dv**2/128.0d0))**0.5
+                    end if
+                 end do
                  
                  !pressure force
                  fpress(1)=-(qin(l,i+1,j,k,5)-qin(l,i-1,j,k,5))*0.5d0/dx/(d*(1.0d0-sum_dust))
@@ -374,19 +432,22 @@ subroutine cmpvdust(uin,vout,dx,dy,dz,dt,ngrid)
 #endif
 
            if (reduce_wdust) then   
-                 do idim=1,ndim
-                    if(wnorm>vmax) ew(idim)= vout(l,i,j,k,idust,idim)/wnorm        
-                    if(wnorm>vmax) vout(l,i,j,k,idust,idim)=  ew(idim)*vmax
-                    !print *, wnorm, vmax, ew(idim),cs, t_stop(idust),fgas(i,idim)
+              do idim=1,ndim
+                 if(vmax_barycenter)then
+                    vmax = f_vmax*sqrt(u*u+v*v+w*w)
+                 end if
+                 if(wnorm>vmax) ew(idim)= vout(l,i,j,k,idust,idim)/wnorm        
+                 if(wnorm>vmax) vout(l,i,j,k,idust,idim)=  ew(idim)*vmax
+                 !print *, wnorm, vmax, ew(idim),cs, t_stop(idust),fgas(i,idim)
               end do
 
            
            end if
-                  end do
-           end do
         end do
      end do
   end do
+end do
+end do
 
 
 end subroutine cmpvdust

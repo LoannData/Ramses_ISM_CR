@@ -265,7 +265,12 @@ module hydro_parameters
   logical  :: source_pred=.true.
   logical  :: veloc_pred=.true.
   real(dp) :: vdust_max=1.d5
-  
+  logical  :: kwok_correction=.false. ! Apply Kwok(1975), Draine & Salpeter (1979)  correction for supersonic flows 
+
+  logical  :: vmax_barycenter=.false. ! Set the maximum delta v to the barycenter velocity
+  real(dp) :: f_vmax=1.0d0 ! fraction of maximum velocity allowed
+
+     
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2
