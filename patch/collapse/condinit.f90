@@ -56,6 +56,8 @@ subroutine condinit(x,u,dx,nn)
 
   small_er=eray_min/(scale_d*scale_v**2)
 
+  q(1:nvector,1:nvar+3) = 0.0d0
+  
   id=1; iu=2; iv=3; iw=4; ip=5
   x0=0.5*boxlen
   y0=0.5*boxlen

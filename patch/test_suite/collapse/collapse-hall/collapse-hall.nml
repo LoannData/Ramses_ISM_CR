@@ -13,7 +13,7 @@ radiative_nimhdheating=.false.
 
 &AMR_PARAMS 
 levelmin=5
-levelmax=20
+levelmax=17
 ngridmax=100000
 npartmax=5000
 nexpand=30*4
@@ -38,7 +38,7 @@ Mach=0.0d0
 foutput=1000000
 fbackup=50
 noutput=2
-tout=0,1.67e-04
+tout=0,1.658e-04
 /
 
 &POISSON_PARAMS 
