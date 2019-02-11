@@ -412,7 +412,7 @@ def check_solution(data,test_name,tolerance=None,threshold=2.0e-14,norm_min=1.0e
     #print("WARNING! Over-writing reference solution")
     #ref_file = open(test_name+"-ref.dat", "w")
     #for key in sorted(data.keys()):
-        #ref_file.write("%s : %.16e\n" % (key,sol[key]))
+    #    ref_file.write("%s : %.16e\n" % (key,sol[key]))
     #ref_file.close()
     ## ==================================================
     
