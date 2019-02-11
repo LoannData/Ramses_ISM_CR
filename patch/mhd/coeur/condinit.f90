@@ -29,6 +29,8 @@ subroutine condinit(x,u,dx,nn)
   integer :: ivar, np
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
 
+  q(1:nvector,1:nvar+3) = 0.0d0
+  
   id=1; iu=2; iv=3; iw=4; ip=5
   x0=0.5*boxlen
   y0=0.5*boxlen
