@@ -266,7 +266,8 @@ module hydro_parameters
   logical  :: veloc_pred=.true.
   real(dp) :: vdust_max=1.d5
   logical  :: kwok_correction=.false. ! Apply Kwok(1975), Draine & Salpeter (1979)  correction for supersonic flows 
-  logical  :: vmax_barycenter=.false. ! Set the maximum delta v to the barycenter velocity
+  logical  :: vmax_barycenter=.false. ! Set the maximum delta v to a fraction f_vmax of the barycenter velocity
+  logical  :: vmax_cs=.false. ! Set the maximum delta v to a fraction f_vmax of the sound speed
   real(dp) :: f_vmax=1.0d0 ! fraction of maximum velocity allowed
   
   ! modif nimhd

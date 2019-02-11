@@ -49,7 +49,7 @@ subroutine read_hydro_params(nml_ok)
 #if NDUST>0       
        &,grain_size, grain_dens, K_dust, K_drag,decay_dust,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index, &
        & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust,source_pred,veloc_pred, &
-       &  kwok_correction, vmax_barycenter, f_vmax &
+       &  kwok_correction, vmax_barycenter, vmax_cs, f_vmax &
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
   namelist/refine_params/x_refine,y_refine,z_refine,r_refine &

@@ -436,6 +436,9 @@ subroutine cmpvdust(uin,vout,vdin,dx,dy,dz,dt,ngrid)
                  if(vmax_barycenter)then
                     vmax = f_vmax*sqrt(u*u+v*v+w*w)
                  end if
+                 if(vmax_cs)then
+                    vmax = f_vmax*cs
+                 end if
                  if(wnorm>vmax) ew(idim)= vout(l,i,j,k,idust,idim)/wnorm        
                  if(wnorm>vmax) vout(l,i,j,k,idust,idim)=  ew(idim)*vmax
                  !print *, wnorm, vmax, ew(idim),cs, t_stop(idust),fgas(i,idim)
