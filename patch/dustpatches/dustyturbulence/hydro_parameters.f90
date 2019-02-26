@@ -253,9 +253,6 @@ module hydro_parameters
   logical :: no_interaction = .false.
   logical :: mhd_dust =.false.
   logical :: reduce_wdust=.false.
-  logical :: diffusion_approx_collapse=.false.
-  logical :: prevent_boundary_diff=.false.
-  real(dp):: d0_diff=0.0d0  
   real(dp),dimension(1:ndust) :: K_dust = 1.0_dp
   real(dp),dimension(1:ndust):: grain_size = 1.0e-7_dp ! Dust properties (1:ndust) where the sizes of the grains are stocked
   real(dp),dimension(1:ndust):: grain_dens = 1.0_dp ! Dust properties (1:ndust) where the intrinsic of the grains are stocked
@@ -269,13 +266,9 @@ module hydro_parameters
   logical  :: veloc_pred=.true.
   real(dp) :: vdust_max=1.d5
   logical  :: kwok_correction=.false. ! Apply Kwok(1975), Draine & Salpeter (1979)  correction for supersonic flows 
-
   logical  :: vmax_barycenter=.false. ! Set the maximum delta v to the barycenter velocity
-  logical  :: vmax_cs =.false.
-  logical  :: vmax_dust_lim=.false.  
   real(dp) :: f_vmax=1.0d0 ! fraction of maximum velocity allowed
-
-     
+  
   ! modif nimhd
   integer:: nxx=1
   integer:: nyy=2
@@ -368,5 +361,7 @@ module hydro_parameters
   integer ::interpol_mag_type_cond=-1
   real(dp)::frac_pcr=0.1
 
+  !Dusty turbulence                                                                                                                                      
+  real(dp)::dinit=1.d-20 ! floor density for stopping time in code units
   
 end module hydro_parameters

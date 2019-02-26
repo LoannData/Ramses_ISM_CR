@@ -11,12 +11,12 @@ subroutine set_vdust(ilevel)
   integer::i,j,k,ivar,irad,ind,iskip,nx_loc,ind_cell1,idust
   integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2
   integer,dimension(1:3,1:2,1:8)::iii,jjj
-  real(dp)::scale,dx,dx_loc,d,u,v,w,eold,A,B,C,pressure
+  real(dp)::scale,dx,dx_loc,d,u,v,w,eold,A,B,C,pressure,d1
 
   integer ,dimension(1:nvector),save::ind_grid,ind_cell
   integer ,dimension(1:nvector,0:twondim),save::igridn
   integer ,dimension(1:nvector,1:ndim),save::ind_left,ind_right
-  real(dp),dimension(1:nvector,1:ndim),save::dx_g,dx_d
+  real(dp),dimension(1:nvector,1:ndim),save::dx_g,dx_ds
   real(dp)::usquare,emag,erad_loc,ekin,eps,sum_dust,enint
   real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,fact,e_r
   real(dp)::Pgdivu,u_square,d_loc,Tp_loc,Tr_loc,cal_Teg
@@ -27,7 +27,7 @@ subroutine set_vdust(ilevel)
   real(dp), dimension(1:ndust) ::d_grain,l_grain
   real(dp) :: dd,ee,cmp_Cv_eos,d0,r0
   integer  :: ht
-  real(dp):: epsilon_0
+  real(dp):: epsilon_0, dt_dust,wnorm,vmax,mach_dv,vgas
   real(dp),dimension(1:ndust):: dustMRN
   epsilon_0 = dust_ratio(1)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -55,7 +55,11 @@ subroutine set_vdust(ilevel)
 #endif   
   r0=(alpha_dense_core*2.*6.67d-8*mass_c*scale_m*mu_gas*mH/(5.*kB*Tr_floor*(1.0d0-sum_dust)))/scale_l
   d0 = 3.0d0*mass_c/(4.0d0*pi*r0**3.)
-  dens_floor=d0
+  ! for turbulence run, set d0=dinit/100.
+  d0=dinit/100.
+ 
+  dens_floor=1.d20 !d0
+  
   if(mrn.eqv..true.) then
      call size_dust(l_grain)
      do idust=1,ndust
@@ -117,8 +121,8 @@ subroutine set_vdust(ilevel)
                  eold=uold(igridn(i,ig1)+ih1,nvar)
               else
                  ! Gather left thermal energy
-                 d=max(uold(igridn(i,ig1)+ih1,1),smallr)
-                 u=0.0; v=0.0; w=0.0
+                 d=uold(igridn(i,ig1)+ih1,1)
+                 u=0.0d0; v=0.0d0; w=0.0d0
                  if(ndim>0)u=uold(igridn(i,ig1)+ih1,2)/d
                  if(ndim>1)v=uold(igridn(i,ig1)+ih1,3)/d
                  if(ndim>2)w=uold(igridn(i,ig1)+ih1,4)/d
@@ -176,7 +180,7 @@ subroutine set_vdust(ilevel)
                eold=uold(igridn(i,ig2)+ih2,nvar)
               else
               ! Gather right thermal energy
-              d=max(uold(igridn(i,ig2)+ih2,1),smallr)
+              d=uold(igridn(i,ig2)+ih2,1)
               u=0.0; v=0.0; w=0.0
               if(ndim>0)u=uold(igridn(i,ig2)+ih2,2)/d
               if(ndim>1)v=uold(igridn(i,ig2)+ih2,3)/d
@@ -197,13 +201,13 @@ subroutine set_vdust(ilevel)
               end do
               call pressure_eos((1.0_dp-sum_dust)*d,eold,Pright(i,idim))
            else
-              dx_d(i,idim)=dx_loc*1.5
+              dx_d(i,idim)=dx_loc*1.5d0
               if(energy_fix)then
               eold=uold(ind_right(i,idim),nvar)
               else
               ! Gather right thermal energy
               d=max(uold(ind_right(i,idim),1),smallr)
-              u=0.0; v=0.0; w=0.0
+              u=0.0d0; v=0.0d0; w=0.0d0
               if(ndim>0)u=uold(ind_right(i,idim),2)/d
               if(ndim>1)v=uold(ind_right(i,idim),3)/d
               if(ndim>2)w=uold(ind_right(i,idim),4)/d
@@ -225,7 +229,7 @@ subroutine set_vdust(ilevel)
            endif
         end do
      end do
-        do idim=1,ndim
+     do idim=1,ndim
            do i=1,ngrid
               gradP(i,idim) = (Pright(i,idim)-Pleft(i,idim))/(dx_g(i,idim)+dx_d(i,idim))
            end do
@@ -235,10 +239,13 @@ subroutine set_vdust(ilevel)
               d=uold(ind_cell(i),1)
               enint=uold(ind_cell(i),nvar)
            else
+              u=0.0d0; v=0.0d0; w=0.0d0
+
               d=uold(ind_cell(i),1)
-              u=uold(ind_cell(i),2)/d
-              v=uold(ind_cell(i),3)/d
-              w=uold(ind_cell(i),4)/d
+              d1=max(uold(ind_cell(i),1),d0/100.) 
+              if(ndim>0)u=uold(ind_cell(i),2)/d
+              if(ndim>1)v=uold(ind_cell(i),3)/d
+              if(ndim>2)w=uold(ind_cell(i),4)/d
               e_mag= 0.0_dp
 #ifdef SOLVERmhd                           
               A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
@@ -267,50 +274,61 @@ subroutine set_vdust(ilevel)
            if(dust_barr)  cs = 1.0_dp
            if(dust_barr) pressure = (1.0_dp-sum_dust)*d*cs*cs
             sum_dust=0.0d0
-            do idust = 1, Ndust
+            do idust = 1, ndust
                sum_dust=sum_dust+uold(ind_cell(i),firstindex_ndust+idust)/d
             end do
             tstop_tot=0.0d0
             t_stop=0.0d0
             do idust = 1,ndust
-               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/d/(1.0d0-sum_dust)
-               if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/d*d/K_dust(idust)
+               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d-uold(ind_cell(i),firstindex_ndust+idust))
+!               t_stop(idust) =  d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d1)
+               ! Kwok (1975), Draine & Salpeter (1979) corrections for supersonic flows
+               wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
+               
+               Mach_dv = wnorm / cs
+               t_stop(idust) =  t_stop(idust) /(1.0d0+(9.0d0*pi*Mach_dv**2/128.0d0))**0.5
+!               if(Mach_dv > 1)print*,wnorm, cs, mach_dv,d,1.0d0/(1.0d0+(9.0d0*pi*Mach_dv**2/128.0d0))**0.5,t_stop
+
+               if(d1.lt.d)then
+                  print*,d1,d,d0
+                  print*,d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d1), d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/cs/(d-uold(ind_cell(i),firstindex_ndust+idust))
+               end if
+              
+               if(K_drag)  t_stop(idust) = uold(ind_cell(i),firstindex_ndust+idust)/K_dust(idust)
                if(dust_barr) t_stop (idust)= 0.1_dp
                tstop_tot= tstop_tot-t_stop(idust)*(uold(ind_cell(i),firstindex_ndust+idust)/d)
             end do
             do idust = 1,ndust
                t_stop(idust) = t_stop(idust)+tstop_tot
-               if (d .le. dens_floor) t_stop(idust) =0.0d0
-
                do idim=1,ndim
-                  v_dust(ind_cell(i),idust,idim)=t_stop(idust)*gradP(i,idim)/d
-               end do   
+                  v_dust(ind_cell(i),idust,idim)= t_stop(idust)*(gradP(i,idim))/d
+               end do
+               if(sum_dust.eq.0.0d0)  v_dust(ind_cell(i),idust,idim)=0.0d0
+               if(reduce_wdust) then   
+                  do idim=1,ndim       
+                     !                    if(abs(v_dust(ind_cell(i),idust,idim))>cs)print*,abs(v_dust(ind_cell(i),idust,idim)),cs,d
+                     vgas = sqrt(uold(ind_cell(i),2)**2.0+uold(ind_cell(i),3)**2.0+uold(ind_cell(i),4)**2.0)
+                     vgas = sqrt(u**2+v**2+w**2)
+!                     if(abs(v_dust(ind_cell(i),idust,idim)) .gt. vgas)print*,abs(v_dust(ind_cell(i),idust,idim)),d, vgas,idust
+                     if(v_dust(ind_cell(i),idust,idim) .ne. 0)then
+                        v_dust(ind_cell(i),idust,idim)=  v_dust(ind_cell(i),idust,idim)/abs(v_dust(ind_cell(i),idust,idim))*min(abs(v_dust(ind_cell(i),idust,idim)),vgas)
+                     end if
+!!$              if(d .le. dens_floor .and. reduce_wdust .eqv. .true..or..not.dust_diffusion) then   
+!!$                 print*,'WARNING dens_floor',dens_floor,d
+!!$                 if (NDIM.eq.1) wnorm =abs(v_dust(ind_cell(i),idust,1))
+!!$ 	      if (NDIM.eq.2) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0)
+!!$	      if (NDIM.eq.3) wnorm =sqrt(v_dust(ind_cell(i),idust,1)**2.0+v_dust(ind_cell(i),idust,2)**2.0+v_dust(ind_cell(i),idust,3)**2.0)
+              !do idim=1,ndim       
+              !v_dust(ind_cell(i),idust,idim)= 0.0d0
+              !end do
+!!$            end if
+                  end do
+               end if
             end do
          end do
+      enddo
    end do
-enddo
 
 111 format('   Entering set_vdust for level ',i2)
 
 end subroutine set_vdust
-
-
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
-   
-
-!subroutine regularize_dust(speedr,speed,dspeed,dx)
-!  use amr_parameters
-!  use hydro_parameters
-!  implicit none
-!  real(dp)::speedr,dx
-!  real(dp)::speed,dspeed
-!  if(visco_dust.eqv..true.) then
-!     speedr= tanh(sign(dx,speed)/(eta_dust))*abs(speed)
-!  else
-!     speedr=speed
-!  endif
-
-!end subroutine regularize_dust

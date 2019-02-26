@@ -430,24 +430,19 @@ subroutine cmpvdust(uin,vout,vdin,dx,dy,dz,dt,ngrid)
                  wnorm= sqrt(vout(l,i,j,k,idust,1)**2.0+vout(l,i,j,k,idust,2)**2.0+vout(l,i,j,k,idust,3)**2.0)
 
 #endif
+
            if (reduce_wdust) then   
               do idim=1,ndim
                  if(vmax_barycenter)then
                     vmax = f_vmax*sqrt(u*u+v*v+w*w)
                  end if
-                 if(vmax_cs)then
-                    vmax = f_vmax*cs
-                 end if
-                 if(vmax_dust_lim)then
-                    vmax = vdust_max/scale_l*scale_t
-                 end if                   
                  if(wnorm>vmax) ew(idim)= vout(l,i,j,k,idust,idim)/wnorm        
                  if(wnorm>vmax) vout(l,i,j,k,idust,idim)=  ew(idim)*vmax
+                 !print *, wnorm, vmax, ew(idim),cs, t_stop(idust),fgas(i,idim)
               end do
 
-             
+           
            end if
-
         end do
      end do
   end do

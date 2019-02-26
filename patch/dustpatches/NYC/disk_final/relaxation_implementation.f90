@@ -130,83 +130,43 @@ subroutine relaxation_implementation(ilevel,nstp)
          radiusdr= sqrt(RRdr**2.0+zn**2.0)
 
  
-          if(iso_smooth) then
-             if (rrr<rin.or.abs(zn)>Hsmooth) then
-                if(Gressel)cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
-                if(Hayashi)THayash= 280.0d0*(rr/rhayash)**(-1./2.)
-                if(Hayashi) cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
-                H=hoverr*RRR
-                 buffer_H=0.1
-                 if(bethune) then
-                      alpha_disk=-1.
-                      n_disk=-2.
-                      k_corona= 6.
-                      THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
-                      cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v
-                 if(abs(zn).lt.3.72*H-H*buffer_H) then
-                    cs = cs_iso
-                 else
-                    if (abs(zn).gt.3.72*H) then
-                       cs=k_corona*cs_iso
-                    else
-                       cs= cs_iso*(k_corona+(1.0-k_corona)*(abs(zn)-3.72*H+H*buffer_H)/(H*buffer_H))
-                    endif
-                 endif
+         if(Gressel)cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
+         if(Hayashi)THayash= 280.0d0*(rr/rhayash)**(-1./2.)
+         if(Hayashi) cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
+         H=hoverr*RRR
+         buffer_H=2.5
+         if(bethune) then
+            alpha_disk=-1.
+            n_disk=-2.
+            k_corona= 6.
+            THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
+            cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v
+            if(abs(zn).lt.3.72*H) then
+               cs = cs_iso
+            else
+               if (abs(zn).gt.3.72*H+H*buffer_H) then
+                  cs=k_corona*cs_iso
+               else
+                  cs= cs_iso*(k_corona-(1.0-k_corona)*(abs(zn)-3.72*H-H*buffer_H)/(H*buffer_H))
                endif
-                d=max(uold(ind_cell(i),1),smallr)
-                u=uold(ind_cell(i),2)/d
-                v=uold(ind_cell(i),3)/d
-                w=uold(ind_cell(i),4)/d
-                A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-                B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-                C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-                e=0.5d0*d*(u**2+v**2+w**2)+0.5d0*(A**2+B**2+C**2)
-                sum_dust=0.0d0
+            endif
+         endif
+         d=max(uold(ind_cell(i),1),smallr)
+         u=uold(ind_cell(i),2)/d
+         v=uold(ind_cell(i),3)/d
+         w=uold(ind_cell(i),4)/d
+         A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+         B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+         C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+         e=0.5d0*d*(u**2+v**2+w**2)+0.5d0*(A**2+B**2+C**2)
+         sum_dust=0.0d0
 #if NDUST>0
-                do idust =1,ndust
-                   sum_dust = sum_dust + uold(ind_cell(i), firstindex_ndust+idust)/d
-                end do
+         do idust =1,ndust
+            sum_dust = sum_dust + uold(ind_cell(i), firstindex_ndust+idust)/d
+         end do
 #endif 
-                uold(ind_cell(i),5)=e+(1.0d0-sum_dust)*d*cs**2.0/(gamma-1.0d0)
-             endif
-                if(Gressel)cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
-                if(Hayashi)THayash= 280.0d0*(rr/rhayash)**(-1./2.)
-                if(Hayashi) cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
-                 H=hoverr*RRR
-                 buffer_H=0.1
-                 if(bethune) then
-                      alpha_disk=-1.
-                      n_disk=-2.
-                      k_corona= 6.
-                      THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
-                      cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v                    
-                 if(abs(zn).lt.3.72*H-H*buffer_H) then
-                    cs = cs_iso
-                 else
-                    if (abs(zn).gt.3.72*H) then
-                       cs=k_corona*cs_iso
-                    else
-                       cs= cs_iso*(k_corona+(1.0-k_corona)*(abs(zn)-3.72*H+H*buffer_H)/(H*buffer_H))
-                    endif
-                 endif
-               endif  
-                 d=max(uold(ind_cell(i),1),smallr)
-             smoothing=sfive(abs(0.5*boxlen-Hsmooth)/abs(zn))*sfive(rrr/rsmooth)
-             if(damp)uold(ind_cell(i),2)=uold(ind_cell(i),2)/abs(uold(ind_cell(i),2))*min(abs(uold(ind_cell(i),2)),1e8/scale_v)
-             if(damp)uold(ind_cell(i),3)=uold(ind_cell(i),3)/abs(uold(ind_cell(i),3))*min(abs(uold(ind_cell(i),3)),1e8/scale_v)
-             if(damp)uold(ind_cell(i),4)=uold(ind_cell(i),4)/abs(uold(ind_cell(i),4))*min(abs(uold(ind_cell(i),4)),1e8/scale_v)
-             
-             u=uold(ind_cell(i),2)/d
-             v=uold(ind_cell(i),3)/d
-             w=uold(ind_cell(i),4)/d
-             A=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-             B=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-             C=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-             e=0.5d0*d*(u**2+v**2+w**2)+0.5d0*(A**2+B**2+C**2)
-             cloc= sqrt(gamma*(uold(ind_cell(i),5)-e)*(gamma-1.0)/d)
-             if(cloc>csmax) uold(ind_cell(i),5)=e+d*cs**2.0/(gamma-1.0d0)
-             
-          endif
+         uold(ind_cell(i),5)=e+(1.0d0-sum_dust)*d*cs**2.0/(gamma-1.0d0)
+           
          
   
       enddo

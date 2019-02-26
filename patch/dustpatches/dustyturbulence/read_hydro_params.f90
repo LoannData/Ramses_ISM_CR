@@ -48,8 +48,8 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #if NDUST>0       
        &,grain_size, grain_dens, K_dust, K_drag,decay_dust,slope_dust,dust_ratio,mrn, size_min, size_max, mrn_index, &
-       & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust,source_pred,veloc_pred,vdust_max&
-       & kwok_correction, vmax_barycenter, f_vmax ,vmax_cs,vmax_dust_lim,prevent_boundary_diff,d0_diff &
+       & no_interaction, sub_cycle_dust,flag_dust,visco_dust,eta_dust,mhd_dust,reduce_wdust,source_pred,veloc_pred, &
+       &  kwok_correction, vmax_barycenter, f_vmax &
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann,riemann2d
   namelist/refine_params/x_refine,y_refine,z_refine,r_refine &
@@ -622,8 +622,8 @@ subroutine read_hydro_params(nml_ok)
 #if USE_FLD==1 || USE_M_1==1
      !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
 
-     call temperature_eos(max((1.0_dp-sum_dust)*d_bound(i),smallr),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
-     if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht)
+     call temperature_eos(max((1.0_dp-sum_dust)*d_bound(i),smallr),P_bound(i)/(gamma-1.0d0),T_bound(i),ht,sum_dust)
+     if (dust_bar)  call temperature_eos((1.0_dp-sum_dust)*(d_bound(i)),boundary_var(i,5),T_bound(i),ht,sum_dust)
 
      do j=1,ngrp
         boundary_var(i,firstindex_er+j)=radiation_source(T_bound(i),j)/(scale_d*scale_v**2)
@@ -696,6 +696,8 @@ subroutine read_hydro_params(nml_ok)
     interpol_mag_type_cond = interpol_type_cond
   endif
 
+  dinit = d_region(1)
+  
 end subroutine read_hydro_params
 !################################################################
 !################################################################

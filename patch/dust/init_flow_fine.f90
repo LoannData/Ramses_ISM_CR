@@ -35,7 +35,6 @@ subroutine init_flow
 #endif
      if(simple_boundary)call make_boundary_hydro(ilevel)
   end do
-
 #if NDUST>0    
   if(verbose)write(*,*)'Entering init_flow'
   do ilevel=nlevelmax,1,-1
@@ -48,7 +47,7 @@ subroutine init_flow
      end do
      if(simple_boundary)call make_boundary_hydro(ilevel)
   end do
-#endif  
+#endif   
 end subroutine init_flow
 !################################################################
 !################################################################

@@ -34,7 +34,7 @@ subroutine condinit(x,u,dx,nn)
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
   real(dp)::xn,x0,sum_dust, RR,rrr, rin, rout,yn,zn, radius,rho0,cs0,cs,omega_kep,radiusin, radiusout,emass,H,drRho
   real(dp)::rrdr,radiusdr,csdr,sfive,Bz,bzdr,rrdmr,bzdmr,csdmr,radiusdmr,csback,Hsmooth,delta_rho
-  real(dp):: sinthetai, sintheta,alpha_disk,k_corona,v_kep,cs_iso,n_disk,buffer_H
+  real(dp):: sinthetai, sintheta,alpha_disk,k_corona,v_kep,cs_iso,n_disk,buffer_H,rho_surf
 !hayashi's params
   real(dp):: sigmaHayash, THayash, rHayash,pi
   real(dp),dimension(1:ndim) :: vtur
@@ -172,33 +172,47 @@ subroutine condinit(x,u,dx,nn)
   if(bethune) then
      sintheta=abs(zn)/sqrt(zn**2.0+RRR**2.0)
      sinthetai= 1.0 + log10(1.e-3)*hoverr**2.0
+#if NDUST>0
+     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
+        do idust =1,ndust
+           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           !if(q(i,1).eq.rhoext/scale_d) q(i, firstindex_ndust+idust)=1.d-18
 
+           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
+           
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+        end do   
+#endif
      
      alpha_disk=-1.
-     n_disk=-2.
+     n_disk=-3./2.
      k_corona= 6.
      THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
-     cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v
+     cs_iso=sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
      H=hoverr*RRR
-     buffer_H=0.1
-     if(abs(zn).lt.3.72*H-H*buffer_H) then
+     buffer_H=2.5
+     cs = cs_iso
+     rho_surf=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/sqrt(RR**2.0+(3.72*H)**2.0)))
+     if(abs(zn).lt.3.72*H) then
      cs = cs_iso
      q(i,1)=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
      else
-     if (abs(zn).gt.3.72*H) then
+     if (abs(zn).gt.3.72*H+H*buffer_H) then
      cs=k_corona*cs_iso
-     q(i,1)=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+     q(i,1)=rho_surf*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
      else
-     cs= cs_iso*(k_corona+(1.0-k_corona)*(abs(zn)-3.72*H+H*buffer_H)/(H*buffer_H))
-     q(i,1)=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+     cs= cs_iso*(k_corona-(1.0-k_corona)*(abs(zn)-3.72*H-H*buffer_H)/(H*buffer_H))
+     q(i,1)=rho_surf*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
      endif
      endif
 
-     v_kep=sqrt(Mstar_cen/rr)!sqrt((1.0-(alpha_disk+1.0)*(1.-1./sintheta))/radius+(n_disk+alpha_disk)*cs**2.0)
-
+     omega_kep=sqrt(Mstar_cen/rr**3.0)!-3.5*Bz*(RR/rout)**(-1.0)/q(i,1)/RR)
+     call get_vturb(turb_perc,cs,vtur)
+     !call get_dturb(turb_perc,q(i,1),delro)
+     q(i,2)=-omega_kep*rr*yn/rrr+vtur(1)
+     q(i,3)=omega_kep*rr*xn/rrr+vtur(2)
      q(i,5)=q(i,1)*cs**2.0
-     q(i,2)=-v_kep*yn/rrr
-     q(i,3)=v_kep*xn/rrr
+
      Bz=sqrt(2.0d0*(cs_iso**2.0*rho0*(RR/rhayash)**n_disk/beta_mag))
      q(i,6)     = 0.d0
      q(i,7)     = 0.d0

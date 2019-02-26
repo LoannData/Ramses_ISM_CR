@@ -43,7 +43,7 @@ subroutine read_hydro_params(nml_ok)
        & ,A_region,B_region,C_region
   namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr, dtdiff_params,dt_control &
        & ,niter_riemann,slope_type,slope_mag_type,switch_solv,switch_solv_dens &
-       &, HoverR,tp0,beta_mag,tpback,rhoext,rd_factor,Mstar_cen,rhocen,nstep_relax,trelax,rsmooth,iso_smooth,damp,turb_perc,Gressel, Hayashi,bethune&
+       &, HoverR,tp0,beta_mag,tpback,rhoext,rd_factor,Mstar_cen,rhocen,nstep_relax,trelax,rsmooth,iso_smooth,damp,turb_perc,Gressel, Hayashi,bethune, kwok_correction, vmax_barycenter, f_vmax,vmax_cs,vmax_dust_lim,prevent_boundary_diff,d0_diff &
 #if NENER>0
        & ,gamma_rad &
 #endif
