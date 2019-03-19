@@ -61,10 +61,12 @@ subroutine init_hydro
   end if
 #if NDUST>0
   allocate(dflux_dust(1:ncell,1:ndust))
+  allocate(dflux_dust_eint(1:ncell))
+
   allocate(v_dust(1:ncell,1:ndust,1:ndim))
   !allocate(v_dust_0(1:ncell,1:ndust,1:ndim))
 
-  dflux_dust =0.0d0; v_dust=0.0d0;!  v_dust_0=0.0d0;
+  dflux_dust =0.0d0; v_dust=0.0d0; dflux_dust_eint=0.0d0
   jdust=1
 #endif
   ! Variables for BICG scheme

@@ -35,19 +35,19 @@ subroutine init_flow
 #endif
      if(simple_boundary)call make_boundary_hydro(ilevel)
   end do
-#if NDUST>0    
-  if(verbose)write(*,*)'Entering init_flow'
-  do ilevel=nlevelmax,1,-1
-     if(ilevel>=levelmin)call set_vdust(ilevel)
-     call upload_fine(ilevel)
-     do idim =1,ndim
-        do idust=1,ndust
-           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-        end do
-     end do
-     if(simple_boundary)call make_boundary_hydro(ilevel)
-  end do
-#endif   
+!!$#if NDUST>0    
+!!$  if(verbose)write(*,*)'Entering init_flow'
+!!$  do ilevel=nlevelmax,1,-1
+!!$     if(ilevel>=levelmin)call set_vdust(ilevel)
+!!$     call upload_fine(ilevel)
+!!$     do idim =1,ndim
+!!$        do idust=1,ndust
+!!$           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+!!$        end do
+!!$     end do
+!!$     if(simple_boundary)call make_boundary_hydro(ilevel)
+!!$  end do
+!!$#endif   
 end subroutine init_flow
 !################################################################
 !################################################################
@@ -639,7 +639,7 @@ subroutine region_condinit(x,q,dx,nn)
                  sum_dust = sum_dust + q(i, firstindex_ndust+idust)
               end do
            endif             
-              q(i,1) = q(i,1)+sum_dust*d_region(k)
+              q(i,1) = q(i,1)!+sum_dust*d_region(k)
 #endif
 
            end if

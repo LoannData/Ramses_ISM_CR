@@ -107,7 +107,6 @@ subroutine courant_fine(ilevel)
         !do idim=1,ndim
            do idust=1,ndust
               if (NDIM.eq.1)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))))
-           
               if (NDIM.eq.2)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))))
   
               if (NDIM.eq.3)  dt_dust =min(dt_dust,courant_factor*dx/(abs(v_dust(ind_leaf(i),idust,1))+abs(v_dust(ind_leaf(i),idust,2))+abs(v_dust(ind_leaf(i),idust,3))))
@@ -320,7 +319,8 @@ subroutine courant_fine(ilevel)
   ! fin modif nimhd
 #endif
 
-  if(dt_control)dtnew(ilevel)=1e-3
+  if(dt_control)dtnew(ilevel)=dtdiff_params(1)
+
 111 format('   Entering courant_fine for level ',I2)
 
 end subroutine courant_fine

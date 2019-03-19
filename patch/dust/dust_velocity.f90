@@ -33,7 +33,7 @@ subroutine set_vdust(ilevel)
 
   if(simple_boundary)call make_boundary_hydro(ilevel)
 
-111 format('   Entering dust_diffusion_fine for level ',i2)
+111 format('   Entering v_dust for level ',i2)
 
 
 end subroutine set_vdust
@@ -210,7 +210,7 @@ subroutine vdustfine1(ind_grid,ncache,ilevel)
                  vdloc(ind_exist(i),i3,j3,k3,idust,idim)=v_dust(ind_cell(i),idust,idim)
               end do
               do i=1,nbuffer
-                 vdloc(ind_nexist(i),i3,j3,k3,idust,idim)=f(ibuffer_father(i,0),idim)
+                 vdloc(ind_nexist(i),i3,j3,k3,idust,idim)=v_dust(ibuffer_father(i,0),idust,idim)
            end do
         end do
      end do
@@ -365,8 +365,13 @@ subroutine cmpvdust(uin,vout,vdin,dx,dy,dz,dt,ngrid)
 
                  u=0.0d0; v=0.0d0; w=0.0d0
                  u = qin(l,i,j,k,2)
-                 if(ndim>1)v = qin(l,i,j,k,3)
-                 if(ndim>2)w = qin(l,i,j,k,4)
+#if NDIM>1
+                 v = qin(l,i,j,k,3)
+#endif
+#if NDIM>2                 
+                 w = qin(l,i,j,k,4)
+#endif
+                 
                  e_kin=0.5d0*d*(u**2+v**2+w**2)
 
 #if NENER>0
@@ -406,8 +411,12 @@ subroutine cmpvdust(uin,vout,vdin,dx,dy,dz,dt,ngrid)
                  
                  !pressure force
                  fpress(1)=-(qin(l,i+1,j,k,5)-qin(l,i-1,j,k,5))*0.5d0/dx/(d*(1.0d0-sum_dust))
+#if NDIM>1                 
                  fpress(2)=-(qin(l,i,j+1,k,5)-qin(l,i,j-1,k,5))*0.5d0/dy/(d*(1.0d0-sum_dust))
+#endif
+#if NDIM>2                 
                  fpress(3)=-(qin(l,i,j,k+1,5)-qin(l,i,j,k-1,5))*0.5d0/dz/(d*(1.0d0-sum_dust))
+#endif                 
                  !magnetic force
                  fx=((dAz-dCx)*C-(dBx-dAy)*A)/(d*(1.0d0-sum_dust))
                  fy=((dBx-dAy)*A-(dCy-dBz)*C)/(d*(1.0d0-sum_dust))
@@ -416,8 +425,12 @@ subroutine cmpvdust(uin,vout,vdin,dx,dy,dz,dt,ngrid)
                  do idust = 1,ndust
                     t_stop(idust) = t_stop(idust)+tstop_tot
                     vout(l,i,j,k,idust,1)= t_stop(idust)*(1.0d0-sum_dust)*(-fpress(1)-fx*isnot_charged(idust))
+#if NDIM>1                    
                     vout(l,i,j,k,idust,2)= t_stop(idust)*(1.0d0-sum_dust)*(-fpress(2)-fy*isnot_charged(idust))
+#endif
+#if NDIM>2                   
                     vout(l,i,j,k,idust,3)= t_stop(idust)*(1.0d0-sum_dust)*(-fpress(3)-fz*isnot_charged(idust))
+#endif                    
    
 #if NDIM==1
                  wnorm= sqrt(vout(l,i,j,k,idust,1)**2.0)

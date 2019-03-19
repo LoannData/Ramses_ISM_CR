@@ -56,7 +56,7 @@ subroutine read_hydro_params(nml_ok)
        & ,a_refine,b_refine,exp_refine,jeans_refine,mass_cut_refine &
        & ,m_refine,mass_sph,err_grad_d,err_grad_p,err_grad_u &
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2,err_grad_E &
-       & ,err_grad_dust &
+       & ,err_grad_dust,dustywave_refine &
 #if NENER>0
        & ,err_grad_prad &
 #endif       
@@ -599,13 +599,13 @@ subroutine read_hydro_params(nml_ok)
         sum_dust = sum_dust + dust_bound(i,j)
      end do
      do j=1,ndust
-        boundary_var(i,firstindex_ndust+j)=dust_bound(i,j)*max(d_bound(i),smallr)!*(1.0d0+sum_dust)
+        boundary_var(i,firstindex_ndust+j)=dust_bound(i,j)*max(d_bound(i),smallr)
      end do
 #endif
-     boundary_var(i,1) =max(d_bound(i),smallr)!*(1.0d0+sum_dust)
-     boundary_var(i,2)=max(d_bound(i),smallr)*u_bound(i)!*(1.0d0+sum_dust)
-     boundary_var(i,3)=max(d_bound(i),smallr)*v_bound(i)!*(1.0d0+sum_dust)
-     boundary_var(i,4)=max(d_bound(i),smallr)*w_bound(i)!*(1.0d0+sum_dust)
+     boundary_var(i,1) =max(d_bound(i),smallr)
+     boundary_var(i,2)=max(d_bound(i),smallr)*u_bound(i)
+     boundary_var(i,3)=max(d_bound(i),smallr)*v_bound(i)
+     boundary_var(i,4)=max(d_bound(i),smallr)*w_bound(i)
      boundary_var(i,6)=A_bound(i)
      boundary_var(i,7)=B_bound(i)
      boundary_var(i,8)=C_bound(i)
@@ -637,7 +637,7 @@ subroutine read_hydro_params(nml_ok)
      end do
 #endif
 
-     ek_bound=0.5d0*max(d_bound(i)*(1.0d0+sum_dust),smallr)*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
+     ek_bound=0.5d0*max(d_bound(i),smallr)*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
      em_bound=0.5d0*(A_bound(i)**2+B_bound(i)**2+C_bound(i)**2)
      boundary_var(i,5)=ek_bound+em_bound+er_bound+P_bound(i)/(gamma-1.0d0)
      

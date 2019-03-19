@@ -29,13 +29,14 @@ subroutine condinit(x,u,dx,nn)
   !================================================================
   integer::ivar, idust, i
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp)::xn,x0,sum_dust, t_stop, rho_0, epsilon_0, delta_rho0,v0, pi,P_0,rho_gas, dusttogas
+  real(dp)::xn,x0,sum_dust, t_stop, rho_0, epsilon_0, delta_rho0,v0, pi,P_0,rho_gas, dusttogas, phidust
       pi =3.14159265358979323846_dp
       dusttogas =  1.0d0!0.10
       rho_gas =1.0_dp
       rho_0 = rho_gas + dusttogas*rho_gas
       epsilon_0 =  dusttogas*rho_gas/rho_0
-      delta_rho0= 1.0e-4_dp
+      phidust=0.8
+      delta_rho0= 1e-4
       v0  = delta_rho0
       q(1:nn,2)=0.0d0
       q(1:nn,3)=0.0d0
@@ -57,12 +58,10 @@ subroutine condinit(x,u,dx,nn)
          xn=abs(x(i,1))
         
          sum_dust =0.0d0
-         do idust = 1, Ndust
-            q(i,1)=rho_0*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn/boxlen))
-            q(i,2)=v0*sin(2.0_dp*pi*xn)
-            q(i,firstindex_ndust+idust) = epsilon_0!*(1.0_dp+ delta_rho0*sin(2.0_dp*pi*xn))
-            sum_dust= sum_dust + q(i,firstindex_ndust+idust)
-         end do
+         q(i,1)=rho_0
+         q(i,2)=v0*sin(2.0_dp*pi*xn)
+         q(i,firstindex_ndust+1) = epsilon_0*phidust
+         q(i,firstindex_ndust+2) = epsilon_0*(1.0d0-phidust)
          q(i,5)=(1.0d0-epsilon_0)*q(i,1)
       end do
       
