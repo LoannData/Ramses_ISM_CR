@@ -18,7 +18,7 @@
 !
 !  uin = (\rho eps_1, .... \rho eps_ndust,vdust ....,\rho,P)
 ! --------------------------------------------------------------------------
-subroutine dustdiff_predict_eint(uin,flux,dx,dy,dz,dt,ngrid)
+subroutine dustdiff_predict_eint(uin,flux,divdv,dx,dy,dz,dt,ngrid)
   use amr_parameters
   use const             
   use hydro_parameters
@@ -36,6 +36,7 @@ subroutine dustdiff_predict_eint(uin,flux,dx,dy,dz,dt,ngrid)
   ! Output fluxes
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:ndim)::flux
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::Xflux,Yflux,Zflux
+  real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2)::divdv
 
   ! Local scalar variables
   integer::i,j,k,l,ivar, idust
@@ -65,11 +66,13 @@ subroutine dustdiff_predict_eint(uin,flux,dx,dy,dz,dt,ngrid)
 #if NDIM==3
      call trace3d_dust_eint(uin,dq,qm,qp,dx,dy,dz,dt,ngrid)
 #endif
-  
+     !call cmpdivdv(qm,iu1+1,iu2+1,ju1+1,ju2+1 ,ku1+1,ku2+1,qp,iu1,iu2,ju1,ju2,ku1,ku2,if1,if2,jf1,jf2,kf1,kf2,2,3,4,divdv,ngrid)
+     !divdv= divdv*dt/dx
  ! Solve for 1D flux in X direction
   call cmpflxmdust_eint(qm,iu1+1,iu2+1,ju1  ,ju2  ,ku1  ,ku2  , &
        &       qp,iu1  ,iu2  ,ju1  ,ju2  ,ku1  ,ku2  , &
        &          if1  ,if2  ,jlo  ,jhi  ,klo  ,khi  , 2,3,4,Xflux,ngrid)
+  
   ! Save flux in output array
   do i=if1,if2
   do j=jlo,jhi
@@ -108,6 +111,7 @@ subroutine dustdiff_predict_eint(uin,flux,dx,dy,dz,dt,ngrid)
   call cmpflxmdust_eint(qm,iu1  ,iu2  ,ju1  ,ju2  ,ku1+1,ku2+1, &
        &       qp,iu1  ,iu2  ,ju1  ,ju2  ,ku1  ,ku2  , &
        &          ilo  ,ihi  ,jlo  ,jhi  ,kf1  ,kf2  , 4,2,3,zflux,ngrid)
+
 
   ! Save flux in output array
   do i=ilo,ihi
@@ -692,6 +696,54 @@ subroutine cmpflxmdust_eint(qm,im1,im2,jm1,jm2,km1,km2, &
 end do
 end subroutine cmpflxmdust_eint
 
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+subroutine cmpdivdv(qm,im1,im2,jm1,jm2,km1,km2, &
+     &             qp,ip1,ip2,jp1,jp2,kp1,kp2, &
+     &                ilo,ihi,jlo,jhi,klo,khi, ln,lt1,lt2, &
+     &            divdv,ngrid)
+  use amr_parameters
+  use hydro_parameters
+  use const
+  implicit none
+
+  integer ::ngrid
+  integer ::ln,lt1,lt2
+  integer ::im1,im2,jm1,jm2,km1,km2
+  integer ::ip1,ip2,jp1,jp2,kp1,kp2
+  integer ::ilo,ihi,jlo,jhi,klo,khi
+  real(dp),dimension(1:nvector,im1:im2,jm1:jm2,km1:km2,1:1+ndim,1:ndim)::qm
+  real(dp),dimension(1:nvector,ip1:ip2,jp1:jp2,kp1:kp2,1:1+ndim,1:ndim)::qp
+  real(dp),dimension(1:nvector,ip1:ip2,jp1:jp2,kp1:kp2)::divdv
+
+  ! local variables
+  integer ::i, j, k, l, xdim,idust,i0,j0,k0
+  real(dp)::entho
+  real(dp)::qleft,qright
+  real(dp)::uleft,uright
+
+
+ 
+  do k = klo, khi
+     do j = jlo, jhi
+        do i = ilo, ihi
+           do l = 1, ngrid
+ 
+              ! Compute divergence
+              divdv(l,i,j,k)=  (qp(l,i+1,j,k,2,1)-qm(l,i-1,j,k,2,1))/2.0d0
+#if NDIM>1
+              divdv(l,i,j,k)= divdv(l,i,j,k)+ (qp(l,i,j+1,k,3,2)-qm(l,i,j-1,k,3,2))/2.0d0
+#endif              
+#if NDIM>1
+              divdv(l,i,j,k)= divdv(l,i,j,k)+ (qp(l,i,j,k+1,4,3)-qm(l,i,j,k-1,4,3))/2.0d0
+#endif              
+           end do
+     end do
+  end do
+end do
+end subroutine cmpdivdv
 !###########################################################
 !###########################################################
 !###########################################################

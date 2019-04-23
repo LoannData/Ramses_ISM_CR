@@ -37,7 +37,6 @@ module hydro_parameters
 #else
   integer,parameter::ndust = NDUST
 #endif
-
   ! Advect internal energy as a passive scalar, in a supplementary index
 #ifndef NPSCAL
   integer,parameter::npscal=1
@@ -275,6 +274,7 @@ module hydro_parameters
   logical  :: vmax_cs =.false.
   logical  :: vmax_dust_lim=.false.  
   real(dp) :: f_vmax=1.0d0 ! fraction of maximum velocity allowed
+ logical :: pair_dust
 
      
   ! modif nimhd
