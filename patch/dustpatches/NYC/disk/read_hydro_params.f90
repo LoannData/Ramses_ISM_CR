@@ -43,7 +43,7 @@ subroutine read_hydro_params(nml_ok)
        & ,A_region,B_region,C_region
   namelist/hydro_params/gamma,courant_factor,smallr,smallc,smallcr, dtdiff_params,dt_control &
        & ,niter_riemann,slope_type,slope_mag_type,switch_solv,switch_solv_dens &
-       &, HoverR,tp0,beta_mag,tpback,rhoext,rd_factor,Mstar_cen,rhocen,nstep_relax,trelax,rsmooth,iso_smooth,damp,turb_perc,Gressel, Hayashi,bethune, kwok_correction, vmax_barycenter,apply_relaxation, f_vmax,vmax_cs,vmax_dust_lim,prevent_boundary_diff,d0_diff,n_disk,alpha_disk,k_corona,buffer_H,nH_coro,tdust,equilibrium_temp,t_cool &
+       &, kwok_correction, reduce_tstop,vmax_barycenter,apply_relaxation, f_vmax,vmax_cs,vmax_dust_lim,prevent_boundary_diff,d0_diff &
 #if NENER>0
        & ,gamma_rad &
 #endif
@@ -111,6 +111,8 @@ subroutine read_hydro_params(nml_ok)
        & ,nmagdiffu,etaMD,nhall,rHall,ntestDADM &
        & ,coefad, nminitimestep, coefalfven,nmagdiffu2,nambipolar2,nu_sts,coefdtohm,use_resist
   namelist/pseudovisco_params/nvisco,visco
+  namelist/disk_params/n_disk,alpha_disk,k_corona,buffer_H,nH_coro,tdust,equilibrium_temp,t_cool&
+       &,HoverR,beta_mag,inner_r,Mstar_cen,rhocen,trelax,rsmooth,turb_perc,dust_decrease
   ! fin modif nimhd
 
   ! Read namelist file
@@ -142,6 +144,10 @@ subroutine read_hydro_params(nml_ok)
   rewind(1)
   read(1,NML=pseudovisco_params,END=106)
 106 continue
+    rewind(1)
+
+   read(1,NML=disk_params,END=107)
+107 continue
   ! Conversion factor from user units to cgs units (to be done after read physics_params with units_density...)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
@@ -205,8 +211,8 @@ subroutine read_hydro_params(nml_ok)
 #if NIMHD==1
   ! modif nimhd
   rewind(1)
-  read(1,NML=nonidealmhd_params,END=107)
-107 continue
+  read(1,NML=nonidealmhd_params,END=108)
+108 continue
   if((nambipolar.ne.0).and.(nambipolar.ne.1)) then
      write(*,*)'Wrong choice for nambipolar'
      call clean_stop

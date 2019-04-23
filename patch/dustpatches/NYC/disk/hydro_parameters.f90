@@ -276,7 +276,6 @@ module hydro_parameters
   logical  :: vmax_barycenter=.false. ! Set the maximum delta v to the barycenter velocity
   logical  :: vmax_cs =.false.
   logical  :: vmax_dust_lim=.false.
-  
   real(dp) :: f_vmax=1.0d0 ! fraction of maximum velocity allowed
 
        
@@ -285,8 +284,7 @@ module hydro_parameters
   real(dp) ::tdust =10.0 ! in year
   logical :: equilibrium_temp=.false.
   real(dp):: HoverR = 0.15
-  real(dp):: Tp0= 108.d0
-  real(dp):: rd_factor=0.25d0
+  real(dp):: inner_r=0.25d0
   real(dp):: rsmooth=0.05
   real(dp):: Mstar_cen=1.0d0
   real(dp):: rhocen= 1e-11
@@ -295,19 +293,12 @@ module hydro_parameters
   real(dp):: n_disk =-1.5d0
   real(dp):: k_corona=6.d0
   real(dp):: alpha_disk=-1.d0
-  integer :: nstep_relax=1000
   logical :: apply_relaxation=.false.
   real(dp):: trelax=0.1
   real(dp) :: beta_mag=1e5
-  logical :: iso_smooth=.false.
-  logical :: damp=.false.
-  real(dp):: Tpback=10.d0
-  real(dp):: rhoext=1e-17
   real(dp)::turb_perc= 0.01d0
   logical :: use_resist=.false.
-  logical :: Gressel=.true.
-  logical :: Hayashi = .false.
-  logical :: bethune= .false.
+  real(dp):: dust_decrease=1e-4
   integer :: ndcol=1
   integer,parameter :: nstore_disk=3 ! 1=column dens,2=betaad,3=etaohm,4=xe,5=elsass_ambi,6=elsass_ohm
   ! modif nimhd

@@ -19,7 +19,7 @@ subroutine relaxation_implementation(ilevel,nstp)
   real(dp) ::A,B,C,e_mag,e_kin1,e_kin2,enint,d,u,v,w,e
   real(dp)::dx,scale,x0,xn,yn,zn, radius,rho0,cs0,cs,omega_kep,radiusin, radiusout,smoothing
   real(dp)::relax,rin,rr,dx_loc,rout,emass,relaxinit,H,csdr,drrho,radiusdr,rrdr,rrr,rrrm,csback,csmax,cloc,hsmooth
-  real(dp):: sinthetai, sintheta,v_kep,cs_iso,old_Temp,new_Temp,ht,tauc
+  real(dp):: v_kep,cs_iso,old_Temp,new_Temp,ht,tauc
 
   real(dp) :: Teq
   real(dp),dimension(ndim)::vel
@@ -38,9 +38,7 @@ subroutine relaxation_implementation(ilevel,nstp)
   real(dp),dimension(1:ndust):: dustMRN
 #endif
     integer,dimension(1:3,1:2,1:8)::iii,jjj
-    if(hayashi) then
      rhayash=1.0d0
-  endif
 #if NDUST>0
   epsilon_0 = dust_ratio(1)
 #endif
@@ -61,15 +59,9 @@ subroutine relaxation_implementation(ilevel,nstp)
   dx=0.5d0**ilevel
   dx_loc=dx*scale
 
-  rout= 5.0d0!2.0*4.0
-  rin =rd_factor
   rho0=rhocen/scale_d
-  emass=rin! Softening length
   H=HoverR*rout
-  Cs0 =  sqrt(gamma*kb*Tp0/(mu_gas*mH))/scale_v
   trel= trelax/scale_t*3.154d7
-  csback= sqrt(gamma*kb*Tpback/(mu_gas*mH))/scale_v
-  csmax=sqrt(gamma*kb*4000/(mu_gas*mH))/scale_v
   tauc= t_cool/scale_t*3.154d7
   ! Set position of cell centers relative to grid center
   do ind=1,twotondim
@@ -121,17 +113,11 @@ subroutine relaxation_implementation(ilevel,nstp)
          zn=(xx(i,3)-x0)
          RR = sqrt(xn**2.0+yn**2.0+rsmooth**2.0)
          RRR = sqrt(xn**2.0+yn**2.0)
-         RRdR= sqrt(xn**2.0+yn**2.0+rsmooth**2.0)+dx
          radius = sqrt(RR**2.0+zn**2.0)
       
-         radiusdr= sqrt(RRdr**2.0+zn**2.0)
 
          !Equilibrium cs
-         if(Gressel)cs= cs0/sqrt(RR/rout)*sfive(rrr/rsmooth)+csback
-         if(Hayashi)THayash= 280.0d0*(rr/rhayash)**(-1./2.)
-         if(Hayashi) cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
          H=hoverr*RRR
-         if(bethune) then
             THayash= 300.0*(rr/rhayash)**(alpha_disk)
             cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v
             if(abs(zn).lt.nH_coro*H) then
@@ -143,7 +129,6 @@ subroutine relaxation_implementation(ilevel,nstp)
                   cs= cs_iso*(k_corona-(1.0-k_corona)*(abs(zn)-nH_coro*H-H*buffer_H)/(H*buffer_H))
                endif
             endif
-         endif
 
             d=max(uold(ind_cell(i),1),smallr)
             sum_dust=0.0d0

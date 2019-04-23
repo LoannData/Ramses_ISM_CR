@@ -32,9 +32,9 @@ subroutine condinit(x,u,dx,nn)
   !================================================================
   integer::ivar, idust, i
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
-  real(dp)::xn,x0,sum_dust, RR,rrr, rin, rout,yn,zn, radius,rho0,cs0,cs,omega_kep,radiusin, radiusout,emass,H,drRho
-  real(dp)::rrdr,radiusdr,csdr,sfive,Bz,bzdr,rrdmr,bzdmr,csdmr,radiusdmr,csback,Hsmooth,delta_rho
-  real(dp):: sinthetai, sintheta,v_kep,cs_iso,rho_surf,coro_fact,rdisk,rdisk_factor
+  real(dp)::xn,x0,sum_dust, RR,rrr, rin, rout,yn,zn, radius,rho0,cs0,cs,omega_kep,emass,H,drRho
+  real(dp)::sfive,Bz,csback,Hsmooth,delta_rho
+  real(dp)::v_kep,cs_iso,rho_surf,coro_fact,rdisk,rdisk_factor,fact_dust
 !hayashi's params
   real(dp):: sigmaHayash, THayash, rHayash,pi
   real(dp),dimension(1:ndim) :: vtur
@@ -49,21 +49,13 @@ subroutine condinit(x,u,dx,nn)
   do ivar=9,nvar
      q(1:nn,ivar)=0.0d0
   end do
-  rin =rd_factor
-  rout= 5.0d0!2.0*4.0
   rdisk= 100.0
-  H=HoverR*rout
-  Cs0 =  sqrt(gamma*kb*Tp0/(mu_gas*mH))/scale_v
-  csback= sqrt(gamma*kb*Tpback/(mu_gas*mH))/scale_v
   pi =3.14159265358979
   rho0=rhocen/scale_d
   x0=boxlen/2.0
   
-  delta_rho=0.1
   rhayash=1.0
-  if(hayashi) then
-     rhayash=1.0d0
-  endif
+
   do i=1,nn
      ! Compute position in normalized coordinates
      xn=(x(i,1)-x0)
@@ -76,115 +68,14 @@ subroutine condinit(x,u,dx,nn)
      
      radius = sqrt(RR**2.0+zn**2.0)
 
-     RRdR=RR+dx
-     RRdmR=abs(RR-dx)
-
-     radiusdr= sqrt(RRdr**2.0+zn**2.0)
-     radiusdmr=sqrt(RRdmr**2.0+zn**2.0)
-
-!Gressel model     
-     if (Gressel) then
-        
-     cs= sfive(rrr/rsmooth)*cs0/sqrt(RR/rout)+csback
-     csdr=sfive(rrr/rsmooth)*Cs0/sqrt(RRdr/rout)+csback
-     csdmr=sqrt(RRdmr**2.0+zn**2.0)     
-     Hsmooth=5.*hoverr*rrr
-      sum_dust=0.0d0
-
-      q(i,1)=max(rho0*(RR/rout)**(-2.5)*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius)),rhoext/scale_d)&
-           &*(1.0+delta_rho*cos(2.*xn/rrr))
-      
-      
-#if NDUST>0
-     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
-        do idust =1,ndust
-           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-           !if(q(i,1).eq.rhoext/scale_d) q(i, firstindex_ndust+idust)=1.d-18
-
-           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
-           
-           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
-        end do   
-#endif    
-        drRho= (csdr**2.0*rho0*(RRdr/rout)**(-2.5)*exp(-Mstar_cen/csdr**2.0*(1/RRdr-1/radiusdr))-cs**2.0*rho0*(RR/rout)**(-2.5)*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius)))/q(i,1)/RR/dx
 
 
-
-
-     omega_kep=sqrt(Mstar_cen/rr**3.0+drRho)!-3.5*Bz*(RR/rout)**(-1.0)/q(i,1)/RR)
-     q(i,5)=cs**2.0*q(i,1)
-     Bz=sfive(rr/rsmooth)*sqrt(2.0d0*(cs**2.0*rho0*(RR/rout)**(-2.5))/beta_mag)
-
-     call get_vturb(turb_perc,cs,vtur)
-     !call get_dturb(turb_perc,q(i,1),delro)
-     q(i,2)=-omega_kep*rr*yn/rrr+vtur(1)
-     q(i,3)=omega_kep*rr*xn/rrr+vtur(2)
-     q(i,4)=vtur(3)
-
-     q(i,6)     = 0.d0
-     q(i,7)     = 0.d0
-     q(i,8)     = bz
-     
-     ! Right B fields. Div * B is zero with linear operator (Bxr - Bxl)/dx ...
-     q(i,nvar+1)= 0.d0
-     q(i,nvar+2)= 0.d0
-     q(i,nvar+3)= q(i,8)
-  endif
-
-  !MMSN model Hayashi
-  if (Hayashi) then
-     omega_kep=sqrt(Mstar_cen/rr**3.0)
-
-     sigmaHayash= 1700.d0/scale_m*scale_l**2.0*(rr/rhayash)**(-3./2.)
-   
-     THayash= 280.0d0*(rr/rhayash)**(-1./2.)
-     cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
-     H=cs/omega_kep
-#if NDUST>0
-     if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
-        do idust =1,ndust
-           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-           !if(q(i,1).eq.rhoext/scale_d) q(i, firstindex_ndust+idust)=1.d-18
-
-           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
-           
-           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
-        end do   
-#endif
-     q(i,1)= max(sigmaHayash/sqrt(2.0*pi*H**2.0)*exp(-zn**2.0/(2.0*H**2.0)),rhoext/scale_d)
-     q(i,5)=cs**2.0*q(i,1)
-     Bz=sqrt(2.0d0*(cs**2.0*sigmaHayash/sqrt(2.0*pi*H**2.0))/beta_mag)
-     call get_vturb(turb_perc,cs,vtur)
-     !call get_dturb(turb_perc,q(i,1),delro)
-     q(i,2)=-omega_kep*rr*yn/rrr+vtur(1)
-     q(i,3)=omega_kep*rr*xn/rrr+vtur(2)
-     q(i,4)=vtur(3)
-
-     q(i,6)     = 0.d0
-     q(i,7)     = 0.d0
-     q(i,8)     = bz
-     
-     ! Right B fields. Div * B is zero with linear operator (Bxr - Bxl)/dx ...
-     q(i,nvar+1)= 0.d0
-     q(i,nvar+2)= 0.d0
-     q(i,nvar+3)= q(i,8)
-  endif
-
-  if(bethune) then
      rdisk_factor=1.0
      if(RR>rdisk) rdisk_factor=1./100.
-     if(RR<rd_factor) rdisk_factor=1./100.
+     if(RR<inner_r) rdisk_factor=1./100.
 
 #if NDUST>0
      if(mrn) call init_dust_ratio(epsilon_0, dustMRN)
-        do idust =1,ndust
-           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
-           !if(q(i,1).eq.rhoext/scale_d) q(i, firstindex_ndust+idust)=1.d-18
-
-           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
-           
-           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
-        end do   
 #endif
      
      THayash= 300.0*(rr/rhayash)**(alpha_disk)
@@ -192,19 +83,41 @@ subroutine condinit(x,u,dx,nn)
      H=hoverr*RR
      cs = cs_iso
      coro_fact=(k_corona-(1.0-k_corona)*(abs(zn)-nH_coro*H-H*buffer_H)/(H*buffer_H))
+     fact_dust=(dust_decrease-(1.0-dust_decrease)*(abs(zn)-nH_coro*H-H*buffer_H)/(H*buffer_H))
      rho_surf=rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/sqrt(RR**2.0+(nH_coro*H)**2.0)))
      if(abs(zn).lt.nH_coro*H) then
      cs = cs_iso
      q(i,1)=rdisk_factor*rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+#if NDUST>0
+        do idust =1,ndust
+           q(i, firstindex_ndust+idust)= dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           if(mrn) q(i, firstindex_ndust+idust) = dustMRN(idust)
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+        end do   
+#endif
      else
      if (abs(zn).gt.nH_coro*H+H*buffer_H) then
      cs=k_corona*cs_iso
      q(i,1)=rdisk_factor*rho_surf*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
+#if NDUST>0
+        do idust =1,ndust
+           q(i, firstindex_ndust+idust)=dust_decrease* dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           if(mrn) q(i, firstindex_ndust+idust) =dust_decrease*dustMRN(idust)
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+        end do   
+#endif     
      else
      cs= cs_iso*coro_fact
      q(i,1)=rdisk_factor*rho_surf*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))!*(coro_fact/k_corona)**2.0
-     endif
-     endif
+#if NDUST>0
+        do idust =1,ndust
+           q(i, firstindex_ndust+idust)= dust_decrease*dust_ratio(idust)/(1.0d0+dust_ratio(idust))
+           if(mrn) q(i, firstindex_ndust+idust) = dust_decrease*dustMRN(idust)
+           sum_dust = sum_dust + q(i, firstindex_ndust+idust)
+        end do   
+#endif     
+  endif
+endif
 
      omega_kep=sqrt(Mstar_cen/rr**3.0)!-3.5*Bz*(RR/rout)**(-1.0)/q(i,1)/RR)
      call get_vturb(turb_perc,cs,vtur)
@@ -222,7 +135,6 @@ subroutine condinit(x,u,dx,nn)
      q(i,nvar+1)= 0.d0
      q(i,nvar+2)= 0.d0
      q(i,nvar+3)= q(i,8)
-  endif
 
   
      end do
@@ -333,17 +245,13 @@ subroutine columninit(x,sigm,dx,nn)
   real(dp):: sigmacr,sigmafuv,zetafuv,zetarad,zetacr,xfuv,sigmasc,sigmaab,alph,bet,gammai,sigmave,sigmahayash
   real(dp):: eel, me, clum, alpha_dr, xe, zeta,zeta1
   real(dp) :: scale_dcol
-  real(dp):: betaambd,etaohmic,eta_cap,beta_cap
+  real(dp):: betaambd,etaohmic,eta_cap,beta_cap,factres
   real(dp):: sinthetai, sintheta,v_kep,cs_iso,radius,rho0,rrr,rdisk_factor,rdisk
 
-  !hayashi's params
-  rin =rd_factor
-  rout= 5.0d0!2.0*4.0
-  H=HoverR*rout
-   rho0=rhocen/scale_d
+  !disk's params
+  rho0=rhocen/scale_d
 
   rdisk=100.
-  csback= sqrt(gamma*kb*Tpback/(mu_gas*mH))/scale_v
 
   x0=boxlen/2.0
   pi=3.141592653589
@@ -363,9 +271,7 @@ subroutine columninit(x,sigm,dx,nn)
   eel=4.8e-10
   me=9.1e-28
   clum=2.997e10
-  if(hayashi.or.bethune) then
-     rhayash=1.0d0
-  endif
+  rhayash=1.0d0
   do i=1,nn
      ! Compute position in normalized coordinates
      xn=(x(i,1)-x0)
@@ -379,7 +285,8 @@ subroutine columninit(x,sigm,dx,nn)
 
      rdisk_factor=1.0
      if(RR>rdisk) rdisk_factor=1./100.
-     if (bethune) then     
+     if(RR<inner_r) rdisk_factor=1./100.
+   
      THayash= 300.0*(rr/rhayash)**(alpha_disk/2.0)
      cs_iso=sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v
      H=hoverr*RRR
@@ -394,7 +301,7 @@ subroutine columninit(x,sigm,dx,nn)
      cs= cs_iso*(k_corona+(1.0-k_corona)*(abs(zn)-nH_coro*H-H*buffer_H)/(H*buffer_H))
      dens=rdisk_factor*rho0*(RR/rhayash)**n_disk*exp(-Mstar_cen/cs**2.0*(1/RR-1/radius))
      endif
-     endif
+  endif
 
      omega_kep=sqrt(Mstar_cen/rr**3.0)
 
@@ -412,47 +319,15 @@ subroutine columninit(x,sigm,dx,nn)
      sigmave=8.28e-9*sqrt(Thayash/100.)
      eta_cap=10*omega_kep*H**2.0
      beta_cap=eta_cap/bz**2.0
-     etaohmic=min(clum**2.0*me/(4.0*pi*eel**2.0)/xe*sigmave/scale_l**2*scale_t,eta_cap)
-     betaambd=min(1./gammai/dens**2/xe/29,beta_cap)
+     factres= exp(-xe/1e-8)
+     etaohmic=min(clum**2.0*me/(4.0*pi*eel**2.0)/xe*sigmave/scale_l**2*scale_t*factres,eta_cap)
+     betaambd=min(1./gammai/dens**2/xe/29*factres,beta_cap)
      sig1(i,2)=etaohmic
      sig1(i,3)=betaambd
 !!$     sig1(i,4)=xe
 !!$     sig1(i,5)=1./dens/betaambd/omega_kep
 !!$     sig1(i,6)=Bz**2.0/dens/etaohmic/omega_kep
      ! print *, sig(i,2),sig(i,3)
-  endif
-  
-  if (Hayashi) then
-     omega_kep=sqrt(Mstar_cen/rr**3.0)
-
-     sigmaHayash= 1700.d0/scale_m*scale_l**2.0*(rr/rhayash)**(-3./2.)
-   
-     THayash= 280.0d0*(rr/rhayash)**(-1./2.)
-     cs =  sfive(rr/rsmooth)*sqrt(gamma*kb*THayash/(mu_gas*mH))/scale_v+csback
-     H=cs/omega_kep
-
-     dens= max(sigmaHayash/sqrt(2.0*pi*H**2.0)*exp(-zn**2.0/(2.0*H**2.0)),rhoext/scale_d)
-     Bz=sqrt(2.0d0*(cs**2.0*sigmaHayash/sqrt(2.0*pi*H**2.0))/beta_mag)
-
-     sig0=1700/sqrt(2.0*pi)*(rr/rhayash)**(-3./2.)/scale_m*scale_l**2.0
-     sig1(i,1)= min(1700.d0/scale_m*scale_l**2.0*(rr/rhayash)**(-3./2.),sig0*(1.0d0-erf(abs(zn)/(sqrt(2.0)*H))))
-     zeta1=(rr/rhayash)**(-2.2)*(1e-15*(exp(-(sig1(i,1)/sigmasc)**alph))+6e-12*(exp(-(sig1(i,1)/sigmaab)**bet)))
-     zeta=zetacr*exp(-sig1(i,1)/sigmacr)+zetarad+zeta1
-     xfuv=zetafuv*exp(-(sig1(i,1)/sigmafuv)**4.0)
-     alpha_dr=3e-6/sqrt(Thayash)
-     xe= sqrt(zeta/alpha_dr/(H2_fraction*dens*scale_d/(mu_gas*mH)))+xfuv
-     sigmave=8.28e-9*sqrt(Thayash/100.)
-     eta_cap=10*omega_kep*H**2.0
-     beta_cap=eta_cap/bz**2.0
-     etaohmic=min(clum**2.0*me/(4.0*pi*eel**2.0)/xe*sigmave/scale_l**2*scale_t,eta_cap)
-     betaambd=min(1./gammai/dens**2/xe/29,beta_cap)
-     sig1(i,2)=etaohmic
-     sig1(i,3)=betaambd
-!!$     sig1(i,4)=xe
-!!$     sig1(i,5)=1./dens/betaambd/omega_kep
-!!$     sig1(i,6)=Bz**2.0/dens/etaohmic/omega_kep
-     ! print *, sig(i,2),sig(i,3)
-  endif
   
   end do
 sigm(1:nn,1)=sig1(1:nn,1)
