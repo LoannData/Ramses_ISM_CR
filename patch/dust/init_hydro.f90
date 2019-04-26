@@ -37,7 +37,9 @@ subroutine init_hydro
      allocate(rad_flux(1:ncell,1:nvar_bicg))
      allocate(urad(1:ncell,1:nvar_bicg))
      allocate(frad(1:ncell,1:ndim))
-     rad_flux=0.0d0; urad=0.0d0; frad=0.0d0
+     allocate(opacities_PR(1:ncell,1:2))
+
+     rad_flux=0.0d0; urad=0.0d0; frad=0.0d0; opacities_PR=0.0d0
   endif
 #if MC>0
     if(MC_tracer) then

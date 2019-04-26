@@ -810,7 +810,7 @@ subroutine surface_int_np(ind_cell,np,ilevel)
   use clfind_commons, ONLY: center_of_mass,Psurf
 #endif
 #if NENER>0
-  use hydro_commons, ONLY: uold,gamma,nvar,nener,inener,smallrr,firstindex_ndust, ndust
+  use hydro_commons, ONLY: uold,gamma,nvar,nener,inener,smallr,firstindex_ndust, ndust
 #else
   use hydro_commons, ONLY: uold,gamma,nvar,smallr,firstindex_ndust, ndust
 #endif

@@ -356,22 +356,10 @@ recursive subroutine amr_step(ilevel,icount)
      call calc_turb_forcing(ilevel)
   end if
 #endif
-#if RELAX>0
- ! if(tout(iout)>3.15d7*tdust/scale_t) dust_diffusion=.true.
-#if NDUST>0
-#endif
-#endif 
+
      ! Set uold equal to unew
 #if NDUST>0
   call set_vdust(ilevel)
-#if RELAX>0
-  call relaxation_implementation(ilevel,nstep_coarse)
-#endif
-  do idim =1,ndim
-     do idust=1,ndust
-        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-     end do
-  end do
 #endif
 
     !----------------------
@@ -493,21 +481,7 @@ recursive subroutine amr_step(ilevel,icount)
      call grow_sink(ilevel,.false.)
   end if
 #endif
- 
-#if NDUST>0
-  call set_vdust(ilevel)
-#if RELAX>0
-  call relaxation_implementation(ilevel,nstep_coarse)
-#endif
-  do idim =1,ndim
-     do idust=1,ndust
-       call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
-     end do
-  end do
-  if(.not.dust_diffusion) v_dust=0.0d0
-  !if(.not.dust_diffusion) print *,'dust_diffusion deactivated'
 
-#endif
    
   !-----------
   ! Hydro step
@@ -566,9 +540,7 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('poisson','start')
      if(poisson)call synchro_hydro_fine(ilevel,+0.5d0*dtnew(ilevel))
      ! Set uold equal to unew
-#if RELAX>0
-     call relaxation_implementation(ilevel,nstep_coarse)
-#endif
+
 #if USE_TURB==1
      ! Compute turbulent forcing
                                call timer('turb','start')
@@ -668,6 +640,14 @@ recursive subroutine amr_step(ilevel,icount)
   ! Update physical and virtual boundaries
   !---------------------------------------
   if((hydro).and.(.not.static_gas))then
+#if NDUST>0
+     do idim =1,ndim
+        do idust=1,ndust
+           call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
+        end do
+     end do
+#endif     
+     
                                call timer('hydro - ghostzones','start')
 #ifdef SOLVERmhd
      do ivar=1,nvar+3

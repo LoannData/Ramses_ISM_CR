@@ -1,7 +1,7 @@
 #if NDIM==3
 subroutine compute_clump_properties(xx)
   use amr_commons
-  use hydro_commons, ONLY:uold,inener,nener,nvar
+  use hydro_commons
   use clfind_commons
   implicit none
 #ifndef WITHOUTMPI
@@ -24,7 +24,7 @@ subroutine compute_clump_properties(xx)
   real(dp),dimension(1:nlevelmax)::volume
   real(dp),dimension(1:3)::skip_loc,xcell
   real(dp),dimension(1:twotondim,1:3)::xc
-  integer::nx_loc,ind,ix,iy,iz,idim
+  integer::nx_loc,ind,ix,iy,iz,idim,idust
   logical,dimension(1:ndim)::period
   logical::periodic
 

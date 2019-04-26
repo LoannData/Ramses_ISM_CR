@@ -10,7 +10,6 @@ module hydro_commons
   real(dp),allocatable,dimension(:,:,:,:)::resistivite_chimie_x ! resistivites chimie
 #if NDUST>0
   real(dp),allocatable,dimension(:):: dflux_dust_eint ! Dust flux from refined interfaces for enint
-
   real(dp),allocatable,dimension(:,:):: dflux_dust ! Dust flux from refined interfaces
   real(dp),allocatable,dimension(:,:,:):: v_dust ! Differential velocity of the dust phases
   integer::jdust

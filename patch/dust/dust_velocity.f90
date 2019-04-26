@@ -208,7 +208,7 @@ subroutine vdustfine1(ind_grid,ncache,ilevel)
                  vdloc(ind_exist(i),i3,j3,k3,idust,idim)=v_dust(ind_cell(i),idust,idim)
               end do
               do i=1,nbuffer
-                 vdloc(ind_nexist(i),i3,j3,k3,idust,idim)=f(ibuffer_father(i,0),idim)
+                 vdloc(ind_nexist(i),i3,j3,k3,idust,idim)=v_dust(ibuffer_father(i,0),idust,idim)
            end do
         end do
      end do
@@ -233,7 +233,6 @@ subroutine vdustfine1(ind_grid,ncache,ilevel)
   ! End loop over neighboring grids
 
 
-  !call dustdiff_split(uloc,flux,dx,dx,dx,dtnew(ilevel),ncache)
   call cmpvdust(uloc,vloc,vdloc,dx,dx,dx,dtnew(ilevel),ncache)
 
    !--------------------------------------------------------

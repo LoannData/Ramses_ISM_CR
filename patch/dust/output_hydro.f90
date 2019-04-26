@@ -394,7 +394,7 @@ subroutine backup_hydro(filename)
            do idust=1,ndust
               do idim=1,ndim           
                  do i=1,ncache
-                    xdp(i)=v_dust(ind_grid(i)+iskip,idust,idim)!/(1.0d0-sum_dust)
+                    xdp(i)=v_dust(ind_grid(i)+iskip,idust,idim)
                  end do
                  write(ilun)xdp
               end do
