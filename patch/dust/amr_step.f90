@@ -144,7 +144,7 @@ recursive subroutine amr_step(ilevel,icount)
      max_dens=log10(Maxval(uold(:,1)*scale_d-uold(:,firstindex_pscal+1)*scale_d))
     ! if (abs(max_dens)<=13.1.and.abs(max_dens)>=12.9) output_now=.true.
     ! if (abs(max_dens)<=12.1.and.abs(max_dens)>=11.9) output_now=.true.
-    ! if (abs(max_dens)<=11.1.and.abs(max_dens)>=10.9) output_now=.true.
+     if (abs(max_dens)<=11.2.and.abs(max_dens)>=10.8) output_now=.true.
 
   !-----------------
   ! Update sink cloud particle properties
@@ -356,10 +356,17 @@ recursive subroutine amr_step(ilevel,icount)
      call calc_turb_forcing(ilevel)
   end if
 #endif
-
+#if RELAX>0
+ ! if(tout(iout)>3.15d7*tdust/scale_t) dust_diffusion=.true.
+#if NDUST>0
+#endif
+#endif 
      ! Set uold equal to unew
 #if NDUST>0
   call set_vdust(ilevel)
+#if RELAX>0
+  call relaxation_implementation(ilevel,nstep_coarse)
+#endif
   do idim =1,ndim
      do idust=1,ndust
         call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
@@ -486,8 +493,12 @@ recursive subroutine amr_step(ilevel,icount)
      call grow_sink(ilevel,.false.)
   end if
 #endif
+ 
 #if NDUST>0
   call set_vdust(ilevel)
+#if RELAX>0
+  call relaxation_implementation(ilevel,nstep_coarse)
+#endif
   do idim =1,ndim
      do idust=1,ndust
        call make_virtual_fine_dp(v_dust(1,idust,idim),ilevel)
@@ -574,6 +585,16 @@ recursive subroutine amr_step(ilevel,icount)
 
 
   endif
+#if RELAX>0
+  call relaxation_implementation(ilevel,nstep_coarse)
+#endif
+
+#if NDUST>0
+  if(dust_diffusion)then
+                     call timer('dust - diffusion','start')
+     call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
+  end if
+#endif
 
   !---------------------
   ! Do RT/Chemistry step
@@ -609,18 +630,6 @@ recursive subroutine amr_step(ilevel,icount)
 
 
 
-
-#if NDUST>0
-  if(dust_diffusion)then
-                     call timer('dust - diffusion','start')
-     call dust_diffusion_fine(ilevel,d_cycle_ok,ncycle,icycle)
-  end if
-#endif
-#if RELAX>0
-  !call relaxation_implementation(ilevel,nstep_coarse)
-
-
-#endif
   !---------------
   ! Move particles
   !---------------
