@@ -164,10 +164,10 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   use amr_commons
   use pm_commons
   use poisson_commons
-  use hydro_commons, ONLY: uold,smallr,gamma,nvar,ngrp, firstindex_extinct, ndust, firstindex_ndust, v_dust
+  use hydro_commons, ONLY: uold,smallr,gamma,nvar,ngrp, firstindex_extinct, ndust, firstindex_ndust, v_dust,bifluid
   use cooling_module,ONLY:kB,mH,clight
   use radiation_parameters,only:mu_gas,energy_fix,aR
-  use hydro_parameters,only:firstindex_er,nener
+  use hydro_parameters,only:firstindex_er,nener,mrn,grain_dens,grain_size
   use units_commons
   implicit none
   integer::ng,np,ilevel
@@ -197,11 +197,29 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
-  real(dp)::d,u,v,w,A,B,C,e_r,eps,pi,tcell
-  real(dp)::sum_dust
+  real(dp)::d,u,v,w,A,B,C,e_r,eps,pi,tcell,e_mag,e_kin,enint
+  real(dp)::sum_dust,deltav,ts,adust,Kts,cs
+  real(dp), dimension(1:ndust) ::d_grain,l_grain,isnot_charged
 #if NDUST>0
-  integer::idust
-#endif  
+  integer::idust,idust1
+#endif
+
+  if(mrn.eqv..true.) then
+     isnot_charged=0.0d0    
+     call size_dust(l_grain)
+     do idust=1,ndust
+        l_grain(idust) = l_grain(idust)/scale_l
+        d_grain(idust)=grain_dens(idust)/scale_d
+        isnot_charged(idust)=0.0d0
+     end do
+  else
+     do idust=1,ndust
+        d_grain(idust)=grain_dens(idust)/scale_d
+        l_grain(idust)=grain_size(idust)/scale_l
+        isnot_charged(idust)=0.0d0      
+     end do
+  endif
+ 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
   nx_loc=(icoarse_max-icoarse_min+1)
@@ -453,12 +471,63 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      do ind=1,twotondim
         do idim=1,ndim
            do j=1,np
-              ff(j,idim)=ff(j,idim)+uold(indp(j,ind),idim+1)/max(uold(indp(j,ind),1),smallr)*vol(j,ind)
-#if NDUST>0
               idust=floor((idp(ind_part(j))-1)/1.d6)+1
-              ff(j,idim)=ff(j,idim)+v_dust(indp(j,ind),idust,idim)*vol(j,ind)
-#endif              
-           end do
+              if(bifluid)then
+                 if(modulo(idust,2) .ne. 0)then
+                    idust=floor((idp(ind_part(j))-1)/2.d6)+1
+                    u=0.0d0; v=0.0d0; w=0.0d0
+                    d = uold(indp(j,ind),1)
+                    u = uold(indp(j,ind),2)
+                    if(ndim>1)v = uold(indp(j,ind),3)
+                    if(ndim>2)w = uold(indp(j,ind),4)
+                    e_kin=0.5d0*(u**2+v**2+w**2)/d
+                    A=0.5d0*(uold(indp(j,ind),6)+uold(indp(j,ind),nvar+1))
+                    B=0.5d0*(uold(indp(j,ind),7)+uold(indp(j,ind),nvar+2))
+                    C=0.5d0*(uold(indp(j,ind),8)+uold(indp(j,ind),nvar+3))
+                    
+                    e_mag=0.5d0*(A**2+B**2+C**2)
+                    
+#if NENER>0
+                    do irad=1,nener
+                       e_mag=e_mag+uold(indp(j,ind),8+irad)
+                    end do
+#endif
+                    if(energy_fix)then
+                       enint=uold(indp(j,ind),nvar)
+                    else
+                       enint=uold(indp(j,ind),5)-e_kin- e_mag
+                    end if
+                    sum_dust=0.0d0
+                    do idust1 = 1,ndust
+                       sum_dust= sum_dust + uold(indp(j,ind),firstindex_ndust+idust1)/d
+                    end do
+                    
+                    call soundspeed_eos((1.0_dp-sum_dust)*d,enint, cs)
+                    ts = d_grain(idust)*l_grain(idust)*SQRT(pi*gamma/8.0_dp)/(cs*d)
+                    Kts=1.0/ts
+                    adust=Kts * (uold(indp(j,ind),idim+1) &
+                         & -(uold(indp(j,ind),1)*vp(ind_part(j),idim)))*vol(j,ind)*dtnew(ilevel) + vp(ind_part(j),idim)
+                    if(idust==5 .or. idust==3)print*,idust,ts,dtnew(ilevel),l_grain(idust),d_grain(idust)
+                    !                 ff(j,idim)=ff(j,idim)+adust
+                    ff(j,idim)=ff(j,idim)+uold(indp(j,ind),idim+1)/max(uold(indp(j,ind),1),smallr)&
+                         *(1.0d0-exp(-dtnew(ilevel)/ts))*vol(j,ind)
+                    !print*,adust,uold(indp(j,ind),idim+1)/uold(indp(j,ind),1)
+                 else
+                    ff(j,idim)=ff(j,idim)+uold(indp(j,ind),idim+1)/max(uold(indp(j,ind),1),smallr)*vol(j,ind)
+#if NDUST>0
+                    idust=floor((idp(ind_part(j))-1)/2.d6)+1
+                    ff(j,idim)=ff(j,idim)+v_dust(indp(j,ind),idust,idim)*vol(j,ind) ! vdust par rapport a v
+                    !vgas                 ff(j,idim)=ff(j,idim)-epsilon/(1-epsilon)v_dust(indp(j,ind),idust,idim)*vol(j,ind)
+                 end if
+#endif
+              else
+                 ff(j,idim)=ff(j,idim)+uold(indp(j,ind),idim+1)/max(uold(indp(j,ind),1),smallr)*vol(j,ind)
+#if NDUST>0
+                 idust=floor((idp(ind_part(j))-1)/1.d6)+1
+                 ff(j,idim)=ff(j,idim)+v_dust(indp(j,ind),idust,idim)*vol(j,ind) ! vdust par rapport a v
+#endif
+              end if
+              end do
         end do
         do j=1,np
            d=uold(indp(j,ind),1)
@@ -486,7 +555,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            frho(j) = frho(j) + d * vol(j,ind)*scale_d
            ftpg(j) = ftpg(j) + tcell * vol(j,ind)
 #if NDUST>0           
-           idust=floor((idp(ind_part(j))-1)/1.d6)+1              
+           idust=floor((idp(ind_part(j))-1)/2.d6)+1              
            feps(j) = feps(j) + uold(indp(j,ind),firstindex_ndust+idust)/d * vol(j,ind)
 !           feps(j) = feps(j) + uold(indp(j,ind),firstindex_ndust+1)/d * vol(j,ind)
 #endif           
@@ -506,6 +575,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            fbfield(j,2) = fbfield(j,2) + B * vol(j,ind)*sqrt(4.0d0*pi*scale_d*scale_v**2)
            fbfield(j,3) = fbfield(j,3) + C * vol(j,ind)*sqrt(4.0d0*pi*scale_d*scale_v**2)
         end do
+     
      end do
 
      do j=1,np
@@ -518,7 +588,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
         epsp(ind_part(j))= feps(j)
 #endif        
      end do
-
+     
   endif
   if(poisson .and. (.not. tracer))then
      do ind=1,twotondim

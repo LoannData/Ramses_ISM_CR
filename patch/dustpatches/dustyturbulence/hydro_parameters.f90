@@ -269,6 +269,7 @@ module hydro_parameters
   logical  :: vmax_barycenter=.false. ! Set the maximum delta v to a fraction f_vmax of the barycenter velocity
   logical  :: vmax_cs=.false. ! Set the maximum delta v to a fraction f_vmax of the sound speed
   real(dp) :: f_vmax=1.0d0 ! fraction of maximum velocity allowed
+  logical  :: bifluid=.false. ! Activate bifluid for dust as lagragian particle
   
   ! modif nimhd
   integer:: nxx=1

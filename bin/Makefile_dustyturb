@@ -22,7 +22,7 @@ USE_TURB=1
 
 NEXTINCT = 0
 NPSCAL = 0
-NDUST  = 1
+NDUST  = 5
 NENER = $(NENT)+$(NGRP)
 
 #for RT
