@@ -264,7 +264,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 #if NIMHD==1
   ! modif nimhd
   ! Energy flux from ohmic term dB/dt=rot(-eta*J)
-  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. (.not.radiative_nimhdheating)) then
+  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. ((.not.radiative_nimhdheating_in_cg) .and. (.not.nimhdheating_in_eint))) then
   
      ivar=5
      do k=klo,khi
@@ -330,8 +330,8 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 #if NIMHD==1
   ! modif nimhd
   ! Energy flux from ohmic term dB/dt=rot(-eta*J)
-  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. (.not.radiative_nimhdheating)) then
-  
+!  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. (.not.radiative_nimhdheating)) then
+  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. ((.not.radiative_nimhdheating_in_cg) .and. (.not.nimhdheating_in_eint))) then  
      ivar=5
      do k=klo,khi
         do j=jf1,jf2
@@ -397,8 +397,8 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,ind_
 #if NIMHD==1
   ! modif nimhd
   ! Energy flux from ohmic term dB/dt=rot(-eta*J)
-  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. (.not.radiative_nimhdheating)) then
-  
+!  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. (.not.radiative_nimhdheating)) then
+  if((nambipolar.eq.1).or.(nmagdiffu.eq.1).or.(nhall.eq.1) .and. ((.not.radiative_nimhdheating_in_cg) .and. (.not.nimhdheating_in_eint))) then  
      ivar=5
      do k=kf1,kf2
         do j=jlo,jhi

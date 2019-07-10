@@ -8,7 +8,8 @@ ncontrol=10
 nremap=2
 nsubcycle=3*1,35*2
 fld=.true.
-radiative_nimhdheating=.true.
+radiative_nimhdheating_in_cg=.true.
+nimhdheating_in_eint=.false.
 /
 
 &AMR_PARAMS 

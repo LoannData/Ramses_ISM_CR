@@ -35,7 +35,7 @@ subroutine diffusion_cg (ilevel,Nsub)
   real(dp)::min_ener,min_ener_all,max_ener,max_ener_all
   real(dp),dimension(1:ngrp)::dener
   logical::exist_leaf_cell=.true.
-
+  real(dp)::ambi_heating,ohm_heating,nimhd_heating,bcell2,bx,by,bz,jsquare,jx,jy,jz,etaohmdiss,betaad
   if(verbose)write(*,111)
   if(numbtot(1,ilevel)==0)return
 
@@ -459,6 +459,33 @@ subroutine diffusion_cg (ilevel,Nsub)
            Cv = unew(liste_ind(i),nvar+1)
            Told= unew(liste_ind(i),5)
 
+                 ambi_heating=zero
+                 ohm_heating=zero
+                 nimhd_heating=zero
+
+#if NIMHD==1
+                 if((nmagdiffu .eq. 1 .or. nambipolar .eq.1 .or. nmagdiffu2 .eq. 1 .or. nambipolar2 .eq.1) .and. radiative_nimhdheating_in_cg)then
+                    
+                    bx=0.5d0*(uold(liste_ind(i),6)+uold(liste_ind(i),nvar+1))
+                    by=0.5d0*(uold(liste_ind(i),7)+uold(liste_ind(i),nvar+2))
+                    bz=0.5d0*(uold(liste_ind(i),8)+uold(liste_ind(i),nvar+3))
+                    bcell2=(bx**2+by**2+bz**2)
+                    jx=uold(liste_ind(i),nvar-3)
+                    jy=uold(liste_ind(i),nvar-2)
+                    jz=uold(liste_ind(i),nvar-1)
+                    jsquare=(jx**2+jy**2+jz**2) 
+                    ionisrate=default_ionisrate
+                    
+                    if(nmagdiffu .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told,ionisrate)*dt_imp
+                    
+                    if(nambipolar .eq. 1 )then
+                       ambi_heating = (jy*bz-jz*by)**2+(jz*bx-jx*bz)**2+(jx*by-jy*bx)**2
+                       ambi_heating = ambi_heating * betaad(rho,bcell2,Told,ionisrate)*dt_imp
+                    endif
+                    nimhd_heating=nimhd_heating+ohm_heating
+                 end if
+#endif  
+
            rhs=0.d0
            lhs=0.d0
            do igrp=1,ngrp
@@ -474,7 +501,7 @@ subroutine diffusion_cg (ilevel,Nsub)
               lhs=lhs+P_cal*wdtB*deriv_radiation_source(Told,igrp)/scale_E0
            enddo
 
-           Tnew = (cv*unew(liste_ind(i),nvar+3)+rhs)/(cv+lhs)
+           Tnew = (cv*unew(liste_ind(i),nvar+3)+rhs+nimhd_heating)/(cv+lhs)
 
            error_nr_loc=max(error_nr_loc, abs((Told-Tnew)/Tnew))
 
@@ -702,13 +729,13 @@ subroutine cmp_matrixA (ilevel,compute,igroup)
                  jsquare=(jx**2+jy**2+jz**2) 
                  ionisrate=default_ionisrate
                  
-                 if((nmagdiffu .eq. 1 .or. nambipolar .eq.1 .or. nmagdiffu2 .eq. 1 .or. nambipolar2 .eq.1) .and. radiative_nimhdheating)then
+                 if((nmagdiffu .eq. 1 .or. nambipolar .eq.1 .or. nmagdiffu2 .eq. 1 .or. nambipolar2 .eq.1) .and. radiative_nimhdheating_in_cg)then
                     
-                    if(nmagdiffu .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told,ionisrate)*dt_imp*vol_loc
+                    if(nmagdiffu .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told,ionisrate)*dt_imp
                     
                     if(nambipolar .eq. 1 )then
                        ambi_heating = (jy*bz-jz*by)**2+(jz*bx-jx*bz)**2+(jx*by-jy*bx)**2
-                       ambi_heating = ambi_heating * betaad(rho,bcell2,Told,ionisrate)*dt_imp*vol_loc
+                       ambi_heating = ambi_heating * betaad(rho,bcell2,Told,ionisrate)*dt_imp
                     endif
                     nimhd_heating=nimhd_heating+ohm_heating
                  end if

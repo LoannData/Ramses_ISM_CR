@@ -1,6 +1,7 @@
 subroutine diffusion_cg (ilevel,Nsub)
   use amr_commons,only:myid,numbtot,active,son,ncpu,reception,dtnew,ncoarse,nstep
   use amr_parameters, only : verbose, ndim
+  use cloud_module, only: rt_feedback
   use hydro_commons
   use radiation_parameters
   use const
@@ -64,6 +65,11 @@ subroutine diffusion_cg (ilevel,Nsub)
 
   integer::nx_loc
   real(dp)::scale,dx,dx_loc
+
+    real(dp)::ambi_heating,ohm_heating,nimhd_heating,protostellar_heating
+#if NIMHD==1
+  real(dp)::bcell2,bx,by,bz,jsquare,jx,jy,jz,etaohmdiss,betaad,ionisrate
+#endif
 
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
@@ -195,7 +201,11 @@ subroutine diffusion_cg (ilevel,Nsub)
      ! Compute Rosseland opacity (Compute kappa*rho)
      do igroup=1,ngrp
         Tr = cal_Teg(uold(this,firstindex_er+igroup)*scale_E0,igroup)
-        kappaR_bicg(this,igroup)= rosseland_ana(density,temp,tr,igroup) / scale_kappa
+        if(rt_feedback)then
+           kappaR_bicg(this,igroup)= rosseland_ana(density,temp,temp,igroup) / scale_kappa
+        else
+           kappaR_bicg(this,igroup)= rosseland_ana(density,temp,tr,igroup) / scale_kappa
+        end if
         if(kappaR_bicg(this,igroup)*dx_loc .lt. min_optical_depth) kappaR_bicg(this,igroup)=min_optical_depth/dx_loc
      enddo
   end do
@@ -590,6 +600,32 @@ subroutine diffusion_cg (ilevel,Nsub)
      rho = uold(liste_ind(i),1)
      Told= uold(liste_ind(i),nvar) * Tr_floor
      Cv = unew(liste_ind(i),nvar+1)
+
+     ambi_heating=zero
+     ohm_heating=zero
+     nimhd_heating=zero
+     
+#if NIMHD==1
+     if(radiative_nimhdheating_in_cg)then
+        bx=0.5d0*(uold(liste_ind(i),6)+uold(liste_ind(i),nvar+1))
+        by=0.5d0*(uold(liste_ind(i),7)+uold(liste_ind(i),nvar+2))
+        bz=0.5d0*(uold(liste_ind(i),8)+uold(liste_ind(i),nvar+3))
+        bcell2=(bx**2+by**2+bz**2)
+        jx=uold(liste_ind(i),nvar-3)
+        jy=uold(liste_ind(i),nvar-2)
+        jz=uold(liste_ind(i),nvar-1)
+        jsquare=(jx**2+jy**2+jz**2)
+        ionisrate=default_ionisrate
+        
+        if(nmagdiffu .eq. 1 .or. nmagdiffu2 .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told,ionisrate)*dt_imp
+        
+        if(nambipolar .eq. 1 .or. nambipolar2 .eq.1 )then
+           ambi_heating = (jy*bz-jz*by)**2+(jz*bx-jx*bz)**2+(jx*by-jy*bx)**2
+           ambi_heating = ambi_heating * betaad(rho,bcell2,Told,ionisrate)*dt_imp
+        endif
+        nimhd_heating=ambi_heating+ohm_heating
+     end if
+#endif  
      
      rhs=zero
      lhs=zero
@@ -597,7 +633,11 @@ subroutine diffusion_cg (ilevel,Nsub)
         Trold = cal_Teg(uold(liste_ind(i),firstindex_er+igrp)*scale_E0,igrp)
 
         wdtB = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa
-        wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
+        if(rt_feedback)then
+           wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told,igrp)/scale_kappa
+        else
+           wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
+        end if
 !!$        rhs=rhs-P_cal*wdt*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0 &
 !!$             & -unew(liste_ind(i),firstindex_er+igrp))
         rhs=rhs-P_cal*wdtB*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0) &
@@ -606,7 +646,7 @@ subroutine diffusion_cg (ilevel,Nsub)
         lhs=lhs+P_cal*wdtB*deriv_radiation_source(Told,igrp)/scale_E0
      enddo
 
-     unew(liste_ind(i),nvar) = (cv*Told+rhs)/(cv+lhs) / Tr_floor
+     unew(liste_ind(i),nvar) = (cv*Told+rhs+nimhd_heating)/(cv+lhs) / Tr_floor
 
   end do
 #endif
@@ -2365,7 +2405,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   use rt_hydro_commons
   use radiation_parameters
   use rt_cooling_module
-  use cloud_module, only : rt_protostar_m1
+  use cloud_module, only : rt_protostar_m1,rt_feedback
   use units_commons
   use const
 
@@ -2400,7 +2440,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   nimhd_heating=zero
 
 #if NIMHD==1
-  if(radiative_nimhdheating)then
+  if(radiative_nimhdheating_in_cg)then
      bx=0.5d0*(uold(i,6)+uold(i,nvar+1))
      by=0.5d0*(uold(i,7)+uold(i,nvar+2))
      bz=0.5d0*(uold(i,8)+uold(i,nvar+3))
@@ -2411,11 +2451,11 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
      jsquare=(jx**2+jy**2+jz**2)
      ionisrate=default_ionisrate
 
-     if(nmagdiffu .eq. 1 .or. nmagdiffu2 .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told,ionisrate)*dt_imp*vol_loc
+     if(nmagdiffu .eq. 1 .or. nmagdiffu2 .eq. 1 )ohm_heating=jsquare*etaohmdiss(rho,bcell2,Told,ionisrate)*dt_imp
      
      if(nambipolar .eq. 1 .or. nambipolar2 .eq.1 )then
         ambi_heating = (jy*bz-jz*by)**2+(jz*bx-jx*bz)**2+(jx*by-jy*bx)**2
-        ambi_heating = ambi_heating * betaad(rho,bcell2,Told,ionisrate)*dt_imp*vol_loc
+        ambi_heating = ambi_heating * betaad(rho,bcell2,Told,ionisrate)*dt_imp
      endif
      nimhd_heating=ambi_heating+ohm_heating
   end if
@@ -2429,8 +2469,11 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
      source(igrp)=radiation_source(Told,igrp)
      deriv(igrp)=deriv_radiation_source(Told,igrp)
      wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp)/scale_kappa
-     wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
-
+     if(rt_feedback)then
+        wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told,igrp)/scale_kappa
+     else
+        wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp)/scale_kappa
+     end if
      lhs=lhs+P_cal*wdtB(igrp)*deriv(igrp)/scale_E0
      rhs=rhs-P_cal*wdtB(igrp)*(source(igrp)/scale_E0-Told*deriv(igrp)/scale_E0)
   enddo
@@ -2475,7 +2518,8 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   use radiation_parameters
   use units_commons
   use const
-
+  use cloud_module, only : rt_feedback
+  
   implicit none
   integer,intent(in)::i,idim,cell_left,cell_right
   integer,dimension(2*ndim),intent(in)::nbor_ilevel
@@ -2506,7 +2550,11 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      rho  = scale_d * max(uold(cell_left,1),smallr)
      do igroup=1,ngrp
         Trold = cal_Teg(uold(cell_left,firstindex_er+igroup)*scale_d*scale_v**2,igroup)
-        nu_g(igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        if(rt_feedback)then
+           nu_g(igroup) = rosseland_ana(rho,Told,Told,igroup) / scale_kappa
+        else
+           nu_g(igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        end if
         if(nu_g(igroup)*dx_loc .lt. min_optical_depth) nu_g(igroup)=min_optical_depth/dx_loc
      enddo
 
@@ -2531,7 +2579,11 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      rho  = scale_d * max(uold(cell_left,1),smallr)
      do igroup=1,ngrp
         Trold = cal_Teg(uold(cell_left,firstindex_er+igroup)*scale_d*scale_v**2,igroup)
-        nu_g  (igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        if(rt_feedback)then
+           nu_g  (igroup) = rosseland_ana(rho,Told,Told,igroup) / scale_kappa
+        else
+           nu_g  (igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        end if
         if(nu_g(igroup)*2.0d0*dx_loc .lt. min_optical_depth) nu_g(igroup)=min_optical_depth/(2.0d0*dx_loc)
      enddo
 
@@ -2555,7 +2607,11 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      rho  = scale_d * max(uold(cell_right,1),smallr)
      do igroup=1,ngrp
         Trold = cal_Teg(uold(cell_right,firstindex_er+igroup)*scale_d*scale_v**2,igroup)
-        nu_d  (igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        if(rt_feedback)then
+           nu_d  (igroup) = rosseland_ana(rho,Told,Told,igroup) / scale_kappa
+        else
+           nu_d  (igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        end if
         if(nu_d(igroup)*dx_loc .lt. min_optical_depth) nu_d(igroup)=min_optical_depth/dx_loc
      enddo
 
@@ -2580,7 +2636,11 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      rho  = scale_d * max(uold(cell_right,1),smallr)
      do igroup=1,ngrp
         Trold = cal_Teg(uold(cell_right,firstindex_er+igroup)*scale_d*scale_v**2,igroup)
-        nu_d  (igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        if(rt_feedback)then
+           nu_d  (igroup) = rosseland_ana(rho,Told,Told,igroup) / scale_kappa
+        else
+           nu_d  (igroup) = rosseland_ana(rho,Told,Trold,igroup) / scale_kappa
+        end if
         if(nu_d(igroup)*2.0d0*dx_loc .lt. min_optical_depth) nu_d(igroup)=min_optical_depth/(2.0d0*dx_loc)
      enddo
 

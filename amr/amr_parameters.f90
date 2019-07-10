@@ -75,7 +75,8 @@ module amr_parameters
   logical::FLD     =.false.   ! FLD module activated
 #if NIMHD==1  
   logical::DTU     =.false.   ! Unique time-step activated for niMHD diffusion routines
-  logical :: radiative_nimhdheating=.false. ! Enable niMHD heating as a source term in radiative transfer
+  logical :: nimhdheating_in_eint=.false. ! Enable niMHD heating as a source term in the gas internal energy in goduvov_fine
+  logical :: radiative_nimhdheating_in_cg=.false. ! Enable niMHD heating as a source term in the gas interal energy equation in the FLD radiative transfer
 #endif
   
   ! Mesh parameters
@@ -242,8 +243,8 @@ module amr_parameters
   integer,parameter::NMOV=5
   integer::imovout=0             ! Increment for output times
   integer::imov=1                ! Initialize
-  real(kind=8)::tstartmov=0.,astartmov=0.
-  real(kind=8)::tendmov=0.,aendmov=0.
+  real(kind=8)::tstartmov=0,astartmov=0
+  real(kind=8)::tendmov=0,aendmov=0
   real(kind=8),allocatable,dimension(:)::amovout,tmovout
   logical::movie=.false.
   integer::nw_frame=512 ! prev: nx_frame, width of frame in pixels
@@ -275,13 +276,17 @@ module amr_parameters
   character(LEN=NMOV)::proj_axis='z' ! x->x, y->y, projection along z
   character(LEN=6),dimension(1:NMOV)::shader_frame='square'
   character(LEN=10),dimension(1:NMOV)::method_frame='mean_mass'
-#ifdef SOLVERmhd
-  integer,dimension(0:NVAR+7)::movie_vars=0
-  character(len=5),dimension(0:NVAR+7)::movie_vars_txt=''
-#else
-  integer,dimension(0:NVAR+3)::movie_vars=0
-  character(len=5),dimension(0:NVAR+3)::movie_vars_txt=''
-#endif
+  character(len=10),dimension(1:50)::movie_vars_txt=''
+  integer::n_movie_vars
+  integer::i_mv_temp=-1,  i_mv_dens=-1,       i_mv_p=-1
+  integer::i_mv_speed=-1, i_mv_metallicity=-1
+  integer::i_mv_vx=-1,    i_mv_vy=-1,         i_mv_vz=-1
+  integer::i_mv_dm=-1,    i_mv_stars=-1,      i_mv_lum=-1
+  integer::i_mv_var=-1,   i_mv_xh2=-1,        i_mv_xhi=-1
+  integer:: i_mv_xhii=-1, i_mv_xheii=-1,      i_mv_xheiii=-1
+  integer::i_mv_fp=-1,    i_mv_pmag=-1
+  integer,dimension(1:50)::movie_vars=-1
+  integer,dimension(1:50)::movie_var_number=1
 
   ! Refinement parameters for each level
   real(dp),dimension(1:MAXLEVEL)::m_refine =-1.0 ! Lagrangian threshold

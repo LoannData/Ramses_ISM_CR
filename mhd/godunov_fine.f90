@@ -303,8 +303,8 @@ end subroutine add_gravity_source_terms
 subroutine add_pdv_source_terms(ilevel)
   use amr_commons
   use hydro_commons
-  use cooling_module,ONLY:clight
-  use radiation_parameters,ONLY:eray_min,nu_min_hz,nu_max_hz,stellar_photon
+  use cooling_module!,ONLY:clight
+  use radiation_parameters!,ONLY:eray_min,nu_min_hz,nu_max_hz,stellar_photon
   use units_commons
   implicit none
   integer::ilevel
@@ -352,6 +352,10 @@ subroutine add_pdv_source_terms(ilevel)
 #if NENER>0
   integer::irad
 #endif
+
+  !PH introduces these variables 5/04/2019
+  real(dp)::ambi_heating,ohm_heating,nimhd_heating,bcell2,bx,by,bz,jsquare,jx,jy,jz,etaohmdiss,betaad,ionisrate
+
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
@@ -736,11 +740,49 @@ subroutine add_pdv_source_terms(ilevel)
            ekin  = d*usquare/2.0
            ! Compute gas pressure in cgs
            eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
-           if(energy_fix)eps   = uold(ind_cell(i),nvar) 
+           if(energy_fix)eps   = uold(ind_cell(i),nvar)
+           
+!5/04/2019
+!PH adds this as this heating should not go in the radiation                 
+           nimhd_heating =0.0d0
+#if NIMHD==1
+           bx=0.5d0*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+           by=0.5d0*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+           bz=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+           bcell2=(bx**2+by**2+bz**2)
+           jx=uold(ind_cell(i),nvar-3)
+           jy=uold(ind_cell(i),nvar-2)
+           jz=uold(ind_cell(i),nvar-1)
+           jsquare=(jx**2+jy**2+jz**2) 
+           ionisrate=default_ionisrate
+
+           if((nmagdiffu .eq. 1 .or. nambipolar .eq.1 .or. nmagdiffu2 .eq. 1 .or. nambipolar2 .eq.1) .and. nimhdheating_in_eint)then
+
+              if(energy_fix)eps   = uold(ind_cell(i),nvar) 
+              call temperature_eos(d,eps,Tp_loc,ht)
+
+                    
+                    if(nmagdiffu .eq. 1 )ohm_heating=jsquare*etaohmdiss(d,bcell2,Tp_loc,ionisrate) !*dt_imp*vol_loc
+                    
+                    if(nambipolar .eq. 1 )then
+                       ambi_heating = (jy*bz-jz*by)**2+(jz*bx-jx*bz)**2+(jx*by-jy*bx)**2
+
+!             betaad2=betaadbricolo(d,rhoz,dtlim,bcell,bcellold,dx,ntest,tcell,ionisrate)
+!             take care betaadbricolo should be used
+
+                       ambi_heating = ambi_heating * betaad(d,bcell2,Tp_loc,ionisrate) !*dt_imp*vol_loc
+                    endif
+                    nimhd_heating = ambi_heating + ohm_heating
+            end if
+#endif  
+
+
            call pressure_eos(d,eps,pp_eos)
            do idim=1,ndim
               unew(ind_cell(i),nvar) = unew(ind_cell(i),nvar) &
-                   & - pp_eos*divu_loc(i,idim,idim)*dtnew(ilevel)
+                   & + (-pp_eos*divu_loc(i,idim,idim)+nimhd_heating)*dtnew(ilevel)
+!                   & - (pp_eos*divu_loc(i,idim,idim))*dtnew(ilevel)
+
            end do
         end do
 

@@ -37,7 +37,7 @@ subroutine read_params
        & ,nrestart,ncontrol,nstepmax,nsubcycle,nremap,ordering &
        & ,bisec_tol,static,geom,overload,cost_weighting,aton,nrestart_quad,restart_remap &
 #if NIMHD==1
-       & ,DTU,radiative_nimhdheating &
+       & ,DTU,radiative_nimhdheating_in_cg,nimhdheating_in_eint &
 #endif
        & ,static_dm,static_gas,static_stars,convert_birth_times,use_proper_time,remap_pscalar &
        & ,FLD,tracer,extinction,stellar &
@@ -50,7 +50,7 @@ subroutine read_params
        & ,cg_levelmin,cic_levelmax
   namelist/lightcone_params/thetay_cone,thetaz_cone,zmax_cone
   namelist/movie_params/levelmax_frame,nw_frame,nh_frame,ivar_frame &
-       & ,xcentre_frame,ycentre_frame,zcentre_frame,movie_vars &
+       & ,xcentre_frame,ycentre_frame,zcentre_frame &
        & ,deltax_frame,deltay_frame,deltaz_frame,movie,zoom_only_frame &
        & ,imovout,imov,tstartmov,astartmov,tendmov,aendmov,proj_axis,movie_vars_txt &
        & ,theta_camera,phi_camera,dtheta_camera,dphi_camera,focal_camera,dist_camera,ddist_camera &

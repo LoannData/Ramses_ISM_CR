@@ -1280,7 +1280,7 @@ subroutine set_uold_sts(ilevel,iend,dtloc)
 
            if(iend==1)then
               nimhd_heating=0.0d0
-              if(.not. radiative_nimhdheating)then
+              if(.not. radiative_nimhdheating_in_cg)then
                  ambi_heating=0.0d0
                  ohm_heating=0.0d0
                  
