@@ -164,7 +164,11 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   use amr_commons
   use pm_commons
   use poisson_commons
-  use hydro_commons, ONLY: uold,smallr
+  use hydro_commons, ONLY: uold,smallr,gamma,nvar,ngrp, firstindex_extinct
+  use cooling_module,ONLY:kB,mH,clight
+  use radiation_parameters,only:mu_gas,energy_fix,aR
+  use hydro_parameters,only:firstindex_er,nener
+  use units_commons
   implicit none
   integer::ng,np,ilevel
   integer,dimension(1:nvector)::ind_grid
@@ -177,7 +181,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! This routine is called by move_fine.
   !------------------------------------------------------------
   logical::error
-  integer::i,j,ind,idim,nx_loc,isink
+  integer::i,j,ind,idim,nx_loc,isink,jr,ht
   real(dp)::dx,dx_loc,scale,vol_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector),save::father_cell
@@ -186,11 +190,14 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   ! Particle-based arrays
   logical ,dimension(1:nvector),save::ok
+  real(dp),dimension(1:nvector),save::frho,ftpg,ftpr,fext
   real(dp),dimension(1:nvector,1:ndim),save::x,ff,new_xp,new_vp,dd,dg
+  real(dp),dimension(1:nvector,1:3),save::fbfield
   integer ,dimension(1:nvector,1:ndim),save::ig,id,igg,igd,icg,icd
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
+  real(dp)::d,u,v,w,A,B,C,e_r,eps,pi,tcell
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -202,6 +209,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   scale=boxlen/dble(nx_loc)
   dx_loc=dx*scale
   vol_loc=dx_loc**3
+  pi=acos(-1.0d0)
 
   ! Lower left corner of 3x3x3 grid-cube
   do idim=1,ndim
@@ -430,6 +438,12 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 
   ! Gather 3-force
   ff(1:np,1:ndim)=0.0D0
+  frho(1:np)=0.0D0
+  ftpg(1:np)=0.0D0
+  ftpr(1:np)=0.0D0
+  fext(1:np)=0.0D0
+  fbfield(1:np,1:3)=0.0D0
+  
   if(tracer.and.hydro)then
      do ind=1,twotondim
         do idim=1,ndim
@@ -437,9 +451,53 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
               ff(j,idim)=ff(j,idim)+uold(indp(j,ind),idim+1)/max(uold(indp(j,ind),1),smallr)*vol(j,ind)
            end do
         end do
+        do j=1,np
+           d=uold(indp(j,ind),1)
+           u=uold(indp(j,ind),2)/d
+           v=uold(indp(j,ind),3)/d
+           w=uold(indp(j,ind),4)/d
+           A=0.5*(uold(indp(j,ind),6)+uold(indp(j,ind),nvar+1))
+           B=0.5*(uold(indp(j,ind),7)+uold(indp(j,ind),nvar+2))
+           C=0.5*(uold(indp(j,ind),8)+uold(indp(j,ind),nvar+3))
+           e_r=0.0d0
+#if NENER>0
+           do jr=1,nener
+              e_r=e_r+uold(indp(j,ind),8+jr)
+           end do
+#endif
+           eps=uold(indp(j,ind),5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)-e_r
+           if(energy_fix)eps=uold(indp(j,ind),nvar)
+           call temperature_eos(d,eps,tcell,ht)
+           frho(j) = frho(j) + d * vol(j,ind)*scale_d
+           ftpg(j) = ftpg(j) + tcell * vol(j,ind)
+#if NGRP>0
+           !recompute e_r only for NGRP and not NENER
+           e_r=0.0d0
+           do jr=1,ngrp
+              e_r=e_r+uold(indp(j,ind),firstindex_er+jr)
+           enddo
+           ftpr(j) = ftpr(j) + vol(j,ind)*((e_r*scale_v**2.*scale_d)/aR)**0.25
+#endif
+#if NEXTINCT>0
+           fext(j) = fext(j) + uold(indp(j,ind),firstindex_extinct+1) &
+                & * vol(j,ind)*scale*scale_d*scale_l 
+#endif
+           fbfield(j,1) = fbfield(j,1) + A * vol(j,ind)*sqrt(4.0d0*pi*scale_d*scale_v**2)
+           fbfield(j,2) = fbfield(j,2) + B * vol(j,ind)*sqrt(4.0d0*pi*scale_d*scale_v**2)
+           fbfield(j,3) = fbfield(j,3) + C * vol(j,ind)*sqrt(4.0d0*pi*scale_d*scale_v**2)
+        end do
      end do
+
+     do j=1,np
+        rhop(ind_part(j)) = frho(j)
+        tpgp(ind_part(j)) = ftpg(j)
+        tprp(ind_part(j)) = ftpr(j)        
+        extp(ind_part(j)) = fext(j)        
+        bfieldp(ind_part(j),1:3) = fbfield(j,1:3)        
+     end do
+
   endif
-  if(poisson)then
+  if(poisson .and. (.not. tracer))then
      do ind=1,twotondim
         do idim=1,ndim
            do j=1,np

@@ -1,0 +1,84 @@
+This namelist contains various input parameters for RAMSES runs
+
+&RUN_PARAMS  
+hydro=.true.
+poisson=.true.
+nrestart=0
+ncontrol=1
+nremap=2
+nsubcycle=5*1,14*2
+fld=.true.
+/
+
+&AMR_PARAMS 
+levelmin=6
+levelmax=14
+ngridmax=700000
+npartmax=50000
+nexpand=20*4
+/
+
+&BOUNDARY_PARAMS
+nboundary = 6
+bound_type= 2, 2, 2, 2, 2, 2
+ibound_min=-1,+1,-1,-1,-1,-1
+ibound_max=-1,+1,+1,+1,+1,+1
+jbound_min= 0, 0,-1,+1,-1,-1
+jbound_max= 0, 0,-1,+1,+1,+1
+kbound_min= 0, 0, 0, 0,-1,+1
+kbound_max= 0, 0, 0, 0,-1,+1
+/
+
+&INIT_PARAMS
+mass_c=1. !in solar mass
+rap=1.     !axis ratio
+cont=10.   !density contrast
+ff_sct=0.4 !freefall time/sound crossing time
+ff_rt=0.0   !freefall time/rotation time
+ff_act=0.0116667    !freefall time/Alfven crossing time
+ff_vct=0.7  !freefall time/Vrms crossing time
+theta_mag=0.0 !angle between magnetic field and rotation axis
+/
+
+&OUTPUT_PARAMS
+foutput=5
+fbackup=50
+noutput=2
+tout=0,1.
+/
+
+&POISSON_PARAMS 
+gravity_type=0
+epsilon=1d-4
+/
+
+&HYDRO_PARAMS
+gamma=1.4
+courant_factor=0.8
+slope_type=1
+scheme='muscl'
+riemann='hlld'
+riemann2d='hlld'
+pressure_fix=.true.
+/
+
+&PHYSICS_PARAMS
+T2_star=10.  !in K
+n_sink=-1
+/
+
+&REFINE_PARAMS 
+jeans_refine=6*10,10*-1
+iso_jeans=.false.
+interpol_var=1
+interpol_type=1
+/
+
+
+&RADIATION_PARAMS
+grey_rad_transfer=.true.
+epsilon_diff=1.d-4
+fld_limiter='minerbo'
+Tr_floor=10.0d0
+robin=1.0
+/

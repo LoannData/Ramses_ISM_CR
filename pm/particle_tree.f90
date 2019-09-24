@@ -673,6 +673,7 @@ subroutine virtual_tree_fine(ilevel)
         particle_data_width=twondim+2
      endif
   endif
+  if(tracer)particle_data_width=particle_data_width+7 
 
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   particle_data_width=particle_data_width+1
@@ -889,6 +890,22 @@ subroutine fill_comm(ind_part,ind_com,ind_list,np,ilevel,icpu)
            reception(icpu,ilevel)%up(ind_com(i),current_property+1)=zp(ind_part(i))
         end do
      end if
+     ! following line is not strictly necessary, but in case one adds extra data later
+     current_property = current_property + 2
+  end if
+
+  ! Gather tracer particles properties ATTENTION PAS DE SINKS OU STARS
+  if(tracer)then
+     do i=1,np
+        reception(icpu,ilevel)%up(ind_com(i),current_property)=rhop(ind_part(i))
+        reception(icpu,ilevel)%up(ind_com(i),current_property+1)=tpgp(ind_part(i))
+        reception(icpu,ilevel)%up(ind_com(i),current_property+2)=tprp(ind_part(i))
+        reception(icpu,ilevel)%up(ind_com(i),current_property+3)=extp(ind_part(i))
+        reception(icpu,ilevel)%up(ind_com(i),current_property+4)=bfieldp(ind_part(i),1)
+        reception(icpu,ilevel)%up(ind_com(i),current_property+5)=bfieldp(ind_part(i),2)
+        reception(icpu,ilevel)%up(ind_com(i),current_property+6)=bfieldp(ind_part(i),3)
+     end do
+     current_property = current_property + 7
   end if
 
   ! following line is not strictly necessary, but in case one adds extra data later
@@ -965,11 +982,24 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
            zp(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property+1)
         end do
      end if
+     ! As with the gather routine, we leave this in case extra properties are
+     ! added later:
+     current_property = current_property+2
   end if
 
-  ! As with the gather routine, we leave this in case extra properties are
-  ! added later:
-  current_property = current_property+2
+  ! Scatter tracer particle properties BEWARE NO SINKS OR STARS
+  if(tracer)then
+     do i=1,np
+        rhop(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+        tpgp(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property+1)
+        tprp(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property+2)
+        extp(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property+3)
+        bfieldp(ind_part(i),1)=emission(icpu,ilevel)%up(ind_com(i),current_property+4)
+        bfieldp(ind_part(i),2)=emission(icpu,ilevel)%up(ind_com(i),current_property+5)
+        bfieldp(ind_part(i),3)=emission(icpu,ilevel)%up(ind_com(i),current_property+6)
+     end do
+     current_property = current_property+7
+  end if
 
 end subroutine empty_comm
 !################################################################

@@ -1,0 +1,2 @@
+QUICK: 0
+FLAGS: NDIM=3 PATCH=../patch/collapse SOLVER=mhd NGRP=1 USE_FLD=1

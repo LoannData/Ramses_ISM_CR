@@ -3,9 +3,15 @@ subroutine read_params
   use pm_parameters
   use poisson_parameters
   use hydro_parameters
+  use radiation_parameters
+
+  use cloud_module
+  use feedback_module
+
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
+  external DDPDD
 #endif
   !--------------------------------------------------
   ! Local variables
@@ -30,16 +36,21 @@ subroutine read_params
   namelist/run_params/clumpfind,cosmo,pic,sink,lightcone,poisson,hydro,rt,verbose,debug &
        & ,nrestart,ncontrol,nstepmax,nsubcycle,nremap,ordering &
        & ,bisec_tol,static,geom,overload,cost_weighting,aton,nrestart_quad,restart_remap &
-       & ,static_dm,static_gas,static_stars,convert_birth_times,use_proper_time,remap_pscalar
+#if NIMHD==1
+       & ,DTU,radiative_nimhdheating_in_cg,nimhdheating_in_eint &
+#endif
+       & ,static_dm,static_gas,static_stars,convert_birth_times,use_proper_time,remap_pscalar &
+       & ,FLD,tracer,extinction,stellar &
+       & ,x_load_balance,y_load_balance,z_load_balance,angular_auto_center,angular_auto_min_rho
   namelist/output_params/noutput,foutput,fbackup,aout,tout &
-       & ,tend,delta_tout,aend,delta_aout,gadget_output,walltime_hrs,minutes_dump
+       & ,tend,delta_tout,aend,delta_aout,gadget_output,walltime_hrs,minutes_dump,write_conservative
   namelist/amr_params/levelmin,levelmax,ngridmax,ngridtot &
        & ,npartmax,nparttot,nexpand,boxlen,nlevel_collapse
   namelist/poisson_params/epsilon,gravity_type,gravity_params &
        & ,cg_levelmin,cic_levelmax
   namelist/lightcone_params/thetay_cone,thetaz_cone,zmax_cone
   namelist/movie_params/levelmax_frame,nw_frame,nh_frame,ivar_frame &
-       & ,xcentre_frame,ycentre_frame,zcentre_frame,movie_vars &
+       & ,xcentre_frame,ycentre_frame,zcentre_frame &
        & ,deltax_frame,deltay_frame,deltaz_frame,movie,zoom_only_frame &
        & ,imovout,imov,tstartmov,astartmov,tendmov,aendmov,proj_axis,movie_vars_txt &
        & ,theta_camera,phi_camera,dtheta_camera,dphi_camera,focal_camera,dist_camera,ddist_camera &
@@ -52,6 +63,8 @@ subroutine read_params
   call MPI_COMM_RANK(MPI_COMM_WORLD,myid,ierr)
   call MPI_COMM_SIZE(MPI_COMM_WORLD,ncpu,ierr)
   myid=myid+1 ! Careful with this...
+  ! operator MPI_SUMDD is created based on an external function DDPDD.
+  call MPI_OP_CREATE (DDPDD, .TRUE., MPI_SUMDD, ierr)
 #endif
 #ifdef WITHOUTMPI
   ncpu=1
@@ -275,14 +288,26 @@ subroutine read_params
   !endif
 
   call read_hydro_params(nml_ok)
+
 #ifdef RT
   call rt_read_hydro_params()
 #endif
 #if NDIM==3
   if (sink)call read_sink_params
+  rewind(1)
+#if USE_TURB==1
+  call read_turb_params(nml_ok)
+#endif
   if (clumpfind .or. sink)call read_clumpfind_params
 #endif
   if (movie)call set_movie_vars
+
+  ! Cloud and feedback parameter 
+  call read_cloud_params(nml_ok)
+  call read_feedback_params(nml_ok)
+  
+  ! Stellar objects
+  if (stellar)call read_stellar_params
 
   close(1)
 

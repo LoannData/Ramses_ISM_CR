@@ -5,6 +5,7 @@
 # Script to run the RAMSES test suite
 # 
 # Neil Vaytet (ENS Lyon) - 07/2014 - neil.vaytet@ens-lyon.fr
+# Neil Vaytet (NBI Copenhagen) - 11/2017 - neil.vaytet@nbi.ku.dk
 #
 # Usage:
 #   ./run_test_suite.sh
@@ -12,41 +13,46 @@
 # Options:
 #   - Run the suite in parallel (on 4 cpus):
 #       ./run_test_suite.sh -p 4
-#   - Run using python visualization instead of gnuplot:
-#       ./run_test_suite -y
-#   - Run full test suite (including additional tests):
-#       ./run_test_suite -f
 #   - Do not delete results data:
-#       ./run_test_suite -d
+#       ./run_test_suite.sh -d
 #   - Run in verbose mode:
-#       ./run_test_suite -v
+#       ./run_test_suite.sh -v
 #   - Select test number (for tests 3 to 5, and 10):
-#       ./run_test_suite -t 3-5,10
+#       ./run_test_suite.sh -t 3-5,10
+#   - Run all tests in mhd directory:
+#       ./run_test_suite.sh -t mhd
+#   - Run quick test suite:
+#       ./run_test_suite.sh -q
 #
 #######################################################################
+
+# List of directories to scan
+testlist="hydro,mhd,fld,collapse,rt";
 
 #######################################################################
 # Determine the parameters for running the test suite
 #######################################################################
 MPI=0;
 NCPU=1;
-USE_GNUPLOT=true;
-USE_PYTHON=false;
-RUN_FULL_SUITE=false;
 VERBOSE=false;
+QUICK=false;
 DELDATA=true;
+CLEAN_ALL=false;
 SELECTTEST=false;
-while getopts "dfp:t:vy" OPTION; do
+while getopts "cdp:qt:v" OPTION; do
    case $OPTION in
+      c)
+         CLEAN_ALL=true;
+      ;;
       d)
          DELDATA=false;
-      ;;
-      f)
-         RUN_FULL_SUITE=true;
       ;;
       p)
          MPI=1;
          NCPU=$OPTARG;
+      ;;
+      q)
+         QUICK=true;
       ;;
       t)
          SELECTTEST=true;
@@ -55,116 +61,89 @@ while getopts "dfp:t:vy" OPTION; do
       v)
          VERBOSE=true;
       ;;
-      y)
-         USE_PYTHON=true;
-         USE_GNUPLOT=false;
-      ;;
    esac
 done
 
 #######################################################################
 # Setup paths and commands
 #######################################################################
-TEST_DIRECTORY=$(pwd);
+TEST_DIRECTORY=$(pwd);                    # The test suite directory
+BASE_DIRECTORY="${TEST_DIRECTORY}/../.."; # The main RAMSES directory
+BIN_DIRECTORY="${BASE_DIRECTORY}/bin";    # The bin directory
+VISU_DIR="${TEST_DIRECTORY}/visu";        # The visualization directory
 
-length=${#TEST_DIRECTORY};
-icut=$(($length - 17));
-
-BASE_DIRECTORY="${TEST_DIRECTORY:0:${icut}}";
-
-BIN_DIRECTORY="${BASE_DIRECTORY}/bin";
-VISU_DIR="${TEST_DIRECTORY}/visu";
-DELETE_RESULTS="rm -rf output_* log data*.dat time.dat";
-DELETE_SOURCES="rm -f units.o condinit.o";
+export PYTHONPATH=${VISU_DIR}:$PYTHONPATH;
+DELETE_RESULTS="rm -rf output_* *.tex data*.dat *.pdf *.pyc";
 RETURN_TO_BIN="cd ${BIN_DIRECTORY}";
 EXECNAME="test_exe_";
 LOGFILE="${TEST_DIRECTORY}/test_suite.log";
+GIT_URL=$(git config --get remote.origin.url | sed 's/git@bitbucket.org:/https:\/\/bitbucket.org\//g');
+GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
+THIS_COMMIT=$(git rev-parse HEAD);
 echo > $LOGFILE;
-
 if [ ${MPI} -eq 1 ]; then
    RUN_TEST_BASE="mpirun -np ${NCPU} ${BIN_DIRECTORY}/${EXECNAME}";
 else
    RUN_TEST_BASE="${BIN_DIRECTORY}/${EXECNAME}";
 fi
+line="--------------------------------------------";
+blankline="                         ";
 
-STARTTIME=$(date +%s);
+STARTTIME=$(python -c 'import time; print int(time.time()*1000)');
 
 #######################################################################
 # Welcome message
 #######################################################################
-echo "############################################";
-echo "############################################" >> $LOGFILE;
-if $RUN_FULL_SUITE ; then
-   echo "Running extended RAMSES automatic test suite";
-   echo "Running extended RAMSES automatic test suite" >> $LOGFILE;
+echo "############################################" | tee -a $LOGFILE;
+echo "#   Running RAMSES automatic test suite    #" | tee -a $LOGFILE;
+echo "############################################" | tee -a $LOGFILE;
+if $VERBOSE ; then
+   echo "Repository url: ${GIT_URL}" | tee -a $LOGFILE;
+   echo "Commit hash: ${THIS_COMMIT}" | tee -a $LOGFILE;
+   echo $line | tee -a $LOGFILE;
 else
-   echo "Running standard RAMSES automatic test suite";
-   echo "Running standard RAMSES automatic test suite" >> $LOGFILE;
+   echo "Repository url: ${GIT_URL}" >> $LOGFILE;
+   echo "Commit hash: ${THIS_COMMIT}" >> $LOGFILE;
+   echo $line >> $LOGFILE;
 fi
-echo "############################################";
-echo "############################################" >> $LOGFILE;
 
 #######################################################################
-# List of tests
+# Generate list of tests from scanning directories
 #######################################################################
 
-itest=0; # Test 1
-testdir[${itest}]="sod-tube";
-testname[${itest}]="sod-tube";
-testpatch[${itest}]="";
-testlist[${itest}]="sod-tube.nml";
-ndim[${itest}]=1;
-nvar[${itest}]=5;
-solver[${itest}]="hydro";
-flags[${itest}]="";
-make_clean[${itest}]=true;
-del_files[${itest}]="";
-
-itest=$((itest + 1)); # Test 2
-testdir[${itest}]="imhd-tube";
-testname[${itest}]="imhd-tube";
-testpatch[${itest}]="../mhd";
-testlist[${itest}]="imhd-tube.nml";
-ndim[${itest}]=1;
-nvar[${itest}]=8;
-solver[${itest}]="mhd";
-flags[${itest}]="";
-make_clean[${itest}]=true;
-del_files[${itest}]="";
-
-itest=$((itest + 1)); # Test 3
-testdir[${itest}]="orszag-tang";
-testname[${itest}]="orszag-tang";
-testpatch[${itest}]="../patch/test_suite/orszag-tang";
-testlist[${itest}]="orszag-tang.nml";
-ndim[${itest}]=2;
-nvar[${itest}]=8;
-solver[${itest}]="mhd";
-flags[${itest}]="";
-make_clean[${itest}]=true;
-del_files[${itest}]="output_*";
-
-# Store number of standard tests
-ntestsstandard=${#testname[@]};
-
-# Additional tests: include your own tests here ==============
-# ============================================================
-
-# Store total number of tests
-ntestsfull=${#testname[@]};
+# Split test list with commas
+s1=$(echo $testlist | sed 's/,/ /g');
+testsegs_all=( $s1 );
+nseg_all=${#testsegs_all[@]};
+testlist="";
+for ((m=0;m<$nseg_all;m++)); do
+   testlist="${testlist} ${testsegs_all[m]}/*";
+done
 
 # Count number of tests
-if ${RUN_FULL_SUITE} ; then
-   ntestsall=${ntestsfull};
-else
-   ntestsall=${ntestsstandard};
-fi
-
+testname=( $testlist );
+ntestsall=${#testname[@]};
 ntests=$ntestsall;
-
-# Count number of tests
-ntests=${#testname[@]};
 all_tests_ok=true;
+
+#######################################################################
+# Clean all directories and exit
+#######################################################################
+if $CLEAN_ALL ; then
+   for ((i=0;i<$ntests;i++)); do
+      cd ${TEST_DIRECTORY}/${testname[i]};
+      $DELETE_RESULTS;
+      if [ -f to_be_removed ]; then
+         rm_list=$(cat to_be_removed);
+         rm -f $rm_list;
+         rm to_be_removed;
+      fi
+   done
+   $RETURN_TO_BIN;
+   make clean;
+   rm -f ${EXECNAME}*d;
+   exit;
+fi
 
 #######################################################################
 # Select particular test if this was asked by user
@@ -172,242 +151,282 @@ all_tests_ok=true;
 if $SELECTTEST ; then
 
    # Split test selection with commas
-   s1=$(echo $TESTNUMBER | sed 's/,/ /'g);
+   s1=$(echo $TESTNUMBER | sed 's/,/ /g');
    testsegs=( $s1 );
    nseg=${#testsegs[@]};
    
-   # Search for dashes in individual segments
-   ntests=0;
+   # Check if entire directory is submitted
+   dir_list="";
    for ((n=0;n<$nseg;n++)); do
-      dashsearch=$(echo ${testsegs[n]} | grep '-');
-      if [ ${#dashsearch} -gt 0 ] ; then
-         istart=$(echo ${testsegs[n]} | cut -d '-' -f1);
-         iend=$(echo ${testsegs[n]} | cut -d '-' -f2);
-         is=$((istart - 1));
-         ie=$((iend - 1));
-         iep1=$(($ie + 1));
-         for ((j=$is;j<$iep1;j++)); do
-            if [ ${j} -ge 0 ] && [ ${j} -lt $ntestsfull ] ; then
-               testnum[${ntests}]=$j;
+      for ((m=0;m<$nseg_all;m++)); do
+         if [ ${testsegs[n]} == ${testsegs_all[m]} ] ; then
+            dir_list="${dir_list} ${testsegs[n]}/*";
+         fi
+      done
+   done
+   
+   # Split list of directories into array
+   s1=$(echo $dir_list);
+   submit_dirs=( $s1 );
+   nsubs=${#submit_dirs[@]};
+   ntests=0;
+   if [ ${nsubs} -gt 0 ] ; then
+      for ((n=0;n<$nsubs;n++)); do
+         for ((m=0;m<$ntestsall;m++)); do
+            # If directory requested is found in global test list,
+            # add it to the current test list
+            if [ ${submit_dirs[n]} == ${testname[m]} ] ; then
+               testnum[${ntests}]=$m;
                ntests=$((ntests + 1));
-            else
-               echo "Selected test ${j} does not exist! Ignoring test";
-               echo "Selected test ${j} does not exist! Ignoring test" >> $LOGFILE;
             fi
          done
-      else
-         # No dash, just include test in list
-         testnum[${ntests}]=$((${testsegs[n]} - 1));
-         if [ ${testnum[${ntests}]} -gt $ntestsfull ] ; then
-            echo "Selected test does not exist!";
-            echo "Selected test does not exist!" >> $LOGFILE;
-            exit;
+      done
+      
+   else
+
+      # Search for dashes in individual segments
+      for ((n=0;n<$nseg;n++)); do
+         dashsearch=$(echo ${testsegs[n]} | grep '-');
+         if [ ${#dashsearch} -gt 0 ] ; then
+            istart=$(echo ${testsegs[n]} | cut -d '-' -f1);
+            iend=$(echo ${testsegs[n]} | cut -d '-' -f2);
+            is=$((istart - 1));
+            ie=$((iend - 1));
+            iep1=$(($ie + 1));
+            for ((j=$is;j<$iep1;j++)); do
+               if [ ${j} -ge 0 ] && [ ${j} -lt $ntestsall ] ; then
+                  testnum[${ntests}]=$j;
+                  ntests=$((ntests + 1));
+               else
+                  echo "Selected test ${j} does not exist! Ignoring test" | tee -a $LOGFILE;
+               fi
+            done
+         else
+            # No dash, just include test in list
+            if [ ${testsegs[n]} -gt 0 ] && [ ${testsegs[n]} -le $ntestsall ] ; then
+               testnum[${ntests}]=$((${testsegs[n]} - 1));
+               ntests=$((ntests + 1));
+            else
+               echo "Selected test ${testsegs[n]} does not exist! Ignoring test" | tee -a $LOGFILE;
+            fi
+           
          fi
-         ntests=$((ntests + 1));
-      fi
-   done
+      done
+   fi
 
 else
 
-   # Include all tests by default
-   for ((n=0;n<$ntests;n++)); do
-      testnum[n]=$n;
-   done
+   if $QUICK ; then
+      ntests=0;
+      for ((n=0;n<$ntestsall;n++)); do
+         is_quick=$(grep QUICK ${TEST_DIRECTORY}/${testname[n]}/config.txt | cut -d ':' -f2);
+         if [ ${#is_quick} -gt 0 ] ; then
+            if [ $is_quick -eq 1 ] ; then
+               testnum[${ntests}]=$n;
+               ntests=$((ntests + 1));
+            fi
+         fi
+      done
+   else
+      # Include all tests by default
+      for ((n=0;n<$ntests;n++)); do
+         testnum[n]=$n;
+      done
+   fi
    
 fi
 
 #######################################################################
 # Write list of tests
 #######################################################################
-echo "Will perform the following tests:";
-echo "Will perform the following tests:" >> $LOGFILE;
+if [ $ntests -eq 0 ] ; then
+   echo "The test list is empty." | tee -a $LOGFILE;
+   exit;
+fi
+echo "Will perform the following tests:" | tee -a $LOGFILE;
 for ((i=0;i<$ntests;i++)); do
    n=${testnum[i]};
    j=$(($n + 1));
-   if [ $ntests -gt 9 ] && [ $j -lt 10 ] ; then
-      echo " [ ${j}] ${testname[n]}";
-      echo " [ ${j}] ${testname[n]}" >> $LOGFILE;
+   if [ $j -lt 10 ] ; then
+      echo " [ ${j}] ${testname[n]}" | tee -a $LOGFILE;
    else
-      echo " [${j}] ${testname[n]}";
-      echo " [${j}] ${testname[n]}" >> $LOGFILE;
+      echo " [${j}] ${testname[n]}" | tee -a $LOGFILE;
    fi
 done
-echo "--------------------------------------------";
-echo "--------------------------------------------" >> $LOGFILE;
-
-#######################################################################
-# Prepare visualization software
-#######################################################################
-echo "Compiling visualization software";
-echo "Compiling visualization software" >> $LOGFILE;
-cd ${VISU_DIR};
-if $VERBOSE ; then
-   make clean;
-   make;
-else
-   { make clean >> $LOGFILE; } 2>> $LOGFILE;
-   { make >> $LOGFILE; } 2>> $LOGFILE;
-fi
-echo "--------------------------------------------";
-echo "--------------------------------------------" >> $LOGFILE;
+echo $line | tee -a $LOGFILE;
 
 #######################################################################
 # Loop through all tests
 #######################################################################
-itest=0;
 for ((i=0;i<$ntests;i++)); do
 
+   # Start timer for test, including compilations
+   STARTTIME_GLOB=$(python -c 'import time; print int(time.time()*1000)');
+
+   # Get test number
    n=${testnum[i]};
-   itest=$(($itest + 1));
-   echo "Test ${itest}/${ntests}: ${testname[n]}";
-   echo "Test ${itest}/${ntests}: ${testname[n]}" >> $LOGFILE;
-      
+   ip1=$(($i + 1));
+   echo "Test ${ip1}/${ntests}: ${testname[n]}" | tee -a $LOGFILE;
+   
+   # Get raw test name for namelist, pdf and tex files
+   nslash=$(grep -o "/" <<< "${testname[n]}" | wc -l);
+   if [ $nslash -gt 0 ] ; then
+      np1=$(($nslash + 1));
+      rawname[i]=$(echo ${testname[n]} | cut -d '/' -f$np1);
+   else
+      rawname[i]=${testname[n]};
+   fi
+   
+   # Read test configuration file and extract NDIM (needed for executable)
+   FLAGS=$(grep FLAGS ${TEST_DIRECTORY}/${testname[n]}/config.txt | cut -d ':' -f2);
+   flag_split=( $FLAGS );
+   nflags=${#flag_split[@]};
+   for ((k=0;k<$nflags;k++)); do
+      if [ ${flag_split[$k]:0:4} = "NDIM" ] ; then
+         ndim=$(echo ${flag_split[$k]} | cut -d '=' -f2);
+      fi
+   done
+
    # Initial cleanup
    $RETURN_TO_BIN;
    if ${make_clean[n]}; then
-      echo "Cleanup";
-      echo "Cleanup" >> $LOGFILE;
+      echo "Cleanup" | tee -a $LOGFILE;
       if $VERBOSE ; then
-         make clean;
+         make clean 2>&1 | tee -a $LOGFILE;
       else
-         { make clean >> $LOGFILE; } 2>> $LOGFILE;
+         make clean >> $LOGFILE 2>&1;
       fi
    fi
-   rm -f ${del_files[n]};
    
    # Compile source
-   echo "Compiling source";
-   echo "Compiling source" >> $LOGFILE;
+   echo "Compiling source" | tee -a $LOGFILE;
+   MAKESTRING="make EXEC=${EXECNAME} MPI=${MPI} ${FLAGS}";
+   if [ ${MPI} -eq 1 ]; then
+      MAKESTRING="${MAKESTRING} -j ${NCPU}";
+   fi
    if $VERBOSE ; then
-      make EXEC=${EXECNAME} PATCH=${testpatch[n]} SOLVER=${solver[n]} MPI=${MPI} NDIM=${ndim[n]} NVAR=${nvar[n]} ${flags[n]};
+      $MAKESTRING 2>&1 | tee -a $LOGFILE;
    else
-      { make EXEC=${EXECNAME} PATCH=${testpatch[n]} SOLVER=${solver[n]} MPI=${MPI} NDIM=${ndim[n]} NVAR=${nvar[n]} ${flags[n]} >> $LOGFILE; } 2>> $LOGFILE;
+      $MAKESTRING >> $LOGFILE 2>&1;
    fi
    
-   # Run tests
-   cd ${TEST_DIRECTORY}/${testdir[n]};
+   # Run test
+   cd ${TEST_DIRECTORY}/${testname[n]};
    $DELETE_RESULTS;
-   RUN_TEST="${RUN_TEST_BASE}${ndim[n]}d ${testlist[n]}";
-   echo "Running test";
-   echo "Running test" >> $LOGFILE;
-   { time ${RUN_TEST} > log ; } 2> ${testname[n]}"_stats.txt";
-   cat log >> $LOGFILE;
-
-   # Plot results
-   echo "Plotting results";
-   echo "Plotting results" >> $LOGFILE;
+   RUN_TEST="${RUN_TEST_BASE}${ndim}d ${rawname[i]}.nml";
+   echo -n "Running test:" | tee -a $LOGFILE;
+   STARTTIME_TEST=$(python -c 'import time; print int(time.time()*1000)');
+   prepname="prepare-${rawname[i]}.sh";
    if $VERBOSE ; then
-      ./plot-${testname[n]}.sh;
+      if [ -f $prepname ]; then
+         ./${prepname} 2>&1 | tee -a $LOGFILE;
+      fi
+      ${RUN_TEST} 2>&1 | tee -a $LOGFILE;
    else
-      { ./plot-${testname[n]}.sh >> $LOGFILE; } 2>> $LOGFILE;
+      if [ -f $prepname ]; then
+         ./${prepname} >> $LOGFILE 2>&1;
+      fi
+      ${RUN_TEST} >> $LOGFILE 2>&1;
    fi
-   if ${USE_GNUPLOT} ; then
-      gnuplot plot-${testname[n]}.gp;
-      ps2pdf ${testname[n]}.ps;
-      rm ${testname[n]}.ps;
-   fi
-   if ${USE_PYTHON} ; then
-      python plot-${testname[n]}.py;
-   fi
-   
-   # Check for differences in results
-   echo "Analysing results";
-   echo "Analysing results" >> $LOGFILE;
-   difffile="resdiff-${testname[n]}";
-   diff data.dat ${testname[n]}"-ref.dat" > ${difffile};
-   # Size of diff file?
-   diffoutput=$(cat ${difffile});
-   diffsize=${#diffoutput};
-   if [ ${diffsize} -gt 0 ]; then
-      diff_not_empty[n]=true;
-      echo "Test failed!                          [FAIL]";
-      echo "Test failed!                          [FAIL]" >> $LOGFILE;
-      all_tests_ok=false;
-   else
-      diff_not_empty[n]=false;
-      echo "Test passed                           [ OK ]";
-      echo "Test passed                           [ OK ]" >> $LOGFILE;
-   fi
-   
-#    # Check for differences in log files
-#    echo "Analysing logs"; echo "Analysing logs" >> $LOGFILE;
-#    # Remove grids and memory from log file as they change with MPI
-#    sed -i 's/has.*$//' log;
-#    sed -i 's/mem.*$//' log;
-#    # Apply difference (ignoring elapsed times)
-#    diff log ${testname[n]}.log -I elapsed > ${testname[n]}"_logdiff.tex";
-#    # Size of diff file?
-#    diffoutput=$(cat ${testname[n]}"_logdiff.tex");
-#    diffsize=${#diffoutput};
-#    if [ ${diffsize} -gt 0 ]; then
-#       diff_not_empty[n]=true;
-#       echo "Test failed!"; echo "Test failed!" >> $LOGFILE;
-#       all_tests_ok=false;
-#       # Format diff output
-#       sed -i 's/</\$<\$/g' ${testname[n]}"_logdiff.tex";
-#       sed -i 's/>/\$>\$/g' ${testname[n]}"_logdiff.tex";
-#       sed -i 's/%/\\%/g' ${testname[n]}"_logdiff.tex";
-#       sed -i 's/$/ \\\\/g' ${testname[n]}"_logdiff.tex";
-#    else
-#       diff_not_empty[n]=false;
-#       echo "Test passed"; echo "Test passed" >> $LOGFILE;
-#    fi
-   
-   echo "--------------------------------------------";
-   echo "--------------------------------------------" >> $LOGFILE;
+   # Record test time
+   ENDTIME_TEST=$(python -c 'import time; print int(time.time()*1000)');
+   milliseconds=$(($ENDTIME_TEST - $STARTTIME_TEST));
+   seconds=$(($milliseconds / 1000));
+   hours=$(($seconds / 3600));
+   seconds=$(($seconds % 3600));
+   minutes=$(($seconds / 60));
+   seconds=$(($seconds % 60));
+   hours_test[${i}]=$hours;
+   minutes_test[${i}]=$minutes;
+   seconds_test[${i}]=$seconds;
+   echo " ${hours_test[i]}h${minutes_test[i]}m${seconds_test[i]}s" | tee -a $LOGFILE;
 
+   # Plot and analyse results
+   echo "Plotting and analysing results" | tee -a $LOGFILE;
+   status=$(python plot-${rawname[i]}.py 2>&1);
+   if $VERBOSE ; then
+      echo $status;
+   fi
+   echo $status >> $LOGFILE;
+  
+   # Print message on test status
+   ispassed=$(echo $status | grep PASSED);
+   length=${#testname[n]};
+   if [ ${#ispassed} -gt 0 ]; then
+      test_failed[n]=false;
+      echo "Test ${testname[n]} passed ${blankline:$length}[ OK ]" | tee -a $LOGFILE;
+   else
+      test_failed[n]=true;
+      echo "Test ${testname[n]} failed!${blankline:$length}[FAIL]" | tee -a $LOGFILE;
+      all_tests_ok=false;
+   fi
+   
+   echo $line | tee -a $LOGFILE;
+
+   # Record global time including compilations
+   ENDTIME_GLOB=$(python -c 'import time; print int(time.time()*1000)');
+   milliseconds=$(($ENDTIME_GLOB - $STARTTIME_GLOB));
+   seconds=$(($milliseconds / 1000));
+   hours=$(($seconds / 3600));
+   seconds=$(($seconds % 3600));
+   minutes=$(($seconds / 60));
+   seconds=$(($seconds % 60));
+   hours_glob[${i}]=$hours;
+   minutes_glob[${i}]=$minutes;
+   seconds_glob[${i}]=$seconds;
+   
 done
 
-#######################################################################
-ENDTIME=$(date +%s);
-seconds=$(($ENDTIME - $STARTTIME));
-hours=$((seconds / 3600));
-seconds=$((seconds % 3600));
-minutes=$((seconds / 60));
-seconds=$((seconds % 60));
+# Total time ##########################################################
+ENDTIME=$(python -c 'import time; print int(time.time()*1000)');
+milliseconds=$(($ENDTIME - $STARTTIME));
+seconds=$(($milliseconds / 1000));
+hours=$(($seconds / 3600));
+seconds=$(($seconds % 3600));
+minutes=$(($seconds / 60));
+seconds=$(($seconds % 60));
 #######################################################################
 
 #######################################################################
 # Generate pdf document with test results
 #######################################################################
-echo "Generating pdf document with test results";
-echo "Generating pdf document with test results" >> $LOGFILE;
+echo "Generating pdf document with test results" | tee -a $LOGFILE;
 cd ${TEST_DIRECTORY};
 latexfile="test_results.tex";
 echo "\documentclass[12pt]{article}" > $latexfile;
-echo "\usepackage{graphicx,color}" >> $latexfile;
+echo "\usepackage{graphicx,color,caption}" >> $latexfile;
 echo "\usepackage[colorlinks=true,linkcolor=blue]{hyperref}" >> $latexfile;
 echo "\topmargin -1.3in" >> $latexfile;
 echo "\textheight 10.1in" >> $latexfile;
 echo "\oddsidemargin -0.7in" >> $latexfile;
 echo "\evensidemargin -0.7in" >> $latexfile;
 echo "\textwidth 7.7in" >> $latexfile;
-echo >> $latexfile;
 echo "\title{RAMSES test suite results}" >> $latexfile;
 echo "\date{\today}" >> $latexfile;
 echo "\author{${USER}}" >> $latexfile;
-echo >> $latexfile;
+echo "\nonstopmode" >> $latexfile;
 echo "\begin{document}" >> $latexfile;
-echo >> $latexfile;
 echo "\maketitle" >> $latexfile;
-echo >> $latexfile;
+echo "\begin{center}" >> $latexfile;
+SAFE_URL=$(echo ${GIT_URL})
+echo "Commit hash: \href{${GIT_URL}/commits/${THIS_COMMIT}}{${THIS_COMMIT:0:6}}" >> $latexfile;
+echo "\end{center}" >> $latexfile;
 echo "\begin{table}[ht]" >> $latexfile;
 echo "\centering" >> $latexfile;
-echo "\caption{Test run summary using ${NCPU} processor(s)}" >> $latexfile;
+echo "\caption*{Test run summary using ${NCPU} processor(s)}" >> $latexfile;
 echo "\begin{tabular}{|r|l|l|l|l|}" >> $latexfile;
 echo "\hline" >> $latexfile;
-echo "~ & Test name & Real time & User time & Status\\\\" >> $latexfile;
+echo "~ & Test name & Run time & Total time & Status\\\\" >> $latexfile;
 echo "\hline" >> $latexfile;
 for ((i=0;i<$ntests;i++)); do
    n=${testnum[i]};
-   statfile="${TEST_DIRECTORY}/${testdir[n]}/${testname[n]}_stats.txt"
    itest=$(($n + 1));
-   if ${diff_not_empty[n]} ; then
+   if ${test_failed[n]} ; then
       status="\hyperref[fig-${testname[n]}]{\textcolor{red}{failed}}";
    else
       status="\hyperref[fig-${testname[n]}]{\textcolor{green}{passed}}";
    fi
-   echo $itest "& \hyperref[fig-${testname[n]}]{${testname[n]}} &" $(grep real ${statfile} | cut -d 'l' -f2) "&" $(grep user ${statfile} | cut -d 'r' -f2) "&" ${status} "\\\\" >> $latexfile;
+   echo "$itest & \hyperref[fig-${testname[n]}]{${testname[n]}} & ${hours_test[i]}h${minutes_test[i]}m${seconds_test[i]}s & ${hours_glob[i]}h${minutes_glob[i]}m${seconds_glob[i]}s & ${status} \\\\" >> $latexfile;
 done
 echo "\hline" >> $latexfile;
 echo "\end{tabular}" >> $latexfile;
@@ -416,32 +435,52 @@ echo "\begin{center}" >> $latexfile;
 echo "Total run time (including compilations): ${hours}h${minutes}m${seconds}s" >> $latexfile;
 echo "\end{center}" >> $latexfile;
 echo "\clearpage" >> $latexfile;
-echo >> $latexfile;
 
 for ((i=0;i<$ntests;i++)); do
    n=${testnum[i]};
    echo "\begin{figure}" >> $latexfile;
    echo "\centering" >> $latexfile;
-   echo "\includegraphics[scale=0.7]{${TEST_DIRECTORY}/${testdir[n]}/${testname[n]}.pdf}" >> $latexfile;
+   pdfname=${TEST_DIRECTORY}/${testname[n]}/${rawname[i]}.pdf;
+   if [ ! -f $pdfname ]; then
+      echo "\begin{tabular}{|c|}" >> $latexfile;
+      echo "\hline" >> $latexfile;
+      echo "~\\\\" >> $latexfile;
+      echo "{\LARGE MISSING:}\\\\" >> $latexfile;
+      echo "{\LARGE PDF FILE}\\\\" >> $latexfile;
+      echo "~\\\\" >> $latexfile;
+      echo "\hline" >> $latexfile;
+      echo "\end{tabular}" >> $latexfile;
+   else
+      echo "\includegraphics[height=0.5\textheight,width=\textwidth,keepaspectratio]{$pdfname}" >> $latexfile;
+   fi
    echo "\caption{${testname[n]} test}" >> $latexfile;
    echo "\label{fig-${testname[n]}}" >> $latexfile;
    echo "\end{figure}" >> $latexfile;
+   texname=${TEST_DIRECTORY}/${testname[n]}/${rawname[i]}.tex;
+   if [ ! -f $texname ]; then
+      echo "\begin{table}[ht]" >> $latexfile;
+      echo "\centering" >> $latexfile;
+      echo "\begin{tabular}{|c|}" >> $latexfile;
+      echo "\hline" >> $latexfile;
+      echo "~\\\\" >> $latexfile;
+      echo "{\LARGE MISSING:}\\\\" >> $latexfile;
+      echo "{\LARGE STATS FILE}\\\\" >> $latexfile;
+      echo "~\\\\" >> $latexfile;
+      echo "\hline" >> $latexfile;
+      echo "\end{tabular}" >> $latexfile;
+      echo "\end{table}" >> $latexfile;
+   else
+      echo "\input{$texname}" >> $latexfile;
+   fi
    echo "\clearpage" >> $latexfile;
-   echo >> $latexfile;
-#    if ${diff_not_empty[n]} ; then
-#       echo "{\bf Differences in log for test ${testname[n]}:}\\\\" >> $latexfile;
-#       echo "\input{${TEST_DIRECTORY}/${testdir[n]}/${testname[n]}_logdiff.tex}" >> $latexfile;
-#       echo "\clearpage" >> $latexfile;
-#       echo >> $latexfile;
-#    fi
 done
 echo "\end{document}" >> $latexfile;
 if $VERBOSE ; then
-   pdflatex $latexfile;
-   pdflatex $latexfile;
+   pdflatex $latexfile 2>&1 | tee -a $LOGFILE;
+   pdflatex $latexfile 2>&1 | tee -a $LOGFILE;
 else
-   pdflatex $latexfile >> $LOGFILE;
-   pdflatex $latexfile >> $LOGFILE;
+   pdflatex $latexfile >> $LOGFILE 2>&1;
+   pdflatex $latexfile >> $LOGFILE 2>&1;
 fi
 rm ${latexfile/.tex/.log};
 rm ${latexfile/.tex/.aux};
@@ -452,29 +491,26 @@ rm $latexfile;
 # Clean up
 #######################################################################
 if $all_tests_ok ; then
-   echo "All tests were completed successfully";
-   echo "All tests were completed successfully" >> $LOGFILE;
+   echo "All tests were completed successfully" | tee -a $LOGFILE;
 else
-   echo "There were some failed tests";
-   echo "There were some failed tests" >> $LOGFILE;
+   echo "There were some failed tests" | tee -a $LOGFILE;
 fi
 if ${DELDATA} ; then
    for ((i=0;i<$ntests;i++)); do
       n=${testnum[i]};
-      cd ${TEST_DIRECTORY}/${testdir[n]};
+      cd ${TEST_DIRECTORY}/${testname[n]};
       $DELETE_RESULTS;
-      rm ${testname[n]}"_stats.txt" ${testname[n]}".pdf"
+      if [ -f to_be_removed ]; then
+         rm_list=$(cat to_be_removed);
+         rm -f $rm_list;
+         rm to_be_removed;
+      fi
    done
+   $RETURN_TO_BIN;
    if $VERBOSE ; then
-      cd ${VISU_DIR}
-      make clean;
-      $RETURN_TO_BIN;
-      make clean;
+      make clean 2>&1 | tee -a $LOGFILE;
    else
-      cd ${VISU_DIR}
-      make clean >> $LOGFILE;
-      $RETURN_TO_BIN;
-      make clean >> $LOGFILE;
+      make clean >> $LOGFILE 2>&1;
    fi
    rm -f ${EXECNAME}*d;
 fi

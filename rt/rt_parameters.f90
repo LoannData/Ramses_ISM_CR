@@ -65,6 +65,7 @@ module rt_parameters
   logical::rt_isDiffuseUVsrc=.false.   ! UV emission from low-density cells              !
   real(dp)::rt_UVsrc_nHmax=-1.d0       ! Density threshold for UV emission               !
   logical::upload_equilibrium_x=.false.! Enforce equilibrium xion when uploading         !
+!!  logical::convert_birth_times=.false. ! Convert stellar birthtimes: conformal -> proper !
 
   character(LEN=128)::hll_evals_file=''! File HLL eigenvalues                            !
   character(LEN=128)::sed_dir=''       ! Dir containing stellar energy distributions     !
@@ -115,6 +116,11 @@ module rt_parameters
   real(dp),dimension(1:MAXREGION)   ::rt_src_length_x=1.E10
   real(dp),dimension(1:MAXREGION)   ::rt_src_length_y=1.E10
   real(dp),dimension(1:MAXREGION)   ::rt_src_length_z=1.E10
+
+  ! RT source start and end times
+  real(dp),dimension(1:MAXREGION)   ::rt_src_start=0.
+  real(dp),dimension(1:MAXREGION)   ::rt_src_end=0.
+
   real(dp),dimension(1:MAXREGION)   ::rt_exp_source=2.0
   integer, dimension(1:MAXREGION)   ::rt_src_group=1
   real(dp),dimension(1:MAXREGION)   ::rt_n_source=0.                      ! Photon density
@@ -137,5 +143,10 @@ module rt_parameters
   real(dp)::tot_nPhot, step_nPhot, step_nStar, step_mStar
 
   integer,dimension(1:NGROUPS)::rt_movie_vars=0 ! For generating cNp movies
+
+  ! RT on sinks?
+  logical::rt_sink      =.false.   ! Radiative transfer on sinks activated
+
+
 
 end module rt_parameters

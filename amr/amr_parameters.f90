@@ -72,7 +72,13 @@ module amr_parameters
   logical::lightcone=.false.  ! Enable lightcone generation
   logical::clumpfind=.false.  ! Enable clump finder
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
-
+  logical::FLD     =.false.   ! FLD module activated
+#if NIMHD==1  
+  logical::DTU     =.false.   ! Unique time-step activated for niMHD diffusion routines
+  logical :: nimhdheating_in_eint=.false. ! Enable niMHD heating as a source term in the gas internal energy in goduvov_fine
+  logical :: radiative_nimhdheating_in_cg=.false. ! Enable niMHD heating as a source term in the gas interal energy equation in the FLD radiative transfer
+#endif
+  
   ! Mesh parameters
   integer::geom=1             ! 1: cartesian, 2: cylindrical, 3: spherical
   integer::nx=1,ny=1,nz=1     ! Number of coarse cells in each dimension
@@ -109,8 +115,14 @@ module amr_parameters
   integer::foutput=1000000    ! Frequency of outputs
   logical::gadget_output=.false. ! Output in gadget format
   logical::output_now=.false. ! write output next step
+  logical::writing=.false.    ! Write column density and save files
+  logical::write_conservative=.false. ! if .true., uold is dumped in outputs
   real(dp)::walltime_hrs=-1.  ! Wallclock time for submitted job
   real(dp)::minutes_dump=1.   ! Dump an output minutes before walltime ends
+
+  ! Column density module (Valdivia & Hennebelle 2014)
+  integer::NdirExt_m=10       ! Theta directions for screening
+  integer::NdirExt_n=10       ! Phi directions for screening
 
   ! Lightcone parameters
   real(dp)::thetay_cone=12.5
@@ -134,7 +146,7 @@ module amr_parameters
   real(dp)::n_star =0.1D0     ! Star formation density threshold in H/cc
   real(dp)::t_star =0.0D0     ! Star formation time scale in Gyr
   real(dp)::eps_star=0.0D0    ! Star formation efficiency (0.02 at n_star=0.1 gives t_star=8 Gyr)
-  real(dp)::T2_star=0.0D0     ! Typical ISM polytropic temperature
+  real(dp)::T2_star=10.0D0    ! Typical ISM polytropic temperature
   real(dp)::g_star =1.6D0     ! Typical ISM polytropic index
   real(dp)::jeans_ncells=-1   ! Jeans polytropic EOS
   real(dp)::del_star=2.D2     ! Minimum overdensity to define ISM
@@ -166,6 +178,9 @@ module amr_parameters
   integer::nlevel_collapse=3  ! Number of levels to follow initial dark matter collapse (cosmo=.true. only)
   real(dp)::mass_star_max=120.0D0 ! Maximum mass of a star in solar mass
   real(dp)::mass_sne_min=10.0D0   ! Minimum mass of a single supernova in solar mass
+  real(dp)::larson_lifetime=5000! lifetime of first larson core in years
+  logical ::iso_jeans=.false. ! activate isothermal sound speed Jeans length refinement criterion
+  real(dp)::Tp_jeans = 10.0d0 ! Default temperature to activate iso_jeans
   logical::momentum_feedback=.false. ! Use supernovae momentum feedback if cooling radius not resolved
 
   logical ::self_shielding=.false.
@@ -186,6 +201,39 @@ module amr_parameters
   logical ::sf_log_properties=.false. ! Log in ascii files birth properties of stars and supernovae
   logical ::sf_imf=.false.      ! Activate IMF sampling for SN feedback when resolution allows it
   logical ::sf_compressive=.false. ! Advect compressive and solenoidal turbulence terms separately
+  logical ::sf_birth_properties=.false. ! Output birth properties of stars
+  logical ::eos =.false.        ! non ideal gas EOS module activated
+  logical ::barotrop=.false.    ! barotropic EOS for SF calculations
+  logical ::racc_refine=.true.  ! Refine the grid around sink to the maximum level of refinement      
+  logical ::clump_jeans=.false. ! Clump finder on cells violating Jeans criterion only
+  logical ::dt_control=.false.  ! Impose a time step using dtdiff_params
+  logical ::energy_fix=.false.  ! Use internal energy instead of total energy
+  logical ::radiative=.true.    ! Radiative transfer
+  logical ::extinction=.false.
+  logical ::simplechem=.false.  ! H2 formation only
+  real(dp)::p_UV   =1.0D0       ! Parameter of variation of G0 (UV) 
+
+!Cosmic rays related variables
+  logical ::cr_diffusion=.false.      ! Cosmic ray diffusion module activated
+  logical ::fix_temp_diff=.false.     ! Cosmic ray diffusion energy fix
+  logical ::alfven_diff_coeff=.false. ! CR diffusion coeffcient dependant on the Alfvenic Mach number
+  logical ::slopelim_cond=.false.     ! TODO for the asymetric scheme
+  logical ::isotrope_cond=.false.     ! Activate isotropic CR diffusion
+  real(dp)::epsilon_diff_cr=1d-6      ! CG iteration break criteria for CR diffusion 
+  integer :: niter_cr=0               ! Total number of iterations for CR diffusion
+
+#ifdef grackle
+  integer::grackle_comoving_coordinates=0
+  integer::use_grackle=1
+  integer::grackle_with_radiative_cooling=1
+  integer::grackle_primordial_chemistry=0
+  integer::grackle_metal_cooling=1
+  integer::grackle_h2_on_dust=0
+  integer::grackle_cmb_temperature_floor=1 
+  integer::grackle_UVbackground=1
+  logical::grackle_UVbackground_on=.false.
+  character(len=256)::grackle_data_file
+#endif
 
   ! Output times
   real(dp),dimension(1:MAXOUT)::aout=1.1       ! Output expansion factors
@@ -195,8 +243,8 @@ module amr_parameters
   integer,parameter::NMOV=5
   integer::imovout=0             ! Increment for output times
   integer::imov=1                ! Initialize
-  real(kind=8)::tstartmov=0.,astartmov=0.
-  real(kind=8)::tendmov=0.,aendmov=0.
+  real(kind=8)::tstartmov=0,astartmov=0
+  real(kind=8)::tendmov=0,aendmov=0
   real(kind=8),allocatable,dimension(:)::amovout,tmovout
   logical::movie=.false.
   integer::nw_frame=512 ! prev: nx_frame, width of frame in pixels
@@ -228,13 +276,17 @@ module amr_parameters
   character(LEN=NMOV)::proj_axis='z' ! x->x, y->y, projection along z
   character(LEN=6),dimension(1:NMOV)::shader_frame='square'
   character(LEN=10),dimension(1:NMOV)::method_frame='mean_mass'
-#ifdef SOLVERmhd
-  integer,dimension(0:NVAR+7)::movie_vars=0
-  character(len=5),dimension(0:NVAR+7)::movie_vars_txt=''
-#else
-  integer,dimension(0:NVAR+3)::movie_vars=0
-  character(len=5),dimension(0:NVAR+3)::movie_vars_txt=''
-#endif
+  character(len=10),dimension(1:50)::movie_vars_txt=''
+  integer::n_movie_vars
+  integer::i_mv_temp=-1,  i_mv_dens=-1,       i_mv_p=-1
+  integer::i_mv_speed=-1, i_mv_metallicity=-1
+  integer::i_mv_vx=-1,    i_mv_vy=-1,         i_mv_vz=-1
+  integer::i_mv_dm=-1,    i_mv_stars=-1,      i_mv_lum=-1
+  integer::i_mv_var=-1,   i_mv_xh2=-1,        i_mv_xhi=-1
+  integer:: i_mv_xhii=-1, i_mv_xheii=-1,      i_mv_xheiii=-1
+  integer::i_mv_fp=-1,    i_mv_pmag=-1
+  integer,dimension(1:50)::movie_vars=-1
+  integer,dimension(1:50)::movie_var_number=1
 
   ! Refinement parameters for each level
   real(dp),dimension(1:MAXLEVEL)::m_refine =-1.0 ! Lagrangian threshold
@@ -295,6 +347,7 @@ module amr_parameters
   logical::print_when_io=.false.   !If true print when IO
   logical::synchro_when_io=.false. !If true synchronize when IO
 
-
+  ! Index for new SUM operator for MPI run
+  integer::MPI_SUMDD
 
 end module amr_parameters

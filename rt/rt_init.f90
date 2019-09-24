@@ -7,6 +7,7 @@ SUBROUTINE rt_init
 !-------------------------------------------------------------------------
   use amr_commons
   use hydro_commons
+  use cloud_module,only:rt_protostar_m1
   use rt_hydro_commons
   use rt_flux_module
   use rt_cooling_module,only:rt_isIRtrap,iIRtrapVar
@@ -18,22 +19,52 @@ SUBROUTINE rt_init
 !-------------------------------------------------------------------------
   if(verbose)write(*,*)'Entering init_rt'
   ! Count the number of variables and check if ok:
-  nvar_count = ichem-1     ! # of non-rt vars: rho u v w p (z) (delay) (x)
+!  nvar_count = ichem-1     ! # of non-rt vars: rho u v w p (z) (delay) (x)
   if(rt_isIRtrap) &
-     iIRtrapVar = inener  ! Trapped rad. stored in nonthermal pressure var
-  iIons=nvar_count+1         !      Starting index of ionisation fractions
-  nvar_count = nvar_count+3  !                                # hydro vars
+     iIRtrapVar = inener+ncr  ! Trapped rad. stored in nonthermal pressure var, but after cosmic rays energy densities
+!  iIons=nvar_count+1         !      Starting index of ionisation fractions
+!  nvar_count = nvar_count+3  !                                # hydro vars
 
-  if(nvar_count .gt. nvar) then
-     if(myid==1) then
-        write(*,*) 'rt_init(): Something wrong with NVAR.'
-        write(*,*) 'Should have NVAR=2+ndim+1*metal+1*dcool+1*aton+IRtrap+nIons'
-        write(*,*) 'Have NVAR=',nvar
-        write(*,*) 'Should have NVAR=',nvar_count
-        write(*,*) 'STOPPING!'
-     endif
-     call clean_stop
-  endif
+  !simplify a bit... nvar_count is not used
+  iIons = ichem 
+
+!!note be vary careful with the variables allocation
+!! for now it is assumed that
+!! 1  is density
+!! 2:4 velocity
+!! 5 pressure
+!! 6:8 magnetic field
+!! 9:9+ncr : cosmic rays energy density (ncr groups of energy)     
+!! 9+ncr:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
+!! 9+nener9+nener+1:9+nener+nextinct : for extinction (look at definition of firstindex_pscal in mhd/read_hydro_param)
+!! 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine) 
+!! note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
+!! then in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
+!! nvar-4:nvar-1 : current (used in godfine1 if IMHD==1) unew(....,nvar-4+idim)
+!! nvar-1:nvar : internal energy used in set_uold if (energy_fix)
+
+!if you want to add your own scalar this has to be done between : 
+!9+nener+nextinct+1+nions+1 and nvar-4
+
+!then do not forget that within the code the magnetic variables are duplicated and stored
+!nvar+1:nvar+3
+
+!finally note that ichem, idelay and imetal have not been checked carefully
+
+
+
+!!this part is completely out of date
+!  if(nvar_count .gt. nvar) then 
+!     if(myid==1) then 
+!        write(*,*) 'rt_init(): Something wrong with NVAR.'
+!        write(*,*) 'Should have NVAR=2+ndim+1*metal+1*dcool+1*aton+IRtrap+nIons'
+!        write(*,*) 'ndim ',ndim, ' metal ',metal , ' dcool ',dcool , ' aton ', aton , 'IRtrap ', IRtrap , ' nIons ',nIons
+!        write(*,*) 'Have NVAR=',nvar
+!        write(*,*) 'Should have NVAR=',nvar_count
+!        write(*,*) 'STOPPING!'
+!     endif
+!     call clean_stop
+!  endif
 
   if(rt_star .or. sedprops_update .ge. 0) &
      call init_SED_table    ! init stellar energy distribution properties
@@ -53,6 +84,7 @@ SUBROUTINE rt_init
   if(rt .and. .not.rt_otsa) rt_advect=.true.
   if(rt .and. rt_nsource .gt. 0) rt_advect=.true.
   if(rt .and. rt_nregion .gt. 0) rt_advect=.true.
+  if(rt .and. rt_protostar_m1) rt_advect=.true.
   ! UV propagation is checked in set_model
   ! Star feedback is checked in amr_step
 
@@ -153,21 +185,24 @@ SUBROUTINE read_rt_params()
        & ,rt_nsource, rt_source_type                                     &
        & ,rt_src_x_center, rt_src_y_center, rt_src_z_center              &
        & ,rt_src_length_x, rt_src_length_y, rt_src_length_z              &
-       & ,rt_exp_source, rt_src_group                                    &
+       & ,rt_exp_source, rt_src_group, rt_src_start, rt_src_end          &
        & ,rt_n_source, rt_u_source, rt_v_source, rt_w_source             &
        ! RT boundary (for boundary conditions)                           &
-       & ,rt_n_bound,rt_u_bound,rt_v_bound,rt_w_bound
+       & ,rt_n_bound,rt_u_bound,rt_v_bound,rt_w_bound                    &
+       & ,rt_movie_vars, rt_sink
 
 
   ! Set default initialisation of ionisation states:
   ! -Off if restarting, but can set to true (for postprocessing)
   ! -On otherwise, but can set to false (for specificic initialisation)
-  if(nrestart .gt. 0) then
-     rt_is_init_xion=.false.
-  else
-     rt_is_init_xion=.true.
+  if(neq_chem .or. rt) then
+     if(nrestart .gt. 0) then
+        rt_is_init_xion=.false.
+     else
+        rt_is_init_xion=.true.
+     endif
   endif
-
+  
   ! Read namelist file
   rewind(1)
   read(1,NML=rt_params,END=101)
@@ -453,6 +488,8 @@ SUBROUTINE rt_sources_vsweep(x,uu,dx,dt,nn)
      ! Find which photon group we should be contributing to
      if(rt_src_group(k) .le. 0 .or. rt_src_group(k) .gt. nGroups) cycle
      group_ind = iGroups(rt_src_group(k))
+     if ((t-rt_src_start(k)) .lt. 0.) cycle
+     if(((t-rt_src_end(k)) .gt. 0.) .and. (rt_src_end(k) .gt. 0.)) cycle
      ! For "square" regions only:
      if(rt_source_type(k) .eq. 'square')then
        ! Exponent of choosen norm

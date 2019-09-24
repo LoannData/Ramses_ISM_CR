@@ -2,7 +2,7 @@
 subroutine star_formation(ilevel)
   use amr_commons
   use pm_commons
-  use hydro_commons
+  use hydro_commons, ONLY: mass_sph,uold,gamma,imetal,ivirial1,ivirial2,nvar,smallc,smallr,inener,nener
   use poisson_commons
   use cooling_module, ONLY: XH=>X, rhoc, mH , twopi
   use random

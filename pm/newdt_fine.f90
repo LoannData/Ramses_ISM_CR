@@ -3,8 +3,14 @@ subroutine newdt_fine(ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons, ONLY: gravity_type
+
+use feedback_module
+
 #ifdef RT
   use rt_parameters, ONLY: rt_advect, rt_nsubcycle
+#endif
+#if USE_TURB==1
+  use turb_commons
 #endif
   implicit none
 #ifndef WITHOUTMPI
@@ -24,7 +30,15 @@ subroutine newdt_fine(ilevel)
   integer::igrid,jgrid,ipart,jpart
   integer::npart1,ip
   integer,dimension(1:nvector),save::ind_part
-  real(kind=8)::dt_loc,dt_all,ekin_loc,ekin_all
+#if NIMHD==1
+  ! modif nimhd
+  real(dp)::dtwad_loc,dtwad_all
+  real(dp)::dtambdiff_loc,dtambdiff_all
+  real(dp)::dtmagdiff_loc,dtmagdiff_all
+  real(dp)::dthall_loc,dthall_all
+  ! fin modif nimhd
+#endif
+  real(kind=8)::dt_loc,dt_all,ekin_loc,ekin_all,dt_fb
 #if NDIM==3
   integer::ilev,isink,levelmin_isink,limiting_sink
   real(kind=8)::dt_acc_min
@@ -47,8 +61,25 @@ subroutine newdt_fine(ilevel)
   ! Save old time step
   dtold(ilevel)=dtnew(ilevel)
 
+#if NIMHD==1
+  ! modif nimhd
+  dtambdiffold(ilevel)=dtambdiff(ilevel)
+  dtmagdiffold(ilevel)=dtmagdiff(ilevel)
+  dtwadold(ilevel)=dtwad(ilevel)
+  dthallold(ilevel)=dthall(ilevel)
+  ! fin modif nimhd
+#endif
+
   ! Maximum time step
   dtnew(ilevel)=boxlen/smallc
+#if NIMHD==1
+  ! modif nimhd
+  dtambdiff(ilevel)=dtnew(ilevel)
+  dtmagdiff(ilevel)=dtnew(ilevel)
+  dtwad(ilevel)=dtnew(ilevel)
+  dthall(ilevel)=dtnew(ilevel)
+  ! fin modif nimhd
+#endif
   if(poisson.and.gravity_type<=0)then
      fourpi=4.0d0*ACOS(-1.0d0)
      if(cosmo)fourpi=1.5d0*omega_m*aexp
@@ -83,9 +114,25 @@ subroutine newdt_fine(ilevel)
   endif
 #endif
 
+#if USE_TURB==1
+  ! Maximum time step from turbulent forcing
+  if (turb .AND. turb_type /= 3) then
+     dtnew(ilevel) = min(dtnew(ilevel), turb_dt)
+  end if
+#endif
+
   if(pic) then
 
      dt_all=dtnew(ilevel); dt_loc=dt_all
+#if NIMHD==1
+     ! modif nimhd
+     dtambdiff_all=dtambdiff(ilevel); dtambdiff_loc=dtambdiff_all
+     dtmagdiff_all=dtmagdiff(ilevel); dtmagdiff_loc=dtambdiff_all
+     dtwad_all=dtwad(ilevel); dtwad_loc=dtwad_all
+     dthall_all=dthall(ilevel); dthall_loc=dthall_all
+     ! fin modif nimhd
+#endif
+
      ekin_all=0.0; ekin_loc=0.0
 
      ! Compute maximum time step on active region
@@ -175,6 +222,20 @@ subroutine newdt_fine(ilevel)
 
   if(hydro)call courant_fine(ilevel)
 
+
+  !Sam's change for feedback
+  ! Fixed feedback source module
+  ! Sets the current timestep to hit the start time of the source
+  ! MUST BE RUN LAST
+  if (FB_on)then
+     dt_fb = dtnew(ilevel)
+     call courant_fb_fixed(dt_fb)
+     dtnew(ilevel) = MIN(dtnew(ilevel), dt_fb)
+  endif
+
+
+
+  
 111 format('   Entering newdt_fine for level ',I2)
 
 end subroutine newdt_fine

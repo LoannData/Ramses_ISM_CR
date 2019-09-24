@@ -15,9 +15,39 @@ subroutine cooling_fine(ilevel)
   !-------------------------------------------------------------------
   integer::ncache,i,igrid,ngrid
   integer,dimension(1:nvector),save::ind_grid
+  ! files
+  character(LEN=5)                    :: nsort, nocpu
+  character(LEN = 80)                 :: filenamex,filenamey,filenamez
+  integer::uleidx,uleidy,uleidz
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
+
+  !  if(myid .EQ. 1) write(*,*) 'STATUS: starting cooling_fine, ilevel=', ilevel
+  ! Valeska
+  !--------------------------------------------------------------------
+  ! The write option permits us to construct a column density map projected 
+  ! in x, y, and z by calculating the column densities along positive and 
+  ! negative directions with respect to a slice that passes through the 
+  ! respective mid planes.
+  !--------------------------------------------------------------------
+  if(writing) then
+     call title(ifout-1, nsort)
+     call title(myid, nocpu)
+     filenamex= TRIM(nsort)//'_test_densX_'//TRIM(nocpu)//'.dat'        !ex.:00001_test_densX_00010.dat
+     filenamey= TRIM(nsort)//'_test_densY_'//TRIM(nocpu)//'.dat'
+     filenamez= TRIM(nsort)//'_test_densZ_'//TRIM(nocpu)//'.dat'
+     
+     uleidx = myid + 100                                                !integer
+     uleidy = myid + 200
+     uleidz = myid + 300
+     
+     open(unit=uleidx, file=filenamex, form='formatted', status='unknown',position='append')
+     open(unit=uleidy, file=filenamey, form='formatted', status='unknown',position='append')
+     open(unit=uleidz, file=filenamez, form='formatted', status='unknown',position='append')
+  end if
+  !--------------------------------------------------------------------
+  ! Valeska
 
   ! Operator splitting step for cooling source term
   ! by vector sweeps
@@ -86,7 +116,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   real(dp),dimension(1:3)::skip_loc
   real(kind=8)::dx,dx_loc,scale,vol_loc
 #ifdef RT
-  integer::ii,ig,iNp,il
+  integer::ig,iNp,il
   real(kind=8),dimension(1:nvector),save:: ekk_new
   logical,dimension(1:nvector),save::cooling_on=.true.
   real(dp)::scale_Np,scale_Fp,work,Npc,Npnew, kIR, E_rad, TR
@@ -106,6 +136,57 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 #if NENER>0
   integer::irad
 #endif
+
+  real(dp) :: barotrop1D,mincolumn_dens
+  real(dp)                                   :: x0, y0, z0,coeff_chi,cst2, coef
+  double precision                           :: v_extinction
+  integer::uleidx,uleidy,uleidz,uleidh,igrid,ii,indc2,iskip2,ind_ll
+
+
+  !-------------- SPHERICAL DIRECTIONS ------------------------------------------------!
+!  real(dp),dimension(1:nvector,1:ndir)                 :: col_dens                     !
+  real(dp),dimension(1:nvector,1:NdirExt_m,1:NdirExt_n):: column_dens,column_dens_loc  !
+  real(dp),dimension(1:nvector,1:NdirExt_m,1:NdirExt_n):: H2column_dens,H2column_dens_loc  ! H2 column density
+!  real(dp),dimension(ndir)                             :: vcol_dens                    !
+  real(dp),dimension(1:NdirExt_m,1:NdirExt_n)          :: vcolumn_dens
+  real(dp),dimension(1:3)                              :: xpos
+  real(dp)                                             :: dx_cross_int, dx_cross_loc
+  integer                                              :: index_m,index_n, mmmm,nnnn
+  integer                                              :: m, n, mloop, nloop, nl   
+  integer, dimension(1:NdirExt_n)                      :: deltan1, deltan2
+  integer                                              :: deltam
+  !-----   simple_chem   --------------------------------------------------------------!
+
+  !Valeska
+!  vcol_dens(:) = 0.
+  column_dens(:,:,:) = 0.
+  H2column_dens(:,:,:) = 0.
+  vcolumn_dens(:,:) = 0.
+  
+  if(writing) then
+     !---position of reference to calculate the column density maps---
+     ! we add 1.0D-09 in order to avoid the exact center (there are not cells centered in 0.5L)
+     x0 = 0.5D0 + 1.0D-09
+     y0 = 0.5D0 + 1.0D-09
+     z0 = 0.5D0 + 1.0D-09
+     
+     !---Units uleidx, uleidy, uleidz---
+     uleidx = myid + 100
+     uleidy = myid + 200
+     uleidz = myid + 300
+  end if
+  
+294 FORMAT(I10,4ES14.5) 
+295 FORMAT(5ES14.5)   
+296 FORMAT(I10,5ES14.5)                
+  
+  if(numbtot(1,ilevel)==0)return
+  
+  !get the column density within the box from the grid faces
+
+  !-----   EXTERNAL CONTRIBUTION   -----
+  if(extinction)  call column_density(ind_grid,ngrid,ilevel,column_dens,H2column_dens) 
+  !Valeska
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -285,6 +366,14 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      ! Compute T2=T/mu in Kelvin
      do i=1,nleaf
         T2(i)=T2(i)/nH(i)*scale_T2
+
+!        if(ind .eq. 1 .and. abs(xg(ind_grid(i),1)-0.5) .le. dx .and. abs(xg(ind_grid(i),2)-0.5) .le. dx) then
+!           write(*,*) 'T2, nH, scale_T2',T2(i),nH(i),scale_T2
+!        do ii=0,nIons-1
+!            write(*,*) 'iions', ii, uold(ind_leaf(i),iIons+ii)/uold(ind_leaf(i),1)
+!        end do
+!        endif
+
      end do
 
      ! Compute nH in H/cc
@@ -319,7 +408,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         end do
      else
         do i=1,nleaf
-           T2min(i) = T2_star*(nH(i)/nISM)**(g_star-1.0)
+           T2min(i) = 0. !T2_star*(nH(i)/nISM)**(g_star-1.0)
         end do
      endif
      !==========================================
@@ -327,7 +416,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      !==========================================
 
      if(cooling)then
-        ! Compute thermal temperature by subtracting polytrope
+        ! Compute thermal temperature by substracting polytrope
         do i=1,nleaf
            T2(i) = min(max(T2(i)-T2min(i),T2_min_fix),T2max)
         end do
@@ -446,12 +535,33 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         ! Compute net cooling at constant nH
         if(cooling.and..not.neq_chem)then
            call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+
         endif
      endif
 #else
-     ! Compute net cooling at constant nH
+!     ! Compute net cooling at constant nH
+
+!commented by PH to make it compatible with "FRIG" version 19/02/2017
+!     if(cooling.and..not.neq_chem)then
+!        call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+!     endif
+!#endif
+!#ifdef RT
+!     if(neq_chem) then
+!        T2_new(1:nleaf) = T2(1:nleaf)
+!        call rt_solve_cooling(T2_new, xion, Np, Fp, p_gas, dNpdt, dFpdt  &
+!                         , nH, cooling_on, Zsolar, dtcool, aexp_loc,nleaf)
+!        delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
+!     endif
+!#endif
+!end of commented by PH
+
      if(cooling.and..not.neq_chem)then
-        call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+!        call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+! USE Audit & Hennebelle cooling function
+        call solve_cooling_frig(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
+
+!           write(*,*) 'solve cooling no RT'
      endif
 #endif
 #ifdef RT
@@ -460,8 +570,20 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         call rt_solve_cooling(T2_new, xion, Np, Fp, p_gas, dNpdt, dFpdt  &
                          , nH, cooling_on, Zsolar, dtcool, aexp_loc,nleaf)
         delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
+
+!     do i=1,nleaf
+!        if(ind .eq. 1 .and. abs(xg(ind_grid(i),1)-0.5) .le. dx .and. abs(xg(ind_grid(i),2)-0.5) .le. dx) then
+!           write(*,*) 'a T2, nH, scale_T2',T2(i),nH(i),scale_T2
+!           write(*,*) 'a T2new, nH, scale_T2',T2_new(i),nH(i),scale_T2
+!        endif
+!     end do
+
      endif
 #endif
+
+
+
+
 
 #ifdef RT
      if(.not. static) then
@@ -542,7 +664,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         do i=1,nleaf
            uold(ind_leaf(i),ndim+2) = T2min(i) + ekk(i) + err(i) + emag(i)
         end do
-     else if(cooling .or. neq_chem)then
+     else if((cooling .or. neq_chem) .and. .not.fld)then
         do i=1,nleaf
            uold(ind_leaf(i),ndim+2) = T2(i) + T2min(i) + ekk(i) + err(i) + emag(i)
         end do
@@ -673,3 +795,148 @@ subroutine cmp_Eddington_tensor(Npc,Fp,T_Edd)
 
 end subroutine cmp_Eddington_tensor
 #endif
+
+!=====================================================================================================
+!=====================================================================================================
+!=====================================================================================================
+!=====================================================================================================
+subroutine pressure_eos(rho_temp,Enint_temp,Peos)
+  use amr_parameters      ,only:dp
+  use hydro_commons       ,only:gamma
+  implicit none
+  !--------------------------------------------------------------
+  ! This routine computes the pressure from the density and 
+  ! internal volumic energy. Inputs/output are in code units
+  !--------------------------------------------------------------
+  real(dp), intent(in) :: Enint_temp,rho_temp
+  real(dp), intent(out):: Peos
+
+  Peos = (gamma-1.d0)*Enint_temp
+
+  return
+
+end subroutine pressure_eos
+!===========================================================================================
+!===========================================================================================
+!===========================================================================================
+!===========================================================================================
+subroutine temperature_eos(rho_temp,Enint_temp,Teos,ht)
+  use amr_parameters      ,only:dp
+  use hydro_commons       ,only:gamma
+  use cooling_module      ,only:kB,mH
+  use radiation_parameters,only:mu_gas
+  use units_commons
+  implicit none
+  !--------------------------------------------------------------
+  ! This routine computes the temperature from the density and 
+  ! internal volumic energy. Inputs/output are in code units.
+  !--------------------------------------------------------------
+  real(dp), intent(in) :: Enint_temp,rho_temp
+  integer , intent(out):: ht 
+  real(dp), intent(out):: Teos
+  real(dp)::rho,Enint
+
+  rho   = rho_temp*scale_d
+  Enint = Enint_temp*scale_d*scale_v**2 
+
+  Teos = Enint/(rho*kB/(mu_gas*mH*(gamma-1.0d0)))
+
+  ht=1
+
+  return
+
+end subroutine temperature_eos
+!===========================================================================================
+!===========================================================================================
+!===========================================================================================
+!===========================================================================================
+subroutine enerint_eos(rho_temp,temp_temp,Eeos)
+  use amr_parameters      ,only:dp
+  use hydro_commons       ,only:gamma
+  use cooling_module      ,only:kB,mH
+  use radiation_parameters,only:mu_gas
+  use units_commons
+  implicit none
+  !--------------------------------------------------------------
+  ! This routine computes the internal volumic energy from  
+  ! the density and the temperature. Inputs/output are in code units.
+  !--------------------------------------------------------------
+  real(dp), intent(in) :: temp_temp,rho_temp
+  real(dp), intent(out):: Eeos
+  real(dp)::rho,temp
+
+  rho  = rho_temp * scale_d
+  temp = temp_temp
+
+  Eeos = rho*kB/(mu_gas*mH*(gamma-1.0))*temp/(scale_d*scale_v**2)
+
+  return
+
+end subroutine enerint_eos
+!==================================================================================
+!==================================================================================
+!==================================================================================
+!==================================================================================
+subroutine soundspeed_eos(rho_temp,Enint_temp,Cseos)
+  use amr_parameters      ,only:dp
+  use hydro_commons       ,only:gamma
+  implicit none
+  !--------------------------------------------------------------
+  ! This routine computes the sound speed from the internal volumic energy 
+  ! and the temperature. Inputs/output are in code units.
+  !--------------------------------------------------------------
+  real(dp), intent(in) :: Enint_temp,rho_temp
+  real(dp), intent(out):: Cseos
+
+  Cseos = sqrt(gamma*(gamma-1.d0)*Enint_temp/rho_temp)
+
+  return
+
+end subroutine soundspeed_eos
+!==================================================================================
+!==================================================================================
+!==================================================================================
+!==================================================================================
+function cmp_Cv_eos(rho,Enint)
+  use amr_parameters      ,only:dp
+  use hydro_commons       ,only:gamma
+  use cooling_module      ,only:kB,mH
+  use radiation_parameters,only:mu_gas
+  use units_commons
+  implicit none
+  !--------------------------------------------------------------
+  ! This function computes the Cv from the density and 
+  ! internal volumic energy. Inputs/output are in code units.
+  !--------------------------------------------------------------
+  real(dp)   :: rho,Enint
+  real(dp)   :: cmp_Cv_eos
+
+  cmp_Cv_eos = rho*kB/(mu_gas*mH*(gamma-1.0d0))/scale_v**2
+
+end function cmp_Cv_eos
+!==================================================================================
+!==================================================================================
+!==================================================================================
+!==================================================================================
+double precision function barotrop1D(rhon)
+  use hydro_commons
+  use amr_parameters, only : n_star
+  use radiation_parameters, only : Tr_floor
+  implicit none
+
+  real(dp)::inp,ll,rhon
+  integer :: j
+
+  if(analytical_barotrop)then
+     barotrop1D = Tr_floor * ( 1.0d0 + (rhon/n_star)**(gamma-1.0d0) )
+  else
+     inp=rhon ! in g.cc
+     ll=(1.d0+(log10(inp)-rhomin_barotrop)/drho_barotrop)
+     j=dble(floor(ll))
+     barotrop1D=(ll-j)*(temp_barotrop(j+1))+(1.d0-(ll-j))*(temp_barotrop(j))
+     barotrop1D=10.0d0**barotrop1D     ! temperature in K
+  endif
+
+end function barotrop1D
+!!!
+!! all the rest has been moved

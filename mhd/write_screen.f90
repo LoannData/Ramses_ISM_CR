@@ -10,7 +10,7 @@ subroutine write_screen
   integer::info
 #endif
   integer::igrid,jgrid,ind,icpu
-  integer::i,icell,ncell,ilevel,ncache
+  integer::i,j,icell,ncell,ilevel,ncache
   integer::icellmin,nx_loc
   real(dp)::dx,scale,smallp,ddd,ppp
 
@@ -21,11 +21,20 @@ subroutine write_screen
   real(kind=8),dimension(:),allocatable::dd_all,uu_all,vv_all,ww_all
   real(kind=8),dimension(:),allocatable::AA_all,BB_all,CC_all
   real(kind=8),dimension(:),allocatable::mm_all,gg_all,dtot_all
+#if NENER>NGRP
+  real(kind=8),dimension(:,:),allocatable::prad_all,prad
+#endif
 #if NENER>0
   integer::irad
-  real(qdp),dimension(:,:),allocatable::prad_all,prad
 #endif
-
+#if NGRP>0
+  real(kind=8),dimension(:),allocatable::er,er_all
+  real(kind=8),dimension(:,:),allocatable::EE,EE_all
+#if USE_M_1==1
+  real(kind=8),dimension(:),allocatable::fr,fr_all
+  real(kind=8),dimension(:,:),allocatable::FF,FF_all
+#endif
+#endif
   integer,dimension(1:ncpu)::iskip,ncell_loc,ncell_all
 #endif
 
@@ -102,9 +111,17 @@ subroutine write_screen
   et_all=0.0D0; ei_all=0.0D0; ek_all=0.0D0; em_all=0.0D0
   uu_all=0.0D0; vv_all=0.0D0; ww_all=0.0D0; gg_all=0.0D0; ll_all=0
   AA_all=0.0D0; BB_all=0.0D0; CC_all=0.0D0
-#if NENER>0
-  allocate(prad(1:ncell,1:nener),prad_all(1:ncell,1:nener))
+#if NENER>NGRP
+  allocate(prad(1:ncell,1:nent),prad_all(1:ncell,1:nent))
   prad=0.0D0; prad_all=0.0D0
+#endif
+#if NGRP>0
+  allocate(er(1:ncell),er_all(1:ncell),EE(1:ncell,1:ngrp),EE_all(1:ncell,1:ngrp))
+  er=0.0D0; er_all=0.0D0; EE=0.0D0; EE_all=0.0D0
+#if USE_M_1==1
+  allocate(fr(1:ncell,1:ngrp),fr_all(1:ncell,1:ngrp),FF(1:ncell,1:ngrp),FF_all(1:ncell,1:ngrp))
+  fr=0.0D0; fr_all=0.0D0; FF=0.0D0; FF_all=0.0D0
+#endif
 #endif
 
   icell=iskip(myid)
@@ -155,11 +172,26 @@ subroutine write_screen
                     em(icell)=0.5d0*(AA(icell)**2+BB(icell)**2+CC(icell)**2)
                     ek(icell)=0.5d0*(uu(icell)**2+vv(icell)**2+ww(icell)**2)
                     ei(icell)=et(icell)-em(icell)-dd(icell)*ek(icell)
-#if NENER>0
-                    do irad=1,nener
+#if NENER>NGRP
+                    do irad=1,nent
                        ei(icell)=ei(icell)-uold(ind_cell(i),8+irad)
                        prad(icell,irad)=(gamma_rad(irad)-1.0d0)*uold(ind_cell(i),8+irad)
                     end do
+#endif
+#if NGRP>0
+                    er(icell)=0.0d0
+                    do irad=1,ngrp
+                       EE(icell,irad)=uold(ind_cell(i),firstindex_er+irad)
+                       ei(icell)=ei(icell)-EE(icell,irad)
+                       er(icell)=er(icell)+EE(icell,irad)
+                    end do
+#if USE_M_1==1
+                    fr(icell)=0.0d0
+                    do j=1,ngrp
+                       FF(icell,j)=uold(ind_cell(i),firstindex_er+ngrp+j)
+                       fr(icell)=fr(icell)+uold(ind_cell(i),firstindex_er+ngrp+j)
+                    enddo
+#endif
 #endif
                  end if
               end do
@@ -206,19 +238,49 @@ subroutine write_screen
   et=et_all; ek=ek_all; em=em_all; ei=ei_all
   uu=uu_all; vv=vv_all; ww=ww_all
   AA=AA_all; BB=BB_all; CC=CC_all
-  gg=gg_all; ll=ll_all
-#if NENER>0
-  call MPI_ALLREDUCE(prad,prad_all,ncell*nener,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+  gg=gg_all; ll=ll_all 
+#if NENER>NGRP
+  call MPI_ALLREDUCE(prad,prad_all,ncell*nent,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   prad=prad_all
+#endif
+
+#if NGRP>0
+  call MPI_ALLREDUCE(er,er_all,ncell,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(EE,EE_all,ncell*ngrp,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+  er=er_all
+  EE=EE_all
+#if USE_M_1==1
+  call MPI_ALLREDUCE(fr,fr_all,ncell,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(FF,FF_all,ncell*ngrp,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+  fr=fr_all
+  FF=FF_all
 #endif
 #endif
 
+#endif
+
   if(myid==1)then
-     write(*,116)'===================================================================================================='
-#if NENER>0
-     write(*,116)'lev      x           d          u          v           w          Pnt      P          A          B          C'
+!!$#if NENER>0
+!!$     write(*,116)'lev      x           d          u          v           w          Pnt      P          A          B          C'
+!!$#else
+!!$     write(*,116)'lev      x           d          u          v           w          P          A          B          C'
+!!$#endif
+#if USE_FLD==0 && USE_M_1==0
+#if NENER>NGRP
+     write(*,116)'===================================================================================================================='
+     write(*,116)'lev       x            d          u          v          w          Pnt        P          A          B          C      '
 #else
-     write(*,116)'lev      x           d          u          v           w          P          A          B          C'
+     write(*,116)'===================================================================================================================='
+     write(*,116)'lev       x            d          u          v          w          P          A          B          C      '
+#endif
+#endif
+#if USE_FLD==1
+     write(*,116)'========================================================================================================================================'
+     write(*,116)'lev       x            d          u          v          w          P          A          B          C       Er_tot    Er(igrp)'
+#endif
+#if USE_M_1==1
+     write(*,116)'============================================================================================================================================================='
+     write(*,116)'lev       x            d          u          v          w          P          A          B          C       Er_tot    Er(igrp)  Fr_tot   Fr(igrp)'
 #endif
      ! Sort radius
      allocate(ind_sort(1:ncell))
@@ -246,17 +308,32 @@ subroutine write_screen
              & uu(ind_sort(i)), &
              & vv(ind_sort(i)), &
              & ww(ind_sort(i)), &
-#if NENER>0
-             & prad(ind_sort(i),1), &
-
+#if NENER>NGRP
+             & (prad(ind_sort(i),j),j=1,nent), &
 #endif
              & ppp, &
              & AA(ind_sort(i)),  &
              & BB(ind_sort(i)),  &
+#if USE_FLD==0 && USE_M_1==0
              & CC(ind_sort(i))
+#else
+             & CC(ind_sort(i)),  &
+#endif
+#if USE_FLD==1
+             & er(ind_sort(i)),  &
+             & (EE(ind_sort(i),j),j=1,ngrp)
+#endif
+#if USE_M_1==1
+             & er(ind_sort(i)),  &
+             & (EE(ind_sort(i),j),j=1,ngrp), &
+             & fr(ind_sort(i)),  &
+             & (FF(ind_sort(i),j),j=1,ngrp)
+#endif
+
+
      end do
      deallocate(ind_sort)
-     write(*,116)'===================================================================================================='
+     write(*,116)'================================================================================================================'
   end if
 
   ! Deallocate local arrays
@@ -265,8 +342,14 @@ subroutine write_screen
   deallocate(et_all,ei_all,em_all,ek_all)
   deallocate(uu_all,vv_all,ww_all,ll_all,gg_all)
   deallocate(AA_all,BB_all,CC_all)
-#if NENER>0
+#if NENER>NGRP
   deallocate(prad,prad_all)
+#endif
+#if NGRP>0
+  deallocate(er,er_all)
+#if USE_M_1==1
+  deallocate(fr,fr_all)
+#endif
 #endif
   end if
 
@@ -276,7 +359,7 @@ subroutine write_screen
 
 #endif
 
-113 format(i3,1x,1pe12.5,1x,9(1pe10.3,1x))
+113 format(i3,1x,1pe12.5,1x,100(1pe10.3,1x))
 114 format(' Output ',i5,' cells')
 116 format(100(A))
 

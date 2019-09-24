@@ -2,6 +2,10 @@ subroutine courant_fine(ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons
+  use radiation_parameters,only:frad,dtdiff_params
+#if USE_TURB==1
+  use turb_commons
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -22,6 +26,15 @@ subroutine courant_fine(ilevel)
   real(kind=8)::mass_all,ekin_all,eint_all,emag_all,dt_all
   real(dp),dimension(1:nvector,1:nvar+3),save::uu
   real(dp),dimension(1:nvector,1:ndim),save::gg
+#if NIMHD==1
+  ! modif nimhd
+  real(dp)::dtwad_loc,dtwad_lev,dtwad_all
+  real(dp)::dtambdiff_loc,dtambdiff_lev,dtambdiff_all
+  real(dp)::dtmagdiff_loc,dtmagdiff_lev,dtmagdiff_all
+  real(dp)::dthall_loc,dthall_lev,dthall_all
+  real(dp)::tmag1,tmag2
+  ! fin modif nimhd
+#endif
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
@@ -31,6 +44,14 @@ subroutine courant_fine(ilevel)
   emag_all=0.0d0; emag_loc=0.0d0
   eint_all=0.0d0; eint_loc=0.0d0
   dt_all=dtnew(ilevel); dt_loc=dt_all
+#if NIMHD==1
+  ! modif nimhd
+  dtambdiff_all=dtambdiff(ilevel); dtambdiff_loc=dtambdiff_all
+  dtmagdiff_all=dtmagdiff(ilevel); dtmagdiff_loc=dtmagdiff_all
+  dtwad_all=dtwad(ilevel); dtwad_loc=dtwad_all
+  dthall_all=dthall(ilevel); dthall_loc=dthall_all
+  ! fin modif nimhd
+#endif
 
   ! Mesh spacing at that level
   nx_loc=icoarse_max-icoarse_min+1
@@ -86,6 +107,26 @@ subroutine courant_fine(ilevel)
               end do
            end do
         end if
+        ! Gather radiative force
+#if USE_FLD==1 || USE_M_1==1
+        if(fld)then
+           do idim=1,ndim
+              do i=1,nleaf
+                 gg(i,idim)=gg(i,idim)+frad(ind_leaf(i),idim)
+              end do
+           end do
+        end if
+#endif
+        ! Gather turbulent force
+#if USE_TURB==1
+        if (turb .AND. turb_type/=3) then
+           do idim=1,ndim
+              do i=1,nleaf
+                 gg(i,idim)=gg(i,idim)+fturb(ind_leaf(i),idim)
+              end do
+           end do
+        end if
+#endif
 
         ! Compute total mass
         do i=1,nleaf
@@ -124,8 +165,20 @@ subroutine courant_fine(ilevel)
 
         ! Compute CFL time-step
         if(nleaf>0)then
+#if NIMHD==1
+           ! modif nimhd
+           call cmpdt(uu,gg,dx,dt_lev,nleaf,dtambdiff_lev,dtmagdiff_lev,dthall_lev)
+           dt_loc=min(dt_loc,dt_lev)
+           
+           dtambdiff_loc=min(dtambdiff_loc,dtambdiff_lev)
+           dtmagdiff_loc=min(dtmagdiff_loc,dtmagdiff_lev)
+           dtwad_loc=min(dtwad_loc,dt_lev)
+           dthall_loc=min(dthall_loc,dthall_lev)
+           ! fin modif nimhd
+#else
            call cmpdt(uu,gg,dx,dt_lev,nleaf)
            dt_loc=min(dt_loc,dt_lev)
+#endif
         end if
 
      end do
@@ -144,6 +197,18 @@ subroutine courant_fine(ilevel)
        &MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(dt_loc     ,dt_all      ,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
        &MPI_COMM_WORLD,info)
+#if NIMHD==1
+  ! modif nimhd
+  call MPI_ALLREDUCE(dtambdiff_loc     ,dtambdiff_all      ,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
+       &MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(dtmagdiff_loc     ,dtmagdiff_all      ,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
+       &MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(dtwad_loc     ,dtwad_all      ,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
+       &MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(dthall_loc     ,dthall_all      ,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
+       &MPI_COMM_WORLD,info)
+  ! fin modif nimhd
+#endif
   mass_all=comm_buffout(1)
   ekin_all=comm_buffout(2)
   eint_all=comm_buffout(3)
@@ -155,6 +220,14 @@ subroutine courant_fine(ilevel)
   eint_all=eint_loc
   emag_all=emag_loc
   dt_all=dt_loc
+#if NIMHD==1
+  ! modif nimhd
+  dtambdiff_all=dtambdiff_loc
+  dtmagdiff_all=dtmagdiff_loc
+  dtwad_all=dtwad_loc
+  dthall_all=dthall_loc
+  ! fin modif nimhd
+#endif
 #endif
 
   mass_tot=mass_tot+mass_all
@@ -162,6 +235,78 @@ subroutine courant_fine(ilevel)
   eint_tot=eint_tot+eint_all
   emag_tot=emag_tot+emag_all
   dtnew(ilevel)=MIN(dtnew(ilevel),dt_all)
+
+#if NIMHD==1
+  ! modif nimhd
+  dtambdiff(ilevel)=MIN(dtambdiff(ilevel), dtambdiff_all)
+  dtmagdiff(ilevel)=MIN(dtmagdiff(ilevel), dtmagdiff_all)
+  dtwad(ilevel)=MIN(dtwad(ilevel), dtwad_all) 
+  dthall(ilevel)=MIN(dthall(ilevel), dthall_all)
+  
+!   if(myid==1) write(*,*) 'dtnew(ilevel),dtwad(ilevel)',dtnew(ilevel),dtwad(ilevel)
+
+  tmag1 = 1.0e+30 ; tmag2 = 1.0e+30
+  
+  if(nambipolar.eq.1) then
+     ! ambipolar diffusion
+     ! WARNING this should not be done for tests
+     if (nminitimestep.eq.1) then
+        ! alfven time alone maybe not correct
+        ! comparison with global time step
+#if HALL==1
+        tmag1=max(dtambdiff(ilevel),min(dtwad(ilevel),dthall(ilevel))*coefalfven)
+#else
+        tmag1=max(dtambdiff(ilevel),dtwad(ilevel)*coefalfven)
+#endif
+!         if(myid==1) write(*,*) 'tmag,dtambdiff(ilevel),dtnew(ilevel)*coefalfven,dtnew(ilevel)',tmag1,dtambdiff(ilevel),dtnew(ilevel)*coefalfven,dtnew(ilevel)
+     else
+        tmag1=dtambdiff(ilevel)
+     endif
+!neil      dtnew(ilevel)=MIN(dtnew(ilevel),tmag)
+     ! Barenblatt ambipolar diffusion
+     !dtnew(ilevel)=dtambdiff(ilevel)
+  endif
+
+  if  (nmagdiffu == 1) then
+     if (nminitimestep.eq.1) then
+        ! alfven time alone maybe not correct
+        ! comparison with global time step
+#if HALL==1
+        tmag2=max(dtmagdiff(ilevel),min(dtwad(ilevel),dthall(ilevel))*coefdtohm)
+#else
+        tmag2=max(dtmagdiff(ilevel),dtwad(ilevel)*coefdtohm)
+#endif
+!         if(myid==1) write(*,*) 'tmag,dtmagdiff(ilevel),dtnew(ilevel)*coefdtohm,dtnew(ilevel)',tmag2,dtmagdiff(ilevel),dtnew(ilevel)*coefdtohm,dtnew(ilevel)
+     else
+        tmag2=dtmagdiff(ilevel)
+     endif
+!neil      dtnew(ilevel)=MIN(dtnew(ilevel),tmag,dthall(ilevel))
+  end if
+  
+!   if  (nmagdiffu2 == 0) then
+! !neil     dtnew(ilevel)=MIN(dtnew(ilevel),dtmagdiff(ilevel),dthall(ilevel))
+!      dtnew(ilevel)=MIN(dtnew(ilevel),tmag1,tmag2,dthall(ilevel))
+!   else
+!      dtnew(ilevel)=MIN(dtnew(ilevel),tmag1,dthall(ilevel))     ! subcycling, on ne prend pas en compte le temps ohmique
+!   end if
+  
+  if  (nambipolar2 == 0) then ! no subcycling, on prend en compte le temps ambipolaire
+     dtnew(ilevel)=MIN(dtnew(ilevel),tmag1)
+  endif
+  if  (nmagdiffu2 == 0) then ! no subcycling, on prend en compte le temps ohmique
+     dtnew(ilevel)=MIN(dtnew(ilevel),tmag2)
+  endif
+  
+  ! and finally Hall dt
+  dtnew(ilevel)=MIN(dtnew(ilevel),dthall(ilevel))
+
+  ! Magnetic diffusion alone
+  !dtnew(ilevel)=dtmagdiff(ilevel)
+  
+  ! fin modif nimhd
+#endif
+
+  if(dt_control)dtnew(ilevel)=dtdiff_params(1)*dtdiff_params(2)**nstep_coarse
 
 111 format('   Entering courant_fine for level ',I2)
 
@@ -252,7 +397,7 @@ subroutine velocity_fine(ilevel)
 
         ! Impose induction variables
         do i=1,ngrid
-           uold(ind_cell(i),1)=1.0
+           uold(ind_cell(i),1)=1.0_dp
         end do
         do idim=1,3
            do i=1,ngrid
@@ -265,10 +410,10 @@ subroutine velocity_fine(ilevel)
            u=uold(ind_cell(i),2)/d
            v=uold(ind_cell(i),3)/d
            w=uold(ind_cell(i),4)/d
-           A=0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
-           B=0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
-           C=0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-           uold(ind_cell(i),neul)=1.0+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
+           A=0.5_dp*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
+           B=0.5_dp*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
+           C=0.5_dp*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
+           uold(ind_cell(i),neul)=1.0_dp/(gamma-1.0_dp)+0.5_dp*d*(u**2+v**2+w**2)+0.5_dp*(A**2+B**2+C**2)
         end do
 
      end do

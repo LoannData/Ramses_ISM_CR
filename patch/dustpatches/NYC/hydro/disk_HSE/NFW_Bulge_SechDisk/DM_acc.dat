@@ -1,0 +1,16 @@
+G = 6.67d-8
+fDM = 0.985
+R200 = 314.d0
+kpc = 3.085678d21
+M200 = 3.5d12
+Msun = 1.989d33
+c = 13.d0
+
+def f(x):
+  return log(1+x/(R200/c)) - x/((R200/c) + x)
+
+r_sph = sqrt(R_cyl**2 + z**2)
+
+aR = -G*fDM*M200*Msun*f(r_sph)/f(R200)*R_cyl/r_sph**3/kpc/1.d10
+az = -G*fDM*M200*Msun*f(r_sph)/f(R200)*z/r_sph**3/kpc/1.d10
+

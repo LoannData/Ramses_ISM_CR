@@ -50,6 +50,14 @@ module amr_commons
   real(dp),dimension(1:MAXLEVEL)::rho_max     ! Maximum density at each level
   integer ,dimension(1:MAXLEVEL)::nsubcycle=2 ! Subcycling at each level
 
+#if NIMHD==1  
+  ! modif nimhd
+  integer,dimension(1:MAXLEVEL)::nsts=0
+  real(dp),dimension(1:MAXLEVEL)::dtambdiff,dtwad,dtmagdiff,dthall,dtsts
+  real(dp),dimension(1:MAXLEVEL)::dtambdiffold,dtwadold,dtmagdiffold,dthallold
+  ! fin modif nimhd
+#endif
+  
   ! Pointers for each level linked list
   integer,allocatable,dimension(:,:)::headl
   integer,allocatable,dimension(:,:)::taill
@@ -131,9 +139,16 @@ module amr_commons
 
   ! Units specified by the user in the UNITS_PARAMS namelist for non-cosmo runs.
   ! These values shouldn't be used directly. Instead call units() in amr/units.f90.
-  real(dp)::units_density=1.0  ! [g/cm^3]
-  real(dp)::units_time=1.0     ! [seconds]
-  real(dp)::units_length=1.0   ! [cm]
+  real(dp)::units_density=1.0d0  ! [g/cm^3]
+  real(dp)::units_time=1.0d0     ! [seconds]
+  real(dp)::units_length=1.0d0   ! [cm]
+
+  ! Define center for angular load balancing
+  real(dp)::x_load_balance=0.5d0 ! x coordinate of the cell center, in domain units (i.e. from 0 to 1)
+  real(dp)::y_load_balance=0.5d0 ! y coordinate of the cell center, in domain units (i.e. from 0 to 1)
+  real(dp)::z_load_balance=0.5d0 ! z coordinate of the cell center, in domain units (i.e. from 0 to 1)
+  real(dp)::angular_auto_min_rho=0.5d0 ! Fraction of the max density above which we flag cells for computing center coordinate
+  integer ::angular_auto_center=-1 ! Mode for center: 0: max density, n > 0: number of the sink particle to center around
 
 end module amr_commons
 

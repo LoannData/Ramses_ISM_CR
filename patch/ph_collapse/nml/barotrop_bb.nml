@@ -1,0 +1,81 @@
+B0;95;cThis namelist contains various input parameters for RAMSES runs
+
+&RUN_PARAMS  
+hydro=.true.
+poisson=.true.
+nrestart=0
+ncontrol=1
+nremap=2
+nsubcycle=2*1,14*2
+/
+
+&AMR_PARAMS 
+levelmin=5
+levelmax=15
+ngridmax=700000
+npartmax=50000
+nexpand=20*4
+/
+
+&BOUNDARY_PARAMS
+nboundary = 6
+bound_type= 2, 2, 2, 2, 2, 2
+ibound_min=-1,+1,-1,-1,-1,-1
+ibound_max=-1,+1,+1,+1,+1,+1
+jbound_min= 0, 0,-1,+1,-1,-1
+jbound_max= 0, 0,-1,+1,+1,+1
+kbound_min= 0, 0, 0, 0,-1,+1
+kbound_max= 0, 0, 0, 0,-1,+1
+/
+
+&INIT_PARAMS
+bb_test=.true.
+mass_c=1. !in solar mass
+alpha=0.5
+beta=0.04
+crit=0.0
+delta_rho=0.1
+theta_mag=0.0 !angle between magnetic field and rotation axis
+/
+
+&OUTPUT_PARAMS
+foutput=5
+fbackup=50
+noutput=2
+tout=0,1.
+/
+
+&POISSON_PARAMS 
+gravity_type=0
+epsilon=1d-4
+/
+
+&HYDRO_PARAMS
+gamma=1.666667
+courant_factor=0.8
+slope_type=1
+scheme='muscl'
+riemann='llf'
+riemann2d='llf'
+pressure_fix=.false.
+/
+
+&PHYSICS_PARAMS
+T2_star=10.  !in K
+bondi=.false.
+n_sink=-1
+n_star=1.d-13
+barotrop=.true.
+analytical_barotrop=.true.
+/
+
+&REFINE_PARAMS 
+jeans_refine=20*6.
+interpol_var=1
+interpol_type=1
+/
+
+
+&RADIATION_PARAMS
+tr_floor=10
+/

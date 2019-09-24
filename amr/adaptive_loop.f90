@@ -7,6 +7,9 @@ subroutine adaptive_loop
 #ifdef RT
   use rt_hydro_commons
 #endif
+#if USE_TURB==1
+  use turb_commons
+#endif
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -37,6 +40,9 @@ subroutine adaptive_loop
 #ifdef ATON
   if(aton)call init_radiation        ! Initialize radiation variables
 #endif
+#if USE_TURB==1
+  if(turb) call init_turb
+#endif
   if(nrestart==0)call init_refine    ! Build initial AMR grid
 
 #ifdef grackle
@@ -51,6 +57,7 @@ subroutine adaptive_loop
   if(pic)call init_part              ! Initialize particle variables
   if(pic)call init_tree              ! Initialize particle tree
   if(nrestart==0)call init_refine_2  ! Build initial AMR grid again
+  if(extinction) call init_radiative ! Geometrical corrections in cooling_fine (VV)  
 
 #ifndef WITHOUTMPI
   muspt=0.

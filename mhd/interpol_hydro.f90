@@ -149,7 +149,7 @@ subroutine upload_fine(ilevel)
                     igrid_son  (icell)=son(igridn(i,ig1)+ih1)
                  end if
               end do
-              if(interpol_var==1)then
+              if(interpol_var==1 .or. interpol_var==2)then
                  ! Remove magnetic energy
                  do i=1,nsplit
                     emag=0.125d0*(uold(ind_unsplit(i),neul+idim)+ &
@@ -158,7 +158,7 @@ subroutine upload_fine(ilevel)
                  end do
               endif
               call upl_left(ind_unsplit,igrid_son,idim,nsplit)
-              if(interpol_var==1)then
+              if(interpol_var==1 .or. interpol_var==2)then
                  ! Add magnetic energy
                  do i=1,nsplit
                     emag=0.125d0*(uold(ind_unsplit(i),neul+idim)+ &
@@ -195,7 +195,7 @@ subroutine upload_fine(ilevel)
                     igrid_son  (icell)=son(igridn(i,ig2)+ih2)
                  end if
               end do
-              if(interpol_var==1)then
+              if(interpol_var==1 .or. interpol_var==2)then
                  ! Remove magnetic energy
                  do i=1,nsplit
                     emag=0.125d0*(uold(ind_unsplit(i),neul+idim)+ &
@@ -204,7 +204,7 @@ subroutine upload_fine(ilevel)
                  end do
               endif
               call upl_right(ind_unsplit,igrid_son,idim,nsplit)
-              if(interpol_var==1)then
+              if(interpol_var==1 .or. interpol_var==2)then
                  ! Add magnetic energy
                  do i=1,nsplit
                     emag=0.125d0*(uold(ind_unsplit(i),neul+idim)+ &
@@ -354,7 +354,7 @@ subroutine upl(ind_cell,ncell)
   !------------------------
   ! Average internal energy
   !------------------------
-  if(interpol_var==1)then
+  if(interpol_var==1 .or. interpol_var==2)then
 
      getx(1:ncell)=0.0d0
      do ind_son=1,twotondim
@@ -543,12 +543,17 @@ subroutine interpol_hydro(u1,ind1,u2,nn)
   ! The interpolated variables are:
   ! interpol_var=0: rho, rho u and E
   ! interpol_var=1: rho, rho u and rho epsilon
+  ! interpol_var=2: rho, u and rho epsilon
   ! The interpolation method is:
   ! interpol_type=0 straight injection
   ! interpol_type=1 linear interpolation with MinMod slope
   ! interpol_type=2 linear interpolation with Monotonized Central slope
   ! interpol_type=3 linear interpolation without limiters
+  ! interpol_type=4 in combination with interpol_var==2
+  !                 type 3 for velocity and type 2 for density and
+  !                 internal energy.
   !----------------------------------------------------------
+  real(dp)::oneover_twotondim
   integer::i,j,ivar,idim,ind,ix,iy,iz,neul=5
 #if NENER>0
   integer::irad
@@ -556,9 +561,12 @@ subroutine interpol_hydro(u1,ind1,u2,nn)
   real(dp),dimension(1:twotondim,1:3)::xc
   real(dp),dimension(1:nvector,0:twondim),save::a
   real(dp),dimension(1:nvector,1:ndim),save::w
-  real(dp),dimension(1:nvector),save::ekin,emag,erad
+  real(dp),dimension(1:nvector),save::ekin,emag,erad,mom
   real(dp),dimension(1:nvector,0:twondim  ,1:6),save::B1
   real(dp),dimension(1:nvector,1:twotondim,1:6),save::B2
+
+  ! volume fraction of a fine cell relative to a coarse cell
+  oneover_twotondim=1.D0/dble(twotondim)
 
   ! Set position of cell centers relative to grid center
   do ind=1,twotondim
@@ -571,7 +579,7 @@ subroutine interpol_hydro(u1,ind1,u2,nn)
   end do
 
   ! If necessary, convert father total energy into internal energy
-  if(interpol_var==1)then
+  if(interpol_var==1 .or. interpol_var==2)then
      do j=0,twondim
         ekin(1:nn)=0.0d0
         do idim=1,3
@@ -596,6 +604,15 @@ subroutine interpol_hydro(u1,ind1,u2,nn)
         do i=1,nn
            u1(i,j,neul)=u1(i,j,neul)-ekin(i)-emag(i)-erad(i)
         end do
+        
+        ! and momenta to velocities
+        if(interpol_var==2)then
+           do idim=1,ndim
+              do i=1,nn
+                 u1(i,j,idim+1)=u1(i,j,idim+1)/max(u1(i,j,1),smallr)
+              end do
+           end do
+        end if
      end do
   end if
 
@@ -620,6 +637,19 @@ subroutine interpol_hydro(u1,ind1,u2,nn)
      if(interpol_type==1)call compute_limiter_minmod(a,w,nn)
      if(interpol_type==2)call compute_limiter_central(a,w,nn)
      if(interpol_type==3)call compute_central(a,w,nn)
+     ! choose central limiter for velocities, mon-cen for 
+     ! quantities that should not become negative.
+     if(interpol_type==4)then
+        if (interpol_var .ne. 2)then
+           write(*,*)'interpol_type=4 is designed for interpol_var=2'
+           call clean_stop
+        end if
+        if (ivar>1 .and. (ivar <= 1+ndim))then
+           call compute_central(a,w,nn)
+        else
+           call compute_limiter_central(a,w,nn)
+        end if
+     end if
 
      ! Interpolate over children cells
      do ind=1,twotondim
@@ -681,7 +711,36 @@ subroutine interpol_hydro(u1,ind1,u2,nn)
   end do
 
   ! If necessary, convert children internal energy into total energy
-  if(interpol_var==1)then
+  ! and velocities back to momenta
+  if(interpol_var==1 .or. interpol_var==2)then
+     if(interpol_var==2)then
+        do ind=1,twotondim
+           do idim=1,ndim
+              do i=1,nn
+                 u2(i,ind,idim+1)=u2(i,ind,idim+1)*u2(i,ind,1)
+              end do
+           end do
+        end do
+        
+        !correct total momentum keeping the slope fixed
+        do idim=1,ndim
+           mom(1:nn)=0.
+           do ind=1,twotondim
+              do i=1,nn
+                 ! total momentum in children
+                 mom(i)=mom(i)+u2(i,ind,idim+1)*oneover_twotondim
+              end do
+           end do
+           do i=1,nn
+              ! error in momentum
+              mom(i)=mom(i)-u1(i,0,idim+1)*u1(i,0,1)
+              ! correct children
+              u2(i,1:twotondim,idim+1)=u2(i,1:twotondim,idim+1)-mom(i)              
+           end do
+        end do
+     end if
+
+     ! convert children internal energy into total energy
      do ind=1,twotondim
         ekin(1:nn)=0.0d0
         do idim=1,3

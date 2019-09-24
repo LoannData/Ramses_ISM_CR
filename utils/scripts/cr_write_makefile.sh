@@ -13,15 +13,15 @@ fi
 
 MAKEFILE=$1
 
-sed "s/\"/\"\"/g;s/^/  write(ilun,format)\"/;s/$/\"/" ${MAKEFILE} > .test_middle.f90
+sed "s/\"/\"\"/g;s/^/  write(ilun,format)\"/;s/$/\"/" ${MAKEFILE} > .test_middle2.f90
   
-cat << EOF > .test_after.f90
+cat << EOF > .test_after2.f90
 
   close(ilun)
 end subroutine output_makefile
 EOF
 
-cat << EOF > .test_before.f90
+cat << EOF > .test_before2.f90
 subroutine output_makefile(filename)
   character(LEN=80)::filename
   character(LEN=80)::fileloc
@@ -35,7 +35,7 @@ subroutine output_makefile(filename)
   open(unit=ilun,file=fileloc,form='formatted')
 EOF
 
-cat .test_before.f90 .test_middle.f90 .test_after.f90 > write_makefile.f90
+cat .test_before2.f90 .test_middle2.f90 .test_after2.f90 > write_makefile.f90
 
-rm .test_before.f90 .test_middle.f90 .test_after.f90
+rm .test_before2.f90 .test_middle2.f90 .test_after2.f90
 

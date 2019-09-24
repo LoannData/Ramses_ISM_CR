@@ -7,6 +7,11 @@ subroutine dump_all
   use pm_commons
   use hydro_commons
   use cooling_module
+#if USE_TURB==1
+  use turb_commons
+#endif
+  use feedback_module
+
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -31,7 +36,7 @@ subroutine dump_all
 
   if(IOGROUPSIZEREP>0)call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
 
-  if(ndim>1)then
+!   if(ndim>1)then
      if(IOGROUPSIZEREP>0) then
         filedirini='output_'//TRIM(nchar)//'/'
         filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
@@ -78,7 +83,7 @@ subroutine dump_all
         filename=TRIM(filedir)//'makefile.txt'
         call output_makefile(filename)
         filename=TRIM(filedir)//'patches.txt'
-        call output_patch(filename)
+        !call output_patch(filename)
         if(hydro)then
            filename=TRIM(filedir)//'hydro_file_descriptor.txt'
            call file_descriptor_hydro(filename)
@@ -157,6 +162,14 @@ subroutine dump_all
            filename=TRIM(filedir)//'sink_'//TRIM(nchar)//'.out'
            call backup_sink(filename)
         end if
+
+        if(stellar)then
+           filename=TRIM(filedir)//'stellar_'//TRIM(nchar)//'.out'
+           call backup_stellar(filename)
+           filename=TRIM(filedir)//'stellar_'//TRIM(nchar)//'.csv'
+           call output_stellar_csv(filename)
+        end if
+
 #ifndef WITHOUTMPI
         if(synchro_when_io) call MPI_BARRIER(MPI_COMM_WORLD,info)
 #endif
@@ -195,6 +208,17 @@ subroutine dump_all
         if(myid==1.and.print_when_io) write(*,*)'End backup gadget format'
      end if
 
+#if USE_TURB==1
+     if (turb) then
+        if(myid==1.and.print_when_io) write(*,*)'Start backup turb'
+        if (myid==1) call write_turb_fields(filedir)
+#ifndef WITHOUTMPI
+        if(synchro_when_io) call MPI_BARRIER(MPI_COMM_WORLD,info)
+#endif
+        if(myid==1.and.print_when_io) write(*,*)'End backup turb'
+     end if
+#endif
+
      if(myid==1.and.print_when_io) write(*,*)'Start timer'
      ! Output timer: must be called by each process !
      filename=TRIM(filedir)//'timer_'//TRIM(nchar)//'.txt'
@@ -204,7 +228,7 @@ subroutine dump_all
 #endif
      if(myid==1.and.print_when_io) write(*,*)'End output timer'
 
-  end if
+!   end if
 
 end subroutine dump_all
 !#########################################################################
@@ -415,6 +439,8 @@ subroutine output_info(filename)
   use amr_commons
   use hydro_commons
   use pm_commons
+  use radiation_parameters,only: mu_gas
+  use units_commons
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -423,7 +449,7 @@ subroutine output_info(filename)
 
   integer::nx_loc,ny_loc,nz_loc,ilun,icpu,idom,ierr
   real(dp)::scale
-  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+!  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   character(LEN=80)::fileloc
 
   if(verbose)write(*,*)'Entering output_info'
@@ -431,7 +457,7 @@ subroutine output_info(filename)
   ilun=11
 
   ! Conversion factor from user units to cgs units
-  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  !call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
   ! Local constants
   nx_loc=nx; ny_loc=ny; nz_loc=nz
@@ -473,6 +499,11 @@ subroutine output_info(filename)
   write(ilun,'("unit_l      =",E23.15)')scale_l
   write(ilun,'("unit_d      =",E23.15)')scale_d
   write(ilun,'("unit_t      =",E23.15)')scale_t
+  write(ilun,'("mu_gas      =",E23.15)')mu_gas  
+  write(ilun,'("ngrp        =",I11)')ngrp
+  write(ilun,'("nent        =",I11)')nent
+  write(ilun,'("npscal      =",I11)')npscal
+  write(ilun,'("nextinct    =",I11)')nextinct
   write(ilun,*)
 
   ! Write ordering information
@@ -489,6 +520,19 @@ subroutine output_info(filename)
      do idom=1,ndomain
         write(ilun,'(I8,1X,E23.15,1X,E23.15)')idom,bound_key(idom-1),bound_key(idom)
      end do
+  endif
+
+  write(ilun,*)
+  write(ilun,'("ir_cloud    =",I11)')ir_cloud
+  if(eos) then
+     write(ilun,'("eos         =",I11)')1
+  else
+     write(ilun,'("eos         =",I11)')0
+  endif
+  if(write_conservative) then
+     write(ilun,'("write_cons  =",I11)')1
+  else
+     write(ilun,'("write_cons  =",I11)')0
   endif
 
   close(ilun)
@@ -560,6 +604,9 @@ subroutine output_header(filename)
         if(metal) then
            write(ilun,'(a)',advance='no')'metal '
         endif
+     endif
+     if(tracer)then
+        write(ilun,'(a)',advance='no')'tracer_rho tracer_tg tracer_tr tracer_ext tracer_b'
      endif
      close(ilun)
 

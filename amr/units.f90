@@ -2,6 +2,10 @@ subroutine units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   use amr_commons
   use hydro_commons
   use cooling_module
+  use units_commons, only : scale_kappa,scale_m
+
+  implicit none
+
   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l
   !-----------------------------------------------------------------------
   ! Conversion factors from user units into cgs units
@@ -24,9 +28,25 @@ subroutine units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   scale_v = scale_l / scale_t
 
   ! scale_T2 converts (P/rho) in user unit into (T/mu) in Kelvin
-  scale_T2 = mH/kB * scale_v**2
+  !scale_T2 = mH/kB * scale_v**2
+  scale_T2 = 1.0_dp ! T0 !scale_v**2 * mu_gas
 
   ! scale_nH converts rho in user units into nH in H/cc
   scale_nH = X/mH * scale_d
+
+  scale_kappa = 1.0_dp/scale_l
+
+  scale_m = scale_d*scale_l**3
+  
+#if NIMHD==1
+  ! modif nimhd
+  if(ntestDADM.eq.1) then
+      scale_d = 1.d0
+      scale_l = 1.d0
+      scale_v = 1.d0
+      scale_t = 1.d0
+  end if
+  ! fin modif nimhd
+#endif
 
 end subroutine units

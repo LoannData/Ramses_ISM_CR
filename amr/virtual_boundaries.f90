@@ -146,9 +146,20 @@ subroutine authorize_fine(ilevel)
               ! Determine if cell is authorized
               do isub=1,overload
                  do i=1,ngrid
-                    if(    order_max(i)>bound_key(myid-1+(isub-1)*ncpu).and.&
-                         & order_min(i)<bound_key(myid  +(isub-1)*ncpu) )then
-                       flag2(ind_cell(i))=1
+!!$                    if(    order_max(i)>bound_key(myid-1+(isub-1)*ncpu).and.&
+!!$                         & order_min(i)<bound_key(myid  +(isub-1)*ncpu) )then
+!!$                       flag2(ind_cell(i))=1                       
+!!$                    endif
+                    if (order_min(i) < order_max(i))then
+                       if(    order_max(i)>bound_key(myid-1+(isub-1)*ncpu).and.&
+                            & order_min(i)<bound_key(myid  +(isub-1)*ncpu) )then
+                          flag2(ind_cell(i))=1
+                       endif
+                    else
+                       if(    order_max(i)>bound_key(myid-1+(isub-1)*ncpu) .or. &
+                            & order_min(i)<bound_key(myid  +(isub-1)*ncpu) )then
+                          flag2(ind_cell(i))=1
+                       endif
                     endif
                  end do
               end do
@@ -173,9 +184,20 @@ subroutine authorize_fine(ilevel)
               if(ordering/='bisection') then
                  do isub=1,overload
                     do i=1,ngrid
-                       if(    order_max(i)>bound_key2(myid-1+(isub-1)*ncpu).and.&
-                            & order_min(i)<bound_key2(myid  +(isub-1)*ncpu) )then
-                          flag2(ind_cell(i))=1
+!!$                       if(    order_max(i)>bound_key2(myid-1+(isub-1)*ncpu).and.&
+!!$                            & order_min(i)<bound_key2(myid  +(isub-1)*ncpu) )then
+!!$                          flag2(ind_cell(i))=1
+!!$                       endif
+                       if (order_min(i) < order_max(i))then
+                          if(    order_max(i)>bound_key2(myid-1+(isub-1)*ncpu).and.&
+                               & order_min(i)<bound_key2(myid  +(isub-1)*ncpu) )then
+                             flag2(ind_cell(i))=1
+                          endif
+                       else
+                          if(    order_max(i)>bound_key2(myid-1+(isub-1)*ncpu).or.&
+                               & order_min(i)<bound_key2(myid  +(isub-1)*ncpu) )then
+                             flag2(ind_cell(i))=1
+                          endif
                        endif
                     end do
                  end do

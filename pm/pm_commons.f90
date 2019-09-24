@@ -2,10 +2,22 @@ module pm_commons
   use amr_parameters
   use pm_parameters
   use random
+
+
+
+  !introduced by PH 09/2013 to compute the feedback from the sink
+  real(kind=8),allocatable,dimension(:)::dmfsink,dmfsink_new,dmfsink_all
+
+
+  !introduced by PH 07/2016 to record the feedback from the sink
+  real(kind=8),allocatable,dimension(:)::Eioni
+
+
   ! Sink particle related arrays
   real(dp),allocatable,dimension(:)::msink,c2sink,oksink_new,oksink_all
   real(dp),allocatable,dimension(:)::tsink,tsink_new,tsink_all
   real(dp),allocatable,dimension(:)::msink_new,msink_all
+  real(dp),allocatable,dimension(:)::msink_star,rsink_star,sink_star_accrate,tsink_star
   real(dp),allocatable,dimension(:)::mseed,mseed_new,mseed_all
   real(dp),allocatable,dimension(:)::xmsink
   real(dp),allocatable,dimension(:)::dMsink_overdt,dMBHoverdt
@@ -27,6 +39,9 @@ module pm_commons
   integer,allocatable,dimension(:)::idsink,idsink_new,idsink_old,idsink_all
   logical,allocatable,dimension(:,:)::level_sink,level_sink_new
   logical,allocatable,dimension(:)::ok_blast_agn,ok_blast_agn_all,direct_force_sink
+
+  logical,allocatable,dimension(:)::ok_jet
+
   logical,allocatable,dimension(:)::new_born,new_born_all,new_born_new
   integer,allocatable,dimension(:)::idsink_sort
   integer::ncloud_sink,ncloud_sink_massive
@@ -34,6 +49,10 @@ module pm_commons
   integer::sinkint_level=0         ! maximum level currently active is where the global sink variables are updated
   real(dp)::ssoft                  ! sink softening lenght in code units
 
+  real(dp),allocatable,dimension(:)::lum_sink,lum_sink_new,lum_sink_all !sink luminosity
+  real(dp),allocatable,dimension(:)::Teff_sink !sink stellar effective temperature
+  real(dp),allocatable,dimension(:)::acc_rate,acc_lum,int_lum !sink accretion rate and luminosity
+  integer,allocatable,dimension(:)::nburst
 
   ! Particles related arrays
   real(dp),allocatable,dimension(:,:)::xp       ! Positions
@@ -58,6 +77,12 @@ module pm_commons
   ! Local and current seed for random number generator
   integer,dimension(IRandNumSize) :: localseed=-1
 
+  ! Tracer particles related arrays          
+  real(dp),allocatable,dimension(:)  ::rhop      ! Gas density 
+  real(dp),allocatable,dimension(:)  ::tprp      ! Radiative temperature  
+  real(dp),allocatable,dimension(:)  ::tpgp      ! Gas temperature    
+  real(dp),allocatable,dimension(:)  ::extp      ! Extinction
+  real(dp),allocatable,dimension(:,:)  ::bfieldp      ! Bfield
 
   contains
   function cross(a,b)
