@@ -389,6 +389,8 @@ subroutine crdifffine1(ind_grid,ncache,ilevel,compute,igroup)
            eth=uold_loc(l,i1,j1,k1,5)-ekin-emag-erad
            
            temp=eth*(gamma-1.0d0)/dens*scale_t2*mu_gas    ! Warning T!!!
+
+
            
            gradPcr_x=(uold_loc(l,i1+1,j1  ,k1  ,igroup)&
                &    -uold_loc(l,i1-1,j1  ,k1  ,igroup))/twodx
@@ -425,7 +427,12 @@ subroutine crdifffine1(ind_grid,ncache,ilevel,compute,igroup)
            
            bnorm  = sqrt(bx**2+by**2+bz**2)
 
-           !write(*,*) bnorm
+
+           !write(*,*) "bnorm = ",bnorm," Gauss"
+           !write(*,*) "density = ",dens," g/cm^3"
+           !write(*,*) "vx = ",vx," cm/s"
+           !write(*,*) "vy = ",vy," cm/s"
+           !write(*,*) "vz = ",vz," cm/s"
            
            va = bnorm/(dens**0.5)
            
@@ -445,6 +452,8 @@ subroutine crdifffine1(ind_grid,ncache,ilevel,compute,igroup)
 #endif
            
            eth=uold_loc(l,i1,j1,k1,5)-ekin-emag-erad
+
+           write(*,*) "eth = ",eth,", uold_loc(l,i1,j1,k1,5) = ",uold_loc(l,i1,j1,k1,5),", ekin = ",ekin,", emag = ",emag,", erad = ",erad
            
            temp=eth*(gamma-1.0d0)/dens*scale_t2*mu_gas    ! Warning T!!!
 
@@ -459,8 +468,9 @@ subroutine crdifffine1(ind_grid,ncache,ilevel,compute,igroup)
                &    -uold_loc(l,i1  ,j1  ,k1-1,igroup))/twodx
            gradPcr = (gradPcr_x*bx+gradPcr_y*by+gradPcr_z*bz)*(gamma_rad(irad)-1.0d0)/bnorm
 
-
+           !if (gradPcr .ne. 0) then
            !write(*,*) "gradPcr_x = ",gradPcr_x," gradPcr_y = ",gradPcr_y," gradPcr_z = ",gradPcr_z," gradPcr =",gradPcr
+           !end if 
 
            !write(*,*) "out : ",temp
            !write(*,*) gradPcr
@@ -473,9 +483,18 @@ subroutine crdifffine1(ind_grid,ncache,ilevel,compute,igroup)
            call subgridcr_diffusion(dens, temp, bnorm, gradPcr, kparasub, kperpsub)
            !write(*,*) "Bnorm_outside_after_3 = ",bnorm
            !write(*,*) kparasub
+           !write(*,*) "T = ",temp," Kelvins"
            uloc(l,i1,j1,k1,nvar+5)=kparasub
            uloc(l,i1,j1,k1,nvar+6)=kperpsub
 
+           !----------------------------------------------------------------------------------------------------------------------------------
+           !write(*,*) "gamma = ",gamma
+           !write(*,*) "eth = ",eth
+           !write(*,*) "dens = ",dens
+           !write(*,*) "scale_t2 = ",scale_t2
+           !write(*,*) "mu_gas = ",mu_gas
+
+           !write(*,*) "kparasub = ",kparasub,", scale_kappa = ",scale_kappa
            !write(*,*) "kparasub = ",kparasub*scale_kappa," DCR = ",DCR
            !write(*,*) "gradPcr = ", gradPcr !* scale_d*scale_v**2/scale_l
            
@@ -1272,6 +1291,11 @@ subroutine subgridcr_diffusion(rho_sim, T_sim, B0_sim, gradPcr, kpara, kperp)
    scale_kappa = scale_l**2/scale_t
    scale_m = scale_d*scale_l**3
    scale_n = scale_l**3
+
+   !write(*,*) "scale_l = ",scale_l
+   !write(*,*) "scale_t = ",scale_t
+   !write(*,*) "scale_d = ",scale_v
+
    
    ! - Some constants 
    mp = 1.6726d-24 ! Proton mass [g]
