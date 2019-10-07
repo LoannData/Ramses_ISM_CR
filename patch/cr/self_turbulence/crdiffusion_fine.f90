@@ -453,12 +453,13 @@ subroutine crdifffine1(ind_grid,ncache,ilevel,compute,igroup)
            
            eth=uold_loc(l,i1,j1,k1,5)-ekin-emag-erad
 
-           write(*,*) "eth = ",eth,", uold_loc(l,i1,j1,k1,5) = ",uold_loc(l,i1,j1,k1,5),", ekin = ",ekin,", emag = ",emag,", erad = ",erad
+           !write(*,*) "eth = ",eth,", uold_loc(l,i1,j1,k1,5) = ",uold_loc(l,i1,j1,k1,5),", ekin = ",ekin,", emag = ",emag,", erad = ",erad
            
            temp=eth*(gamma-1.0d0)/dens*scale_t2*mu_gas    ! Warning T!!!
 
            !write(*,*) "temp : ",temp, eth, scale_t2, mu_gas
-           
+           !write(*,*) "Pcr = ",uold_loc(l,i1,j1  ,k1  ,igroup)
+
            !write (*,*) "igroup = ",igroup," nvar - igroup = ",nvar-igroup
            gradPcr_x=(uold_loc(l,i1+1,j1  ,k1  ,igroup)&
                &    -uold_loc(l,i1-1,j1  ,k1  ,igroup))/twodx
@@ -590,6 +591,7 @@ do i1=0,3
    length=MIN(uold_loc(l,i1,j1,k1,ind_cr1)/deCR,nlength_str*dx)
    uloc(l,i1,j1,k1,nvar+7)=va*length/scale_kappa*gamma_rad(1)
    !write(*,*) uloc(l,i1,j1,k1,7)
+   
 enddo
 enddo
 enddo

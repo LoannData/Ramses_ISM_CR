@@ -159,7 +159,6 @@ endif
 
 if(variable_diff_coeff)then
    write(ilun,'("variable #",I2,": parallel_diffusion_coef",I1)')nvar+5
-
    
 
    write(ilun,'("variable #",I2,": perpendicular_diffusion_coef",I1)')nvar+6
